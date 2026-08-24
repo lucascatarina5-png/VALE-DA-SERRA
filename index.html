@@ -1679,36 +1679,19 @@ td{font-size:12.5px}
     </section>
 
     <section id="configuracoes" class="section">
-      <div class="card">
-        <h3>⚙️ CONFIGURAÇÕES DO ADMINISTRADOR</h3>
-        <div class="admin-grid" style="margin-bottom:18px">
-          <div class="admin-info">Perfil atual<b>Administrador</b><small>Acesso total ao sistema</small></div>
-          <div class="admin-info">Usuário atual<b id="adminUserLabel">admin</b><small>Usado na tela de login</small></div>
-        </div>
-
-        <form id="formAdmin">
-          <div>
-            <label>Novo nome de usuário</label>
-            <input id="novoUsuario" placeholder="Ex.: administrador">
-          </div>
-          <div>
-            <label>Senha atual</label>
-            <input id="senhaAtual" type="password" required>
-          </div>
-          <div>
-            <label>Nova senha</label>
-            <input id="novaSenha" type="password" minlength="4" placeholder="Mínimo 4 caracteres">
-          </div>
-          <div>
-            <label>Confirmar nova senha</label>
-            <input id="confirmaSenha" type="password" minlength="4">
-          </div>
-          <div class="full actions">
-            <button class="btn yellow" type="submit">Salvar usuário e senha</button>
-          </div>
-        </form>
-        <div id="adminMsg" class="notice" style="margin-top:14px">O Administrador possui acesso a produtores, entradas, débitos, pagamentos, relatórios, cupons, WhatsApp, backup e configurações.</div>
+      <div class="card"><h3>👥 USUÁRIOS E PERMISSÕES</h3>
+        <div class="admin-grid" style="margin-bottom:18px"><div class="admin-info">Usuário atual<b id="adminUserLabel">-</b><small>Login conectado</small></div><div class="admin-info">Perfil atual<b id="adminPerfilLabel">-</b><small>Permissões aplicadas pelo servidor</small></div></div>
+        <form id="formUsuarioSistema">
+          <input type="hidden" id="usrId"><div><label>Nome completo</label><input id="usrNome" required placeholder="Ex.: João da Silva"></div>
+          <div><label>Usuário de login</label><input id="usrLogin" required placeholder="Ex.: joao"></div>
+          <div><label>Perfil</label><select id="usrRole"><option value="tanqueiro">Tanqueiro</option><option value="financeiro">Financeiro</option><option value="galpao">Galpão</option><option value="consulta">Consulta</option><option value="administrador">Administrador</option></select></div>
+          <div><label>Senha</label><input id="usrSenha" type="password" minlength="6" placeholder="Na edição, deixe vazio para manter"></div>
+          <div><label>Status</label><select id="usrAtivo"><option value="true">Ativo</option><option value="false">Bloqueado</option></select></div>
+          <div class="full actions"><button class="btn yellow" type="submit">Salvar usuário</button><button class="btn secondary" type="button" onclick="limparUsuarioSistema()">Novo / Limpar</button></div>
+        </form><div id="usrMsg" class="notice" style="margin-top:12px">Crie logins individuais. Senhas ficam protegidas no servidor.</div>
+        <div style="overflow:auto;margin-top:18px"><table><thead><tr><th>Nome</th><th>Usuário</th><th>Perfil</th><th>Status</th><th>Ação</th></tr></thead><tbody id="tbUsuariosSistema"><tr><td colspan="5">Carregando...</td></tr></tbody></table></div>
       </div>
+      <div class="card" style="margin-top:18px"><h3>🕵️ HISTÓRICO DE ACESSOS E ALTERAÇÕES</h3><div class="actions"><button class="btn secondary" onclick="carregarAuditoriaSistema()">Atualizar histórico</button></div><div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Detalhes</th></tr></thead><tbody id="tbAuditoriaSistema"><tr><td colspan="4">Clique em atualizar.</td></tr></tbody></table></div></div>
     </section>
 
     <section id="backup" class="section">
@@ -1731,61 +1714,21 @@ td{font-size:12.5px}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 
-const KAUTH='vds_auth_v1';
-const AUTH_DEFAULT={usuario:'admin',senha:'Vale@2026',perfil:'Administrador'};
-
-function getAuth(){
-  try{
-    let a=JSON.parse(localStorage.getItem(KAUTH)||'null');
-    if(a && a.usuario && a.senha)return a;
-  }catch(e){}
-  localStorage.setItem(KAUTH,JSON.stringify(AUTH_DEFAULT));
-  return {...AUTH_DEFAULT};
-}
-function sessaoAtiva(){return sessionStorage.getItem('vds_logged_v1')==='1'}
-function atualizarAdminUI(){
-  let a=getAuth();
-  if(document.getElementById('adminUserLabel'))adminUserLabel.textContent=a.usuario;
-  if(document.getElementById('novoUsuario') && !novoUsuario.value)novoUsuario.value=a.usuario;
-}
-function mostrarSistema(){
-  let s=document.getElementById('loginScreen');
-  if(s)s.style.display='none';
-  atualizarAdminUI();
-}
-function mostrarLogin(){
-  let s=document.getElementById('loginScreen');
-  if(s)s.style.display='flex';
-  if(document.getElementById('loginSenha'))loginSenha.value='';
-  setTimeout(()=>document.getElementById('loginUsuario')?.focus(),100);
-}
-function fazerLogin(){
-  let a=getAuth();
-  let campoUsuario=document.getElementById('loginUsuario');
-  let campoSenha=document.getElementById('loginSenha');
-  let msg=document.getElementById('loginMsg');
-  let u=(campoUsuario?.value||'').trim();
-  let s=campoSenha?.value||'';
-
-  if(u===a.usuario && s===a.senha){
-    sessionStorage.setItem('vds_logged_v1','1');
-    if(msg){msg.style.color='#168638';msg.textContent='Acesso autorizado.';}
-    mostrarSistema();
-  }else{
-    if(msg){msg.style.color='#b52c2c';msg.textContent='Usuário ou senha incorretos.';}
-  }
-}
-
-
-function sairSistema(){
-  sessionStorage.removeItem('vds_logged_v1');
-  mostrarLogin();
-}
-function iniciarAutenticacao(){
-  getAuth();
-  if(sessaoAtiva())mostrarSistema(); else mostrarLogin();
-}
-
+const permissoesPorPerfil={
+  administrador:['painel','novaEntrada','editarRecebimentos','importarpdf','produtores','pesquisa','pagamentos','fechamento','debitos','relatorios','alertaswhats','auditoria','backup','servidor','configuracoes'],
+  tanqueiro:['painel','novaEntrada','editarRecebimentos','pesquisa'],
+  financeiro:['painel','pesquisa','pagamentos','fechamento','debitos','relatorios'],
+  galpao:['painel'], consulta:['painel','pesquisa','relatorios']
+};
+function sessaoAtiva(){return !!sessionStorage.getItem('vds_token_v2')}
+function usuarioAtual(){try{return JSON.parse(sessionStorage.getItem('vds_user_v2')||'null')}catch{return null}}
+function atualizarAdminUI(){let u=usuarioAtual();if(document.getElementById('adminUserLabel'))adminUserLabel.textContent=u?.username||'-';if(document.getElementById('adminPerfilLabel'))adminPerfilLabel.textContent=u?.role||'-';}
+function aplicarPermissoesLogin(){let u=usuarioAtual();if(!u)return;let permitidas=u.permissoes||permissoesPorPerfil[u.role]||[];document.querySelectorAll('.nav button').forEach(btn=>{let oc=btn.getAttribute('onclick')||'';let m=oc.match(/(?:showSection|go)\('([^']+)'/);if(m)btn.style.display=permitidas.includes(m[1])?'flex':'none';});let cfg=document.getElementById('configuracoes');if(cfg&&u.role!=='administrador')cfg.style.display='none';}
+function mostrarSistema(){let x=document.getElementById('loginScreen');if(x)x.style.display='none';atualizarAdminUI();aplicarPermissoesLogin();if(window.vdsCarregarServidor)window.vdsCarregarServidor();if(usuarioAtual()?.role==='administrador')carregarUsuariosSistema();}
+function mostrarLogin(){let x=document.getElementById('loginScreen');if(x)x.style.display='flex';if(document.getElementById('loginSenha'))loginSenha.value='';setTimeout(()=>document.getElementById('loginUsuario')?.focus(),100)}
+async function fazerLogin(){let campoUsuario=document.getElementById('loginUsuario'),campoSenha=document.getElementById('loginSenha'),msg=document.getElementById('loginMsg');let username=(campoUsuario?.value||'').trim(),password=campoSenha?.value||'';if(msg){msg.style.color='#555';msg.textContent='Entrando...'}try{let r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});let j=await r.json();if(!r.ok)throw new Error(j.error||'Falha no login');sessionStorage.setItem('vds_token_v2',j.token);sessionStorage.setItem('vds_user_v2',JSON.stringify(j.user));if(msg){msg.style.color='#168638';msg.textContent='Acesso autorizado.'}mostrarSistema()}catch(e){if(msg){msg.style.color='#b52c2c';msg.textContent=e.message||'Usuário ou senha incorretos.'}}}
+async function sairSistema(){try{await fetch('/api/logout',{method:'POST',headers:window.vdsApiHeaders?window.vdsApiHeaders():{}})}catch{}sessionStorage.removeItem('vds_token_v2');sessionStorage.removeItem('vds_user_v2');mostrarLogin()}
+async function iniciarAutenticacao(){if(!sessaoAtiva())return mostrarLogin();try{let r=await fetch('/api/me',{headers:{Authorization:'Bearer '+sessionStorage.getItem('vds_token_v2')}});if(!r.ok)throw 0;let j=await r.json();sessionStorage.setItem('vds_user_v2',JSON.stringify(j.user));mostrarSistema()}catch{sessionStorage.removeItem('vds_token_v2');sessionStorage.removeItem('vds_user_v2');mostrarLogin()}}
 const KPROD='vds_produtores_v1', KLANC='vds_lancamentos_v1', KPAG='vds_pagamentos_v1', KDEB='vds_debitos_v1', KDEBPAG='vds_debitos_pagamentos_v1', KFECH='vds_fechamentos_v1';
 const VALOR_LITRO=2.30;
 let produtores=JSON.parse(localStorage.getItem(KPROD)||'[]');
@@ -1840,33 +1783,6 @@ function restaurarSecao(id){
 function showSection(id,btn){document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active')}
 function go(id){showSection(id);document.querySelectorAll('.nav button').forEach(b=>{if(b.getAttribute('onclick')?.includes("'"+id+"'"))b.classList.add('active')})}
 
-
-document.getElementById('formAdmin').addEventListener('submit',e=>{
-  e.preventDefault();
-  let a=getAuth();
-  if(senhaAtual.value!==a.senha){
-    adminMsg.textContent='A senha atual está incorreta.';
-    return;
-  }
-  let usuario=(novoUsuario.value||'').trim()||a.usuario;
-  let senha=(novaSenha.value||'').trim();
-  if(senha){
-    if(senha.length<4){
-      adminMsg.textContent='A nova senha deve ter pelo menos 4 caracteres.';
-      return;
-    }
-    if(senha!==confirmaSenha.value){
-      adminMsg.textContent='A confirmação da nova senha não confere.';
-      return;
-    }
-  }else{
-    senha=a.senha;
-  }
-  localStorage.setItem(KAUTH,JSON.stringify({usuario,senha,perfil:'Administrador'}));
-  senhaAtual.value='';novaSenha.value='';confirmaSenha.value='';
-  adminMsg.textContent='Usuário e senha atualizados com sucesso.';
-  atualizarAdminUI();
-});
 
 document.addEventListener('keydown',e=>{
   let login=document.getElementById('loginScreen');
@@ -2422,17 +2338,18 @@ function confirmarImportacaoPDF(){
 
 
 
+
+async function apiAdmin(url,opt={}){opt.headers={...(opt.headers||{}),...(window.vdsApiHeaders?window.vdsApiHeaders():{})};let r=await fetch(url,opt);let j=await r.json();if(!r.ok)throw new Error(j.error||'Erro no servidor');return j}
+async function carregarUsuariosSistema(){if(usuarioAtual()?.role!=='administrador')return;try{let j=await apiAdmin('/api/users');window._vdsUsers=j.users;tbUsuariosSistema.innerHTML=j.users.map(u=>`<tr><td>${u.nome}</td><td>${u.username}</td><td>${u.role}</td><td><span class="badge ${u.ativo?'paid':'pending'}">${u.ativo?'ATIVO':'BLOQUEADO'}</span></td><td><button class="btn secondary" onclick="editarUsuarioSistema('${u.id}')">Editar</button></td></tr>`).join('')||'<tr><td colspan="5">Nenhum usuário.</td></tr>';await carregarAuditoriaSistema()}catch(e){if(document.getElementById('usrMsg'))usrMsg.textContent='❌ '+e.message}}
+function limparUsuarioSistema(){usrId.value='';formUsuarioSistema.reset();usrAtivo.value='true';usrMsg.textContent='Novo usuário.'}
+function editarUsuarioSistema(id){let u=(window._vdsUsers||[]).find(x=>x.id===id);if(!u)return;usrId.value=u.id;usrNome.value=u.nome;usrLogin.value=u.username;usrRole.value=u.role;usrAtivo.value=String(u.ativo);usrSenha.value='';usrMsg.textContent='Editando '+u.nome+'. Deixe a senha vazia para manter a atual.'}
+async function carregarAuditoriaSistema(){if(usuarioAtual()?.role!=='administrador'||!document.getElementById('tbAuditoriaSistema'))return;try{let j=await apiAdmin('/api/audit');tbAuditoriaSistema.innerHTML=j.logs.map(x=>`<tr><td>${new Date(x.created_at).toLocaleString('pt-BR')}</td><td>${x.username||'-'}</td><td>${x.acao}</td><td>${JSON.stringify(x.detalhes||{})}</td></tr>`).join('')||'<tr><td colspan="4">Sem registros.</td></tr>'}catch(e){tbAuditoriaSistema.innerHTML=`<tr><td colspan="4">${e.message}</td></tr>`}}
+document.getElementById('formUsuarioSistema')?.addEventListener('submit',async e=>{e.preventDefault();try{let id=usrId.value,payload={nome:usrNome.value.trim(),username:usrLogin.value.trim(),role:usrRole.value,ativo:usrAtivo.value==='true',password:usrSenha.value};if(!id&&!payload.password)throw new Error('Informe uma senha para o novo usuário.');let url=id?'/api/users/'+id:'/api/users';await apiAdmin(url,{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});usrMsg.textContent='✅ Usuário salvo com sucesso.';limparUsuarioSistema();await carregarUsuariosSistema()}catch(e){usrMsg.textContent='❌ '+e.message}});
 const KSERVER='vds_supabase_config_v1';
 let sbClient=null;
 let sbPerfil=null;
 
-const permissoesPorPerfil={
-  administrador:['painel','novaEntrada','importarpdf','produtores','pesquisa','pagamentos','fechamento','debitos','relatorios','alertaswhats','auditoria','backup','servidor','configuracoes'],
-  tanqueiro:['painel','novaEntrada','pesquisa','auditoria'],
-  financeiro:['painel','pesquisa','pagamentos','fechamento','debitos','relatorios'],
-  galpao:['painel'],
-  consulta:['painel','pesquisa','relatorios']
-};
+
 
 function configServidor(){try{return JSON.parse(localStorage.getItem(KSERVER)||'{}')}catch(e){return{}}}
 

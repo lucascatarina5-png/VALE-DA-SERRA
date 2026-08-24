@@ -1,9 +1,1 @@
-{
-  "name": "vale-da-serra",
-  "version": "2.0.0",
-  "private": true,
-  "main": "servidor.js",
-  "scripts": {"start": "node servidor.js"},
-  "engines": {"node": ">=20"},
-  "dependencies": {"express": "^4.21.2", "pg": "^8.13.1"}
-}
+{"name":"vale-da-serra","version":"3.0.0","private":true,"main":"servidor.js","scripts":{"start":"node servidor.js"},"engines":{"node":">=20"},"dependencies":{"bcryptjs":"^2.4.3","express":"^4.21.2","pg":"^8.13.1"}}
