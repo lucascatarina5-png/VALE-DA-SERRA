@@ -20,16 +20,30 @@ const PERMISSOES = {
 
 async function initDb() {
   await pool.query(`CREATE TABLE IF NOT EXISTS app_state (id TEXT PRIMARY KEY, data JSONB NOT NULL DEFAULT '{}'::jsonb, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+  // IDs de usuários são TEXT para compatibilidade com bancos já existentes
+  // (instalações antigas podem ter criado app_users.id como BIGINT).
   await pool.query(`CREATE TABLE IF NOT EXISTS app_users (
-    id UUID PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, nome TEXT NOT NULL,
+    id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, nome TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'consulta', ativo BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+
+  // Migração segura: preserva usuários existentes e normaliza o ID para TEXT.
+  await pool.query(`ALTER TABLE app_users ALTER COLUMN id TYPE TEXT USING id::text`);
+
+  // Se uma tentativa anterior deixou app_sessions com BIGINT/UUID, removemos apenas
+  // a constraint de sessão e normalizamos a coluna. Nenhum produtor/leite é tocado.
   await pool.query(`CREATE TABLE IF NOT EXISTS app_sessions (
-    token_hash TEXT PRIMARY KEY, user_id UUID NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+    token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+  await pool.query(`ALTER TABLE app_sessions DROP CONSTRAINT IF EXISTS app_sessions_user_id_fkey`);
+  await pool.query(`ALTER TABLE app_sessions ALTER COLUMN user_id TYPE TEXT USING user_id::text`);
+  await pool.query(`ALTER TABLE app_sessions ADD CONSTRAINT app_sessions_user_id_fkey
+    FOREIGN KEY (user_id) REFERENCES app_users(id) ON DELETE CASCADE`);
+
   await pool.query(`CREATE TABLE IF NOT EXISTS app_audit (
-    id BIGSERIAL PRIMARY KEY, user_id UUID, username TEXT, acao TEXT NOT NULL, detalhes JSONB NOT NULL DEFAULT '{}'::jsonb,
+    id BIGSERIAL PRIMARY KEY, user_id TEXT, username TEXT, acao TEXT NOT NULL, detalhes JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+  await pool.query(`ALTER TABLE app_audit ALTER COLUMN user_id TYPE TEXT USING user_id::text`);
   const r = await pool.query('SELECT COUNT(*)::int AS n FROM app_users');
   if (r.rows[0].n === 0) {
     const hash = await bcrypt.hash('Vale@2026', 12);
