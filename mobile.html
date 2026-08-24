@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#173f2b"><link rel="manifest" href="/manifest.json">
+<title>Vale da Serra Mobile</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f3efe3;color:#17352a}
+header{background:linear-gradient(135deg,#123824,#27613d);color:white;padding:18px 16px 14px;position:sticky;top:0;z-index:10;box-shadow:0 2px 12px #0002}
+.brand{font-size:21px;font-weight:900}.sub{font-size:12px;opacity:.82}.wrap{max-width:720px;margin:auto;padding:14px 14px 92px}
+.card{background:#fff;border-radius:18px;padding:16px;margin-bottom:13px;box-shadow:0 4px 18px #173f2b12;border:1px solid #173f2b12}
+h2,h3{margin:0 0 12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.big{min-height:108px;border:0;border-radius:18px;background:white;box-shadow:0 4px 16px #0001;font-size:16px;font-weight:800;color:#173f2b;padding:12px}
+.big span{display:block;font-size:34px;margin-bottom:5px}
+input,select,button{width:100%;padding:13px;border-radius:12px;border:1px solid #cdd8d0;font-size:16px}button.primary{background:#1c5a38;color:#fff;border:0;font-weight:800}
+button.secondary{background:#e9f1eb;color:#173f2b;border:0;font-weight:750}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #ddd;display:flex;z-index:20;padding-bottom:env(safe-area-inset-bottom)}
+nav button{border:0;background:#fff;border-radius:0;font-size:11px;padding:9px 3px;color:#476254}nav b{display:block;font-size:22px}
+.page{display:none}.page.active{display:block}.muted{color:#708078;font-size:13px}.ok{color:#16713a}.err{color:#a52323}
+.row{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #eee}.pill{font-size:12px;padding:4px 8px;border-radius:20px;background:#e9f1eb}
+.login{min-height:100vh;display:grid;place-items:center;padding:22px;background:linear-gradient(145deg,#102f20,#2f6843)}
+.login .card{width:min(430px,100%);padding:25px}.logo{font-size:52px;text-align:center}.hidden{display:none!important}
+@media(max-width:430px){.grid{grid-template-columns:1fr}.actions{grid-template-columns:1fr 1fr}}
+</style></head><body>
+<div id="login" class="login"><div class="card"><div class="logo">🐄</div><h2 style="text-align:center">Vale da Serra Mobile</h2>
+<p class="muted" style="text-align:center">Entre com o mesmo usuário do sistema.</p>
+<input id="user" placeholder="Usuário" autocomplete="username" style="margin-bottom:10px">
+<input id="pass" type="password" placeholder="Senha" autocomplete="current-password" style="margin-bottom:12px">
+<button class="primary" onclick="login()">Entrar</button><div id="loginMsg" class="muted" style="margin-top:10px"></div></div></div>
+
+<div id="app" class="hidden">
+<header><div class="brand">🐄 Vale da Serra</div><div class="sub" id="who">Mobile</div></header>
+<div class="wrap">
+<section id="inicio" class="page active"><div class="card"><h2>Olá, <span id="nome">usuário</span></h2><div class="muted">Escolha uma operação.</div></div>
+<div class="actions">
+<button class="big perm-estoque" onclick="go('estoque')"><span>📦</span>Estoque / Galpão</button>
+<button class="big perm-produtores" onclick="go('produtores')"><span>👨‍🌾</span>Produtores</button>
+<button class="big perm-entradas" onclick="go('leite')"><span>🥛</span>Entrada de Leite</button>
+<button class="big perm-estoque" onclick="go('historico')"><span>🧾</span>Histórico</button>
+</div></section>
+
+<section id="estoque" class="page"><div class="card"><h2>📦 Movimentação do Galpão</h2>
+<select id="produto"></select><select id="tipo" style="margin-top:9px"><option value="saida">Saída</option><option value="entrada">Entrada</option></select>
+<input id="qtd" type="number" step=".01" placeholder="Quantidade" style="margin-top:9px">
+<input id="valor" type="number" step=".01" placeholder="Valor unitário R$" style="margin-top:9px">
+<input id="produtorNome" placeholder="Produtor / destino (opcional)" style="margin-top:9px">
+<input id="destino" placeholder="Observação" style="margin-top:9px">
+<button class="primary" style="margin-top:12px" onclick="movimentar()">Confirmar movimentação</button><div id="movMsg" class="muted"></div></div>
+<div class="card"><h3>Posição do estoque</h3><div id="saldos"></div></div></section>
+
+<section id="produtores" class="page"><div class="card"><h2>👨‍🌾 Produtores</h2>
+<input id="buscaProd" placeholder="Pesquisar produtor" oninput="renderProds()"></div><div class="card"><div id="listaProd"></div></div></section>
+
+<section id="leite" class="page"><div class="card"><h2>🥛 Entrada de Leite</h2>
+<p class="muted">Nesta primeira versão, esta tela abre o sistema principal para o lançamento completo, preservando as regras atuais.</p>
+<button class="primary" onclick="location.href='/'">Abrir Nova Entrada no sistema</button></div></section>
+
+<section id="historico" class="page"><div class="card"><h2>🧾 Histórico do Galpão</h2><button class="secondary" onclick="loadMov()">Atualizar</button></div><div class="card"><div id="movs"></div></div></section>
+
+<section id="conta" class="page"><div class="card"><h2>👤 Minha Conta</h2><div id="dadosConta"></div>
+<button class="secondary" style="margin-top:14px" onclick="logout()">Sair</button></div></section>
+</div>
+<nav><button onclick="go('inicio')"><b>🏠</b>Início</button><button class="perm-estoque" onclick="go('estoque')"><b>📦</b>Estoque</button>
+<button class="perm-produtores" onclick="go('produtores')"><b>👨‍🌾</b>Produtores</button><button onclick="go('conta')"><b>👤</b>Conta</button></nav>
+</div>
+<script>
+let token=localStorage.getItem('vale_mobile_token')||'', me=null, products=[], producers=[], movements=[];
+const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+async function api(url,opt={}){opt.headers=Object.assign({'Content-Type':'application/json'},opt.headers||{});if(token)opt.headers.Authorization='Bearer '+token;
+ const r=await fetch(url,opt),j=await r.json();if(!r.ok)throw Error(j.error||'Erro');return j}
+function allowed(p){return me?.role==='administrador'||(Array.isArray(me?.permissions)&&me.permissions.includes(p))}
+function applyPerms(){['estoque','produtores','entradas'].forEach(p=>document.querySelectorAll('.perm-'+p).forEach(x=>x.classList.toggle('hidden',!allowed(p))))}
+async function login(){try{$('loginMsg').textContent='Entrando...';let j=await api('/api/login',{method:'POST',body:JSON.stringify({username:$('user').value.trim(),password:$('pass').value})});
+ token=j.token;me=j.user;localStorage.setItem('vale_mobile_token',token);openApp()}catch(e){$('loginMsg').textContent='❌ '+e.message}}
+async function openApp(){try{if(!me)me=(await api('/api/me')).user;$('login').classList.add('hidden');$('app').classList.remove('hidden');
+ $('nome').textContent=me.name||me.username;$('who').textContent=(me.name||me.username)+' • '+me.role;
+ $('dadosConta').innerHTML='<b>'+esc(me.name||me.username)+'</b><div class="muted">Usuário: '+esc(me.username)+'<br>Perfil: '+esc(me.role)+'</div>';applyPerms();
+ if(allowed('estoque'))loadStock(); if(allowed('produtores'))loadProducers()}catch(e){logout()}}
+function go(id){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));$(id).classList.add('active');if(id==='historico')loadMov()}
+async function loadStock(){try{let j=await api('/api/inventory/products');products=j.products||[];$('produto').innerHTML='<option value="">Selecione o produto</option>'+products.map(x=>`<option value="${x.id}">${esc(x.name)} — saldo ${x.balance} ${esc(x.unit)}</option>`).join('');
+ $('saldos').innerHTML=products.map(x=>`<div class="row"><div><b>${esc(x.name)}</b><div class="muted">Mínimo: ${x.min_stock} ${esc(x.unit)}</div></div><div><b>${x.balance} ${esc(x.unit)}</b><br><span class="pill">${Number(x.balance)<=Number(x.min_stock)?'⚠️ Baixo':'Normal'}</span></div></div>`).join('')}catch(e){}}
+async function movimentar(){try{let id=$('produto').value,q=Number($('qtd').value);if(!id||q<=0)throw Error('Selecione produto e quantidade');
+ await api('/api/inventory/movements',{method:'POST',body:JSON.stringify({product_id:id,type:$('tipo').value,quantity:q,unit_price:Number($('valor').value||0),producer_name:$('produtorNome').value.trim()||null,destination:$('destino').value.trim()||null})});
+ $('movMsg').textContent='✅ Registrado e sincronizado.';$('qtd').value=$('valor').value=$('produtorNome').value=$('destino').value='';loadStock()}catch(e){$('movMsg').textContent='❌ '+e.message}}
+async function loadMov(){try{let j=await api('/api/inventory/movements');movements=j.movements||[];$('movs').innerHTML=movements.slice(0,100).map(x=>`<div class="row"><div><b>${x.type==='entrada'?'⬆️':'⬇️'} ${esc(x.product_name)}</b><div class="muted">${new Date(x.created_at).toLocaleString('pt-BR')} • ${esc(x.username||'')}</div></div><div>${x.quantity} ${esc(x.unit||'')}<div class="muted">${esc(x.producer_name||x.destination||'')}</div></div></div>`).join('')}catch(e){$('movs').innerHTML='<span class="err">'+esc(e.message)+'</span>'}}
+async function loadProducers(){try{let st=await fetch('/api/state').then(r=>r.json());let d=st.data||{};producers=d.produtores||d.producers||[];renderProds()}catch(e){producers=[];renderProds()}}
+function renderProds(){let q=($('buscaProd')?.value||'').toLowerCase();$('listaProd').innerHTML=producers.filter(p=>JSON.stringify(p).toLowerCase().includes(q)).slice(0,200).map(p=>`<div class="row"><div><b>${esc(p.nome||p.name||'Produtor')}</b><div class="muted">${esc(p.localidade||p.local||'')}</div></div><span>›</span></div>`).join('')||'<div class="muted">Nenhum produtor encontrado.</div>'}
+async function logout(){try{if(token)await api('/api/logout',{method:'POST'})}catch(e){}localStorage.removeItem('vale_mobile_token');token='';me=null;location.reload()}
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+if(token)openApp();
+if(location.hash){let id=location.hash.slice(1);setTimeout(()=>{if($(id))go(id)},300)}
+</script></body></html>

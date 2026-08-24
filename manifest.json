@@ -1,0 +1,27 @@
+{
+  "name": "Vale da Serra Mobile",
+  "short_name": "Vale da Serra",
+  "description": "Aplicativo móvel de operações da Vale da Serra",
+  "start_url": "/mobile.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f3efe3",
+  "theme_color": "#173f2b",
+  "orientation": "portrait-primary",
+  "categories": [
+    "business",
+    "productivity"
+  ],
+  "shortcuts": [
+    {
+      "name": "Estoque / Galpão",
+      "short_name": "Estoque",
+      "url": "/mobile.html#estoque"
+    },
+    {
+      "name": "Produtores",
+      "short_name": "Produtores",
+      "url": "/mobile.html#produtores"
+    }
+  ]
+}
