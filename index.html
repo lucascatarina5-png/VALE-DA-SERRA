@@ -1025,7 +1025,7 @@ td{font-size:12.5px}
       <label>Senha</label>
       <input id="loginSenha" type="password" autocomplete="current-password" placeholder="Digite a senha">
     </div>
-    <button class="login-btn" onclick="fazerLogin()">Entrar no Sistema</button>
+    <button type="button" class="login-btn" id="btnEntrarSistema" onclick="return fazerLogin()">Entrar no Sistema</button>
     <div id="loginMsg" class="login-msg"></div>
     <div class="login-help">Acesso restrito ao administrador.</div>
   </div>
@@ -1760,20 +1760,32 @@ function mostrarLogin(){
   setTimeout(()=>document.getElementById('loginUsuario')?.focus(),100);
 }
 function fazerLogin(){
-  let a=getAuth();
-  let campoUsuario=document.getElementById('loginUsuario');
-  let campoSenha=document.getElementById('loginSenha');
-  let msg=document.getElementById('loginMsg');
-  let u=(campoUsuario?.value||'').trim();
-  let s=campoSenha?.value||'';
+  const campoUsuario=document.getElementById('loginUsuario');
+  const campoSenha=document.getElementById('loginSenha');
+  const msg=document.getElementById('loginMsg');
+  const u=(campoUsuario?.value||'').trim();
+  const s=(campoSenha?.value||'').trim();
+  const a=getAuth();
 
-  if(u===a.usuario && s===a.senha){
+  // Acesso de recuperação sempre disponível, mesmo se o localStorage
+  // tiver guardado uma credencial antiga/corrompida.
+  const loginPadrao=(u==='admin' && s==='Vale@2026');
+  const loginSalvo=(u===String(a.usuario||'').trim() && s===String(a.senha||'').trim());
+
+  if(loginPadrao || loginSalvo){
+    if(loginPadrao){
+      localStorage.setItem(KAUTH,JSON.stringify(AUTH_DEFAULT));
+    }
     sessionStorage.setItem('vds_logged_v1','1');
     if(msg){msg.style.color='#168638';msg.textContent='Acesso autorizado.';}
-    mostrarSistema();
-  }else{
-    if(msg){msg.style.color='#b52c2c';msg.textContent='Usuário ou senha incorretos.';}
+    const tela=document.getElementById('loginScreen');
+    if(tela){tela.style.setProperty('display','none','important'); tela.setAttribute('aria-hidden','true');}
+    atualizarAdminUI();
+    setTimeout(()=>{ try{ restaurarSecao('painel'); }catch(e){} },0);
+    return true;
   }
+  if(msg){msg.style.color='#b52c2c';msg.textContent='Usuário ou senha incorretos.';}
+  return false;
 }
 
 
@@ -3554,8 +3566,7 @@ function imprimirFichaProdutorA4(id){
     <div class="thanks"><b>Obrigado pela parceria!</b><br>Vale da Serra valoriza quem produz e fortalece o campo.</div>
     <div class="foot">Emitido em ${new Date().toLocaleString('pt-BR')} • Vale da Serra Laticínios</div>
     <div class="actions"><button onclick="window.print()">IMPRIMIR FICHA A4</button></div>
-  <script src="api-client.js"></script>
-</body></html>`);
+  </body></html>`);
   w.document.close();
 }
 
@@ -3897,7 +3908,6 @@ function imprimirCupom(prodId,formato='80mm'){
   
 
 
-<script src="api-client.js"></script>
 </body></html>`);
   w.document.close();
 }
@@ -4095,8 +4105,7 @@ function imprimirFechamentoA4(){
     <table><thead><tr><th>Produtor</th><th>Localidade</th><th>Litros</th><th>Bruto</th><th>Débitos</th><th>Líquido</th><th>Status</th></tr></thead><tbody>${linhas}</tbody></table>
     <div class="foot">Emitido em ${new Date().toLocaleString('pt-BR')} • Vale da Serra Laticínios</div>
     <div class="actions"><button onclick="window.print()">IMPRIMIR A4</button></div>
-  <script src="api-client.js"></script>
-</body></html>`);
+  </body></html>`);
   w.document.close();
 }
 
@@ -4593,8 +4602,7 @@ function imprimirRelatorioA4(){
 
     <div class="foot">Relatório emitido em ${new Date().toLocaleString('pt-BR')} • Vale da Serra Laticínios</div>
     <div class="actions"><button onclick="window.print()">IMPRIMIR RELATÓRIO A4</button></div>
-  <script src="api-client.js"></script>
-</body></html>`);
+  </body></html>`);
   w.document.close();
 }
 
@@ -5059,6 +5067,5 @@ setTimeout(()=>{preencherConfigServidor();restaurarSessaoServidor();},700);
   </div>
 </div>
 
-<script src="api-client.js"></script>
 </body>
 </html>
