@@ -115,14 +115,27 @@ async function initDb() {
     console.log('Migração: coluna legada app_users.nome compatibilizada.');
   }
 
-  // Outras colunas legadas que possam ter sido obrigatórias não devem impedir
-  // a criação do administrador na estrutura atual.
-  const legacyNullable = ['senha','perfil','permissoes','ativo'];
-  for (const col of legacyNullable) {
-    if (await columnExists('app_users', col)) {
-      try {
-        await pool.query(`ALTER TABLE app_users ALTER COLUMN ${col} DROP NOT NULL`);
-      } catch (_) {}
+  // Compatibilidade completa com versões antigas da tabela app_users.
+  // Descobre automaticamente colunas antigas marcadas NOT NULL (ex.: email)
+  // que não fazem parte do esquema atual e remove SOMENTE essa obrigatoriedade.
+  // Nenhuma coluna e nenhum registro é apagado.
+  const currentUserColumns = new Set([
+    'id','username','password_hash','name','role','active',
+    'permissions','created_at','updated_at'
+  ]);
+  const legacyCols = await pool.query(`
+    SELECT column_name
+      FROM information_schema.columns
+     WHERE table_schema='public'
+       AND table_name='app_users'
+       AND is_nullable='NO'
+  `);
+  for (const row of legacyCols.rows) {
+    const col = row.column_name;
+    if (!currentUserColumns.has(col) && col !== 'id') {
+      const safeCol = '"' + String(col).replace(/"/g, '""') + '"';
+      await pool.query(`ALTER TABLE app_users ALTER COLUMN ${safeCol} DROP NOT NULL`);
+      console.log(`Migração: restrição NOT NULL legada removida de app_users.${col}.`);
     }
   }
 
