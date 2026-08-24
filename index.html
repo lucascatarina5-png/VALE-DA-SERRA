@@ -3383,7 +3383,10 @@ async function v4CarregarUsuarios(){
       <td>${v4Esc(u.username||'')}</td><td>${v4Esc(u.name||'')}</td>
       <td>${v4Esc(u.role||'')}</td><td>${u.active!==false?'🟢 Ativo':'🔴 Inativo'}</td>
       <td>${v4Esc(Array.isArray(u.permissions)?u.permissions.join(', '):'')}</td>
-      <td><button onclick="v4AlternarUsuario('${u.id}',${u.active!==false})">${u.active!==false?'Desativar':'Ativar'}</button></td>
+      <td>
+        <button onclick="v4AlternarUsuario('${u.id}',${u.active!==false})">${u.active!==false?'Desativar':'Ativar'}</button>
+        <button onclick="v4RedefinirSenha('${u.id}','${v4Esc(u.username||'')}')" style="margin-left:6px">🔑 Nova senha</button>
+      </td>
     </tr>`).join('') || '<tr><td colspan="6">Nenhum usuário.</td></tr>';
   }catch(e){body.innerHTML='<tr><td colspan="6">'+v4Esc(e.message)+'</td></tr>'}
 }
@@ -3401,6 +3404,17 @@ async function v4CriarUsuario(){
     document.querySelectorAll('#admPermissoes input').forEach(x=>x.checked=false);
     await v4CarregarUsuarios();
   }catch(e){msg.textContent='❌ '+e.message}
+}
+async function v4RedefinirSenha(id,usuario){
+  const senha=prompt('Digite a nova senha para '+usuario+':');
+  if(senha===null) return;
+  if(String(senha).length<4){alert('A senha precisa ter pelo menos 4 caracteres.');return}
+  try{
+    const r=await fetch('/api/users/'+encodeURIComponent(id),{method:'PUT',headers:v4Headers(),
+      body:JSON.stringify({password:String(senha)})});
+    const j=await r.json(); if(!r.ok) throw new Error(j.error||'Erro');
+    alert('✅ Senha redefinida. Agora teste o login desse usuário.');
+  }catch(e){alert('❌ '+e.message)}
 }
 async function v4AlternarUsuario(id,ativo){
   try{

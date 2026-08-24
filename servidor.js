@@ -23,10 +23,15 @@ function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
   return `${salt}:${hash}`;
 }
 function checkPassword(password, stored) {
-  if (!stored || !stored.includes(':')) return false;
-  const [salt] = stored.split(':');
+  if (!stored) return false;
+  const value=String(stored);
+  // Compatibilidade com usuários criados por versões antigas que salvaram senha em texto.
+  // Após um login válido, a rota /api/login converte automaticamente para hash PBKDF2.
+  if (!value.includes(':')) return String(password) === value;
+  const [salt] = value.split(':');
   const candidate = hashPassword(password, salt);
-  return crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(stored));
+  const a=Buffer.from(candidate), b=Buffer.from(value);
+  return a.length===b.length && crypto.timingSafeEqual(a,b);
 }
 function token() { return crypto.randomBytes(32).toString('hex'); }
 
@@ -253,7 +258,13 @@ app.post('/api/login', async (req,res)=>{
     const r=await pool.query(`SELECT * FROM app_users WHERE LOWER(username)=LOWER($1) LIMIT 1`,[username]);
     if(!r.rowCount || r.rows[0].active===false || !checkPassword(password,r.rows[0].password_hash))
       return res.status(401).json({ok:false,error:'Usuário ou senha incorretos'});
-    const u=r.rows[0], t=token();
+    const u=r.rows[0];
+    // Se veio de uma versão antiga com senha sem hash, atualiza de forma transparente.
+    if(u.password_hash && !String(u.password_hash).includes(':')){
+      await pool.query(`UPDATE app_users SET password_hash=$2,updated_at=NOW() WHERE id::text=$1`,
+        [String(u.id),hashPassword(password)]);
+    }
+    const t=token();
     await pool.query(`INSERT INTO app_sessions(token,token_hash,user_id,expires_at)
                       VALUES($1,$1,$2,NOW()+INTERVAL '12 hours')`,[t,String(u.id)]);
     await audit({user_id:String(u.id),username:u.username},'LOGIN');
@@ -287,7 +298,10 @@ app.post('/api/users',auth,adminOnly,async(req,res)=>{
     await pool.query(`INSERT INTO app_users(id,username,password_hash,name,role,active,permissions)
                       VALUES($1,$2,$3,$4,$5,$6,$7::jsonb)`,
       [id,String(username).trim(),hashPassword(password),name||username,role,!!active,JSON.stringify(permissions)]);
-    await audit(req.user,'USUARIO_CRIADO',{username,role});
+    const verify=await pool.query(`SELECT password_hash FROM app_users WHERE id::text=$1 LIMIT 1`,[id]);
+    if(!verify.rowCount || !checkPassword(password,verify.rows[0].password_hash))
+      throw new Error('Falha ao validar a senha do novo usuário');
+    await audit(req.user,'USUARIO_CRIADO',{username:String(username).trim(),role});
     res.json({ok:true,id});
   } catch(e){
     res.status(e.code==='23505'?409:500).json({ok:false,error:e.code==='23505'?'Usuário já existe':e.message});
