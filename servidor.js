@@ -86,6 +86,20 @@ async function initDb() {
     expires_at TIMESTAMPTZ NOT NULL
   )`);
 
+  // V4.2 - compatibilidade com instalações antigas de app_sessions.
+  // CREATE TABLE IF NOT EXISTS não acrescenta colunas faltantes em tabela já existente,
+  // então fazemos ALTER TABLE idempotente antes de usar token no login.
+  await pool.query(`ALTER TABLE app_sessions ADD COLUMN IF NOT EXISTS token TEXT`);
+  await pool.query(`ALTER TABLE app_sessions ADD COLUMN IF NOT EXISTS user_id TEXT`);
+  await pool.query(`ALTER TABLE app_sessions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW()`);
+  await pool.query(`ALTER TABLE app_sessions ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ`);
+  await pool.query(`UPDATE app_sessions
+                    SET token = md5(random()::text || clock_timestamp()::text)
+                    WHERE token IS NULL OR token = ''`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS app_sessions_token_uidx
+                    ON app_sessions(token) WHERE token IS NOT NULL`);
+  console.log('Migração: app_sessions compatibilizada com token.');
+
   await pool.query(`CREATE TABLE IF NOT EXISTS app_audit (
     id BIGSERIAL PRIMARY KEY,
     user_id TEXT,
