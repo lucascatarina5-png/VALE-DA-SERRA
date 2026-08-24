@@ -189,6 +189,31 @@ async function initDb() {
     console.log('Usuário admin criado.');
   }
 
+
+  await pool.query(`CREATE TABLE IF NOT EXISTS app_inventory_products (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    unit TEXT NOT NULL DEFAULT 'kg',
+    min_stock NUMERIC NOT NULL DEFAULT 0,
+    unit_price NUMERIC NOT NULL DEFAULT 0,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS app_inventory_movements (
+    id BIGSERIAL PRIMARY KEY,
+    product_id TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('entrada','saida')),
+    quantity NUMERIC NOT NULL CHECK(quantity > 0),
+    unit_price NUMERIC NOT NULL DEFAULT 0,
+    producer_id TEXT,
+    producer_name TEXT,
+    destination TEXT,
+    user_id TEXT,
+    username TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+
   console.log('Banco atualizado sem apagar os dados existentes.');
 }
 
@@ -350,6 +375,71 @@ app.put('/api/state', optionalAuth, async (req,res)=>{
     if(req.user) await audit(req.user,'DADOS_SISTEMA_ATUALIZADOS',{origem:'app_state'});
     res.json({ok:true});
   } catch(e){ res.status(500).json({ok:false,error:e.message}); }
+});
+
+
+app.get('/api/inventory/products',auth,hasPermission('estoque'),async(req,res)=>{
+  try{
+    const r=await pool.query(`SELECT p.*,
+      COALESCE(SUM(CASE WHEN m.type='entrada' THEN m.quantity ELSE -m.quantity END),0) AS balance
+      FROM app_inventory_products p
+      LEFT JOIN app_inventory_movements m ON m.product_id=p.id
+      WHERE p.active=TRUE GROUP BY p.id ORDER BY p.name`);
+    res.json({ok:true,products:r.rows});
+  }catch(e){res.status(500).json({ok:false,error:e.message});}
+});
+
+app.post('/api/inventory/products',auth,hasPermission('estoque'),async(req,res)=>{
+  try{
+    const {name,unit='kg',min_stock=0,unit_price=0}=req.body||{};
+    if(!String(name||'').trim()) return res.status(400).json({ok:false,error:'Informe o produto'});
+    const id=crypto.randomUUID();
+    await pool.query(`INSERT INTO app_inventory_products(id,name,unit,min_stock,unit_price)
+      VALUES($1,$2,$3,$4,$5)`,[id,String(name).trim(),unit,Number(min_stock)||0,Number(unit_price)||0]);
+    await audit(req.user,'ESTOQUE_PRODUTO_CRIADO',{id,name});
+    res.json({ok:true,id});
+  }catch(e){res.status(500).json({ok:false,error:e.message});}
+});
+
+app.get('/api/inventory/movements',auth,hasPermission('estoque'),async(req,res)=>{
+  try{
+    const r=await pool.query(`SELECT m.*,p.name AS product_name,p.unit
+      FROM app_inventory_movements m
+      JOIN app_inventory_products p ON p.id=m.product_id
+      ORDER BY m.created_at DESC LIMIT 1000`);
+    res.json({ok:true,movements:r.rows});
+  }catch(e){res.status(500).json({ok:false,error:e.message});}
+});
+
+app.post('/api/inventory/movements',auth,hasPermission('estoque'),async(req,res)=>{
+  const client=await pool.connect();
+  try{
+    const {product_id,type,quantity,unit_price=0,producer_id,producer_name,destination}=req.body||{};
+    const q=Number(quantity);
+    if(!product_id || !['entrada','saida'].includes(type) || !(q>0))
+      return res.status(400).json({ok:false,error:'Movimentação inválida'});
+    await client.query('BEGIN');
+    if(type==='saida'){
+      const bal=await client.query(`SELECT COALESCE(SUM(CASE WHEN type='entrada' THEN quantity ELSE -quantity END),0) balance
+        FROM app_inventory_movements WHERE product_id=$1`,[product_id]);
+      if(Number(bal.rows[0].balance)<q){
+        await client.query('ROLLBACK');
+        return res.status(409).json({ok:false,error:'Estoque insuficiente para esta saída'});
+      }
+    }
+    await client.query(`INSERT INTO app_inventory_movements
+      (product_id,type,quantity,unit_price,producer_id,producer_name,destination,user_id,username)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      [product_id,type,q,Number(unit_price)||0,producer_id||null,producer_name||null,destination||null,
+       req.user.user_id||null,req.user.username||null]);
+    await client.query('COMMIT');
+    await audit(req.user,type==='entrada'?'ESTOQUE_ENTRADA':'ESTOQUE_SAIDA',
+      {product_id,quantity:q,producer_id:producer_id||null,producer_name:producer_name||null,destination:destination||null});
+    res.json({ok:true});
+  }catch(e){
+    try{await client.query('ROLLBACK')}catch(_){}
+    res.status(500).json({ok:false,error:e.message});
+  }finally{client.release();}
 });
 
 app.use(express.static(__dirname));
