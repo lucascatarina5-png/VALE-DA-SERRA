@@ -103,6 +103,29 @@ async function initDb() {
     await pool.query(`ALTER TABLE app_audit ALTER COLUMN user_id TYPE TEXT USING user_id::text`);
   }
 
+  // Compatibilidade com banco antigo:
+  // versões anteriores possuíam a coluna "nome" obrigatória (NOT NULL).
+  // O código novo usa "name". Mantemos "nome" e removemos apenas a obrigatoriedade,
+  // sem apagar nenhum usuário ou dado já existente.
+  if (await columnExists('app_users', 'nome')) {
+    await pool.query(`ALTER TABLE app_users ALTER COLUMN nome DROP NOT NULL`);
+    await pool.query(`UPDATE app_users
+                      SET name = COALESCE(NULLIF(name,''), NULLIF(nome,''), username)
+                      WHERE name IS NULL OR name=''`);
+    console.log('Migração: coluna legada app_users.nome compatibilizada.');
+  }
+
+  // Outras colunas legadas que possam ter sido obrigatórias não devem impedir
+  // a criação do administrador na estrutura atual.
+  const legacyNullable = ['senha','perfil','permissoes','ativo'];
+  for (const col of legacyNullable) {
+    if (await columnExists('app_users', col)) {
+      try {
+        await pool.query(`ALTER TABLE app_users ALTER COLUMN ${col} DROP NOT NULL`);
+      } catch (_) {}
+    }
+  }
+
   // Índice único somente para usernames preenchidos.
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS app_users_username_unique
                     ON app_users (LOWER(username)) WHERE username IS NOT NULL`);
@@ -110,12 +133,21 @@ async function initDb() {
   // Cria admin apenas se ainda não existir usuário "admin".
   const admin = await pool.query(`SELECT id FROM app_users WHERE LOWER(username)='admin' LIMIT 1`);
   if (!admin.rowCount) {
-    await pool.query(
-      `INSERT INTO app_users(id,username,password_hash,name,role,active,permissions)
-       VALUES($1,'admin',$2,'Administrador','administrador',TRUE,$3::jsonb)`,
-      [crypto.randomUUID(), hashPassword(process.env.ADMIN_PASSWORD || 'Vale@2026'),
-       JSON.stringify(['*'])]
-    );
+    const adminId = crypto.randomUUID();
+    const adminHash = hashPassword(process.env.ADMIN_PASSWORD || 'Vale@2026');
+    if (await columnExists('app_users', 'nome')) {
+      await pool.query(
+        `INSERT INTO app_users(id,username,password_hash,name,nome,role,active,permissions)
+         VALUES($1,'admin',$2,'Administrador','Administrador','administrador',TRUE,$3::jsonb)`,
+        [adminId, adminHash, JSON.stringify(['*'])]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO app_users(id,username,password_hash,name,role,active,permissions)
+         VALUES($1,'admin',$2,'Administrador','administrador',TRUE,$3::jsonb)`,
+        [adminId, adminHash, JSON.stringify(['*'])]
+      );
+    }
     console.log('Usuário admin criado.');
   }
 
