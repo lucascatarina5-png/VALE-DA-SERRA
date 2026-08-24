@@ -222,6 +222,15 @@ function adminOnly(req,res,next){
     return res.status(403).json({ok:false,error:'Somente administrador'});
   next();
 }
+function hasPermission(permission){
+  return function(req,res,next){
+    if(req.user?.role === 'administrador') return next();
+    const perms=Array.isArray(req.user?.permissions) ? req.user.permissions : [];
+    if(!perms.includes(permission))
+      return res.status(403).json({ok:false,error:'Sem permissão para esta função'});
+    next();
+  };
+}
 async function audit(user, action, details={}) {
   try {
     await pool.query(`INSERT INTO app_audit(user_id,username,action,details)

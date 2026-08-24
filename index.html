@@ -855,7 +855,7 @@ td{font-size:12.5px}
     </div>
     <button class="login-btn" onclick="fazerLogin()">Entrar no Sistema</button>
     <div id="loginMsg" class="login-msg"></div>
-    <div class="login-help">Acesso restrito ao administrador.</div>
+    <div class="login-help">Acesso autorizado conforme o perfil e as permissões do usuário.</div>
   </div>
 </div>
 
@@ -866,19 +866,19 @@ td{font-size:12.5px}
   </div>
   <div class="nav">
     <button class="active" onclick="showSection('painel',this)">🏠 Painel</button>
-    <button onclick="showSection('lancamentos',this)">💧 Nova Entrada</button>
-    <button class="edit-menu-button" onclick="abrirEdicaoRecebimentos(this)">✏️ Editar Recebimentos</button>
-    <button onclick="showSection('produtores',this)">👥 Produtores</button>
-    <button onclick="showSection('pesquisa',this)">🔎 Pesquisa</button>
-    <button onclick="showSection('pagamentos',this)">💰 Pagamentos</button>
-    <button onclick="showSection('debitos',this)">🏷️ Débitos</button>
-    <button onclick="showSection('alertaswhats',this)">💬 Alertas WhatsApp</button>
-    <button onclick="showSection('relatorios',this)">📊 Relatórios</button>
-    <button onclick="showSection('pagamentos',this)">🧾 Comprovantes</button>
-    <button onclick="showSection('backup',this)">☁️ Backup</button>
+    <button data-permission="entradas" onclick="showSection('lancamentos',this)">💧 Nova Entrada</button>
+    <button class="edit-menu-button" data-permission="edicao" onclick="abrirEdicaoRecebimentos(this)">✏️ Editar Recebimentos</button>
+    <button data-permission="produtores" onclick="showSection('produtores',this)">👥 Produtores</button>
+    <button data-permission="produtores" onclick="showSection('pesquisa',this)">🔎 Pesquisa</button>
+    <button data-permission="pagamentos" onclick="showSection('pagamentos',this)">💰 Pagamentos</button>
+    <button data-permission="debitos" onclick="showSection('debitos',this)">🏷️ Débitos</button>
+    <button class="admin-only-v4" onclick="showSection('alertaswhats',this)">💬 Alertas WhatsApp</button>
+    <button data-permission="relatorios" onclick="showSection('relatorios',this)">📊 Relatórios</button>
+    <button data-permission="pagamentos" onclick="showSection('pagamentos',this)">🧾 Comprovantes</button>
+    <button data-permission="backup" onclick="showSection('backup',this)">☁️ Backup</button>
     <button id="menuUsuarios" class="admin-only-v4" onclick="showSection('usuarios',this)">👤 Usuários e Permissões</button>
     <button id="menuAuditoria" class="admin-only-v4" onclick="showSection('auditoria',this)">🛡️ Histórico / Auditoria</button>
-    <button onclick="showSection('configuracoes',this)">⚙️ Configurações</button>
+    <button class="admin-only-v4" onclick="showSection('configuracoes',this)">⚙️ Configurações</button>
     <button onclick="sairSistema()">🚪 Sair</button>
   </div>
   <div class="side-card">
@@ -1418,7 +1418,21 @@ function restaurarSecao(id){
   });
 }
 
-function showSection(id,btn){document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active')}
+function showSection(id,btn){
+  const adminAreas=['usuarios','auditoria','configuracoes','alertaswhats'];
+  if(adminAreas.includes(id) && typeof v4IsAdmin==='function' && !v4IsAdmin()){
+    alert('Acesso permitido somente ao administrador.');
+    id='painel'; btn=document.querySelector('.nav button');
+  }
+  if(btn && btn.dataset && btn.dataset.permission && typeof v4TemPermissao==='function' && !v4TemPermissao(btn.dataset.permission)){
+    alert('Você não possui permissão para acessar esta função.');
+    id='painel'; btn=document.querySelector('.nav button');
+  }
+  document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
+  const sec=document.getElementById(id); if(sec) sec.classList.add('active');
+  document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+}
 function go(id){showSection(id);document.querySelectorAll('.nav button').forEach(b=>{if(b.getAttribute('onclick')?.includes("'"+id+"'"))b.classList.add('active')})}
 
 
@@ -3327,8 +3341,37 @@ function v4IsAdmin(){
   return String(u.role||u.perfil||'').toLowerCase()==='administrador' ||
          String(u.username||u.usuario||'').toLowerCase()==='admin';
 }
+function v4Permissoes(){
+  const u=V4.user || window.usuarioLogado || window.currentUser || {};
+  return Array.isArray(u.permissions) ? u.permissions.map(String) : [];
+}
+function v4TemPermissao(p){
+  if(v4IsAdmin()) return true;
+  return v4Permissoes().includes(String(p));
+}
 function v4AplicarVisibilidade(){
-  document.querySelectorAll('.admin-only-v4').forEach(x=>x.style.display=v4IsAdmin()?'':'none');
+  const admin=v4IsAdmin();
+  document.querySelectorAll('.admin-only-v4').forEach(x=>x.style.display=admin?'':'none');
+  document.querySelectorAll('[data-permission]').forEach(x=>{
+    x.style.display=v4TemPermissao(x.dataset.permission)?'':'none';
+  });
+
+  // Proteção adicional: se um usuário comum estiver em uma área administrativa,
+  // volta imediatamente para o Painel.
+  const ativa=document.querySelector('.section.active');
+  if(!admin && ativa && ['usuarios','auditoria','configuracoes','alertaswhats'].includes(ativa.id)){
+    try{showSection('painel',document.querySelector('.nav button'));}catch(e){}
+  }
+
+  // Atualiza a identificação visual do usuário logado.
+  const card=[...document.querySelectorAll('.side-card')].find(x=>(x.textContent||'').includes('ADMINISTRADOR'));
+  if(card){
+    const u=V4.user||{};
+    const perfil=admin?'Administrador':(u.role||'Usuário');
+    card.innerHTML='<div style="display:flex;align-items:center;gap:10px"><span style="font-size:30px">👤</span><div><small>'+
+      v4Esc((u.name||u.username||'USUÁRIO').toUpperCase())+'</small><div style="font-weight:800;margin-top:3px">Nível: '+
+      v4Esc(perfil)+'</div></div></div>';
+  }
 }
 async function v4CarregarUsuarios(){
   const body=document.getElementById('admListaUsuarios'); if(!body) return;
