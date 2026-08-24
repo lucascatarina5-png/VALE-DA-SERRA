@@ -99,6 +99,12 @@ async function initDb() {
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS app_sessions_token_uidx
                     ON app_sessions(token) WHERE token IS NOT NULL`);
   console.log('Migração: app_sessions compatibilizada com token.');
+  // V4.3 - compatibilidade com esquema legado que exigia token_hash.
+  // O login atual grava em token; portanto token_hash não pode continuar obrigatório.
+  await pool.query(`ALTER TABLE app_sessions ADD COLUMN IF NOT EXISTS token_hash TEXT`);
+  await pool.query(`ALTER TABLE app_sessions ALTER COLUMN token_hash DROP NOT NULL`);
+  console.log('Migração: restrição legada token_hash removida com segurança.');
+
 
   await pool.query(`CREATE TABLE IF NOT EXISTS app_audit (
     id BIGSERIAL PRIMARY KEY,
