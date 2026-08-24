@@ -2366,111 +2366,7 @@ function imprimirCupom(prodId,formato='80mm'){
 
 
 
-<script>
-const V4 = { token:null, user:null, audit:[] };
 
-function v4GetToken(){
-  return V4.token || localStorage.getItem('vale_token') || localStorage.getItem('token') ||
-         sessionStorage.getItem('vale_token') || sessionStorage.getItem('token') || '';
-}
-function v4Headers(){
-  const h={'Content-Type':'application/json'}, t=v4GetToken();
-  if(t) h.Authorization='Bearer '+t;
-  return h;
-}
-function v4IsAdmin(){
-  const u=V4.user || window.usuarioLogado || window.currentUser || {};
-  return String(u.role||u.perfil||'').toLowerCase()==='administrador' ||
-         String(u.username||u.usuario||'').toLowerCase()==='admin';
-}
-function v4AplicarVisibilidade(){
-  document.querySelectorAll('.admin-only-v4').forEach(x=>x.style.display=v4IsAdmin()?'':'none');
-}
-async function v4CarregarUsuarios(){
-  const body=document.getElementById('admListaUsuarios'); if(!body) return;
-  body.innerHTML='<tr><td colspan="6">Carregando...</td></tr>';
-  try{
-    const r=await fetch('/api/users',{headers:v4Headers()}); const j=await r.json();
-    if(!r.ok) throw new Error(j.error||'Falha');
-    body.innerHTML=(j.users||[]).map(u=>`<tr>
-      <td>${v4Esc(u.username||'')}</td><td>${v4Esc(u.name||'')}</td>
-      <td>${v4Esc(u.role||'')}</td><td>${u.active!==false?'🟢 Ativo':'🔴 Inativo'}</td>
-      <td>${v4Esc(Array.isArray(u.permissions)?u.permissions.join(', '):'')}</td>
-      <td><button onclick="v4AlternarUsuario('${u.id}',${u.active!==false})">${u.active!==false?'Desativar':'Ativar'}</button></td>
-    </tr>`).join('') || '<tr><td colspan="6">Nenhum usuário.</td></tr>';
-  }catch(e){body.innerHTML='<tr><td colspan="6">'+v4Esc(e.message)+'</td></tr>'}
-}
-async function v4CriarUsuario(){
-  const permissions=[...document.querySelectorAll('#admPermissoes input:checked')].map(x=>x.value);
-  const data={name:admNome.value.trim(),username:admUsuario.value.trim(),password:admSenha.value,
-              role:admPerfil.value,active:true,permissions};
-  const msg=document.getElementById('admMsg');
-  if(!data.username||!data.password){msg.textContent='Informe usuário e senha.';return}
-  try{
-    const r=await fetch('/api/users',{method:'POST',headers:v4Headers(),body:JSON.stringify(data)});
-    const j=await r.json(); if(!r.ok) throw new Error(j.error||'Erro');
-    msg.textContent='✅ Usuário cadastrado com sucesso.';
-    admNome.value=admUsuario.value=admSenha.value='';
-    document.querySelectorAll('#admPermissoes input').forEach(x=>x.checked=false);
-    await v4CarregarUsuarios();
-  }catch(e){msg.textContent='❌ '+e.message}
-}
-async function v4AlternarUsuario(id,ativo){
-  try{
-    const r=await fetch('/api/users/'+encodeURIComponent(id),{method:'PUT',headers:v4Headers(),
-      body:JSON.stringify({active:!ativo})});
-    const j=await r.json(); if(!r.ok) throw new Error(j.error||'Erro');
-    await v4CarregarUsuarios();
-  }catch(e){alert(e.message)}
-}
-async function v4CarregarAuditoria(){
-  const body=document.getElementById('auditLista'); if(!body)return;
-  body.innerHTML='<tr><td colspan="4">Carregando...</td></tr>';
-  try{
-    const r=await fetch('/api/audit',{headers:v4Headers()}); const j=await r.json();
-    if(!r.ok) throw new Error(j.error||'Falha');
-    V4.audit=j.logs||[]; v4RenderAuditoria(V4.audit);
-  }catch(e){body.innerHTML='<tr><td colspan="4">'+v4Esc(e.message)+'</td></tr>'}
-}
-function v4RenderAuditoria(logs){
-  const body=document.getElementById('auditLista'); if(!body)return;
-  body.innerHTML=logs.map(x=>`<tr><td>${v4Esc(v4Data(x.created_at))}</td>
-    <td>${v4Esc(x.username||'-')}</td><td>${v4Esc(x.action||'')}</td>
-    <td>${v4Esc(typeof x.details==='object'?JSON.stringify(x.details):String(x.details||''))}</td></tr>`).join('')
-    || '<tr><td colspan="4">Nenhum registro.</td></tr>';
-}
-function v4FiltrarAuditoria(){
-  const q=(document.getElementById('auditFiltro')?.value||'').toLowerCase();
-  v4RenderAuditoria(V4.audit.filter(x=>JSON.stringify(x).toLowerCase().includes(q)));
-}
-function v4Esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-function v4Data(d){try{return new Date(d).toLocaleString('pt-BR')}catch(e){return d||''}}
-
-// Detecta quando o menu administrativo é aberto.
-document.addEventListener('click',e=>{
-  const b=e.target.closest('button'); if(!b)return;
-  if((b.textContent||'').includes('Usuários e Permissões')) setTimeout(v4CarregarUsuarios,50);
-  if((b.textContent||'').includes('Histórico / Auditoria')) setTimeout(v4CarregarAuditoria,50);
-});
-
-// Integra com respostas de login fetch sem alterar a tela de login já existente.
-const v4Fetch=window.fetch.bind(window);
-window.fetch=async function(...args){
-  const resp=await v4Fetch(...args);
-  try{
-    const url=String(args[0]||'');
-    if(url.includes('/api/login') && resp.ok){
-      const clone=resp.clone(), j=await clone.json();
-      if(j.token){ V4.token=j.token; localStorage.setItem('vale_token',j.token); }
-      if(j.user){ V4.user=j.user; localStorage.setItem('vale_user',JSON.stringify(j.user)); }
-      setTimeout(v4AplicarVisibilidade,0);
-    }
-  }catch(e){}
-  return resp;
-};
-try{V4.user=JSON.parse(localStorage.getItem('vale_user')||'null')}catch(e){}
-document.addEventListener('DOMContentLoaded',v4AplicarVisibilidade);
-</script>
 
 </body></html>`);
   w.document.close();
@@ -3412,6 +3308,175 @@ document.addEventListener('click',function(e){
     <div id="conteudoDetalhesAlerta" class="alert-detail-body"></div>
   </div>
 </div>
+
+
+<script>
+const V4 = { token:null, user:null, audit:[] };
+
+function v4GetToken(){
+  return V4.token || localStorage.getItem('vale_token') || localStorage.getItem('token') ||
+         sessionStorage.getItem('vale_token') || sessionStorage.getItem('token') || '';
+}
+function v4Headers(){
+  const h={'Content-Type':'application/json'}, t=v4GetToken();
+  if(t) h.Authorization='Bearer '+t;
+  return h;
+}
+function v4IsAdmin(){
+  const u=V4.user || window.usuarioLogado || window.currentUser || {};
+  return String(u.role||u.perfil||'').toLowerCase()==='administrador' ||
+         String(u.username||u.usuario||'').toLowerCase()==='admin';
+}
+function v4AplicarVisibilidade(){
+  document.querySelectorAll('.admin-only-v4').forEach(x=>x.style.display=v4IsAdmin()?'':'none');
+}
+async function v4CarregarUsuarios(){
+  const body=document.getElementById('admListaUsuarios'); if(!body) return;
+  body.innerHTML='<tr><td colspan="6">Carregando...</td></tr>';
+  try{
+    const r=await fetch('/api/users',{headers:v4Headers()}); const j=await r.json();
+    if(!r.ok) throw new Error(j.error||'Falha');
+    body.innerHTML=(j.users||[]).map(u=>`<tr>
+      <td>${v4Esc(u.username||'')}</td><td>${v4Esc(u.name||'')}</td>
+      <td>${v4Esc(u.role||'')}</td><td>${u.active!==false?'🟢 Ativo':'🔴 Inativo'}</td>
+      <td>${v4Esc(Array.isArray(u.permissions)?u.permissions.join(', '):'')}</td>
+      <td><button onclick="v4AlternarUsuario('${u.id}',${u.active!==false})">${u.active!==false?'Desativar':'Ativar'}</button></td>
+    </tr>`).join('') || '<tr><td colspan="6">Nenhum usuário.</td></tr>';
+  }catch(e){body.innerHTML='<tr><td colspan="6">'+v4Esc(e.message)+'</td></tr>'}
+}
+async function v4CriarUsuario(){
+  const permissions=[...document.querySelectorAll('#admPermissoes input:checked')].map(x=>x.value);
+  const data={name:admNome.value.trim(),username:admUsuario.value.trim(),password:admSenha.value,
+              role:admPerfil.value,active:true,permissions};
+  const msg=document.getElementById('admMsg');
+  if(!data.username||!data.password){msg.textContent='Informe usuário e senha.';return}
+  try{
+    const r=await fetch('/api/users',{method:'POST',headers:v4Headers(),body:JSON.stringify(data)});
+    const j=await r.json(); if(!r.ok) throw new Error(j.error||'Erro');
+    msg.textContent='✅ Usuário cadastrado com sucesso.';
+    admNome.value=admUsuario.value=admSenha.value='';
+    document.querySelectorAll('#admPermissoes input').forEach(x=>x.checked=false);
+    await v4CarregarUsuarios();
+  }catch(e){msg.textContent='❌ '+e.message}
+}
+async function v4AlternarUsuario(id,ativo){
+  try{
+    const r=await fetch('/api/users/'+encodeURIComponent(id),{method:'PUT',headers:v4Headers(),
+      body:JSON.stringify({active:!ativo})});
+    const j=await r.json(); if(!r.ok) throw new Error(j.error||'Erro');
+    await v4CarregarUsuarios();
+  }catch(e){alert(e.message)}
+}
+async function v4CarregarAuditoria(){
+  const body=document.getElementById('auditLista'); if(!body)return;
+  body.innerHTML='<tr><td colspan="4">Carregando...</td></tr>';
+  try{
+    const r=await fetch('/api/audit',{headers:v4Headers()}); const j=await r.json();
+    if(!r.ok) throw new Error(j.error||'Falha');
+    V4.audit=j.logs||[]; v4RenderAuditoria(V4.audit);
+  }catch(e){body.innerHTML='<tr><td colspan="4">'+v4Esc(e.message)+'</td></tr>'}
+}
+function v4RenderAuditoria(logs){
+  const body=document.getElementById('auditLista'); if(!body)return;
+  body.innerHTML=logs.map(x=>`<tr><td>${v4Esc(v4Data(x.created_at))}</td>
+    <td>${v4Esc(x.username||'-')}</td><td>${v4Esc(x.action||'')}</td>
+    <td>${v4Esc(typeof x.details==='object'?JSON.stringify(x.details):String(x.details||''))}</td></tr>`).join('')
+    || '<tr><td colspan="4">Nenhum registro.</td></tr>';
+}
+function v4FiltrarAuditoria(){
+  const q=(document.getElementById('auditFiltro')?.value||'').toLowerCase();
+  v4RenderAuditoria(V4.audit.filter(x=>JSON.stringify(x).toLowerCase().includes(q)));
+}
+function v4Esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function v4Data(d){try{return new Date(d).toLocaleString('pt-BR')}catch(e){return d||''}}
+
+// Detecta quando o menu administrativo é aberto.
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  if((b.textContent||'').includes('Usuários e Permissões')) setTimeout(v4CarregarUsuarios,50);
+  if((b.textContent||'').includes('Histórico / Auditoria')) setTimeout(v4CarregarAuditoria,50);
+});
+
+// Integra com respostas de login fetch sem alterar a tela de login já existente.
+const v4Fetch=window.fetch.bind(window);
+window.fetch=async function(...args){
+  const resp=await v4Fetch(...args);
+  try{
+    const url=String(args[0]||'');
+    if(url.includes('/api/login') && resp.ok){
+      const clone=resp.clone(), j=await clone.json();
+      if(j.token){ V4.token=j.token; localStorage.setItem('vale_token',j.token); }
+      if(j.user){ V4.user=j.user; localStorage.setItem('vale_user',JSON.stringify(j.user)); }
+      setTimeout(v4AplicarVisibilidade,0);
+    }
+  }catch(e){}
+  return resp;
+};
+try{V4.user=JSON.parse(localStorage.getItem('vale_user')||'null')}catch(e){}
+document.addEventListener('DOMContentLoaded',v4AplicarVisibilidade);
+</script>
+
+<script>
+/* VALE DA SERRA V4.1 - correção definitiva do login */
+async function fazerLogin(){
+  const campoUsuario=document.getElementById('loginUsuario');
+  const campoSenha=document.getElementById('loginSenha');
+  const msg=document.getElementById('loginMsg');
+  const username=(campoUsuario?.value||'').trim();
+  const password=campoSenha?.value||'';
+
+  if(!username || !password){
+    if(msg){msg.style.color='#b52c2c';msg.textContent='Digite o usuário e a senha.';}
+    return;
+  }
+
+  if(msg){msg.style.color='#315a85';msg.textContent='Entrando...';}
+
+  try{
+    const r=await fetch('/api/login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username,password})
+    });
+    const j=await r.json();
+
+    if(!r.ok || !j.ok) throw new Error(j.error||'Usuário ou senha incorretos');
+
+    if(j.token){
+      localStorage.setItem('vale_token',j.token);
+      sessionStorage.setItem('vale_token',j.token);
+      V4.token=j.token;
+    }
+    if(j.user){
+      localStorage.setItem('vale_user',JSON.stringify(j.user));
+      V4.user=j.user;
+    }
+
+    sessionStorage.setItem('vds_logged_v1','1');
+    if(msg){msg.style.color='#168638';msg.textContent='Acesso autorizado.';}
+
+    mostrarSistema();
+    v4AplicarVisibilidade();
+    setTimeout(()=>{ try{showSection('painel',document.querySelector('.nav button'));}catch(e){} },50);
+  }catch(e){
+    sessionStorage.removeItem('vds_logged_v1');
+    if(msg){msg.style.color='#b52c2c';msg.textContent=e.message||'Não foi possível entrar.';}
+  }
+}
+
+async function sairSistema(){
+  try{
+    const t=v4GetToken();
+    if(t) await fetch('/api/logout',{method:'POST',headers:{Authorization:'Bearer '+t}});
+  }catch(e){}
+  sessionStorage.removeItem('vds_logged_v1');
+  localStorage.removeItem('vale_token');
+  sessionStorage.removeItem('vale_token');
+  localStorage.removeItem('vale_user');
+  V4.token=null; V4.user=null;
+  mostrarLogin();
+}
+</script>
 
 </body>
 </html>
