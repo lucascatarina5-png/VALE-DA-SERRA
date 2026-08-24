@@ -185,6 +185,18 @@ async function auth(req, res, next) {
     next();
   } catch(e) { res.status(500).json({ok:false,error:e.message}); }
 }
+async function optionalAuth(req,res,next){
+  try {
+    const h=req.headers.authorization||'', t=h.startsWith('Bearer ')?h.slice(7):'';
+    if(!t) return next();
+    const r=await pool.query(`SELECT s.user_id,u.username,u.name,u.role,u.active,u.permissions
+      FROM app_sessions s LEFT JOIN app_users u ON u.id::text=s.user_id
+      WHERE s.token=$1 AND s.expires_at>NOW() LIMIT 1`,[t]);
+    if(r.rowCount) req.user=r.rows[0];
+  } catch(e) {}
+  next();
+}
+
 function adminOnly(req,res,next){
   if(req.user.role !== 'administrador')
     return res.status(403).json({ok:false,error:'Somente administrador'});
@@ -218,6 +230,10 @@ app.post('/api/login', async (req,res)=>{
     await audit({user_id:String(u.id),username:u.username},'LOGIN');
     res.json({ok:true,token:t,user:{id:String(u.id),username:u.username,name:u.name,role:u.role,permissions:u.permissions}});
   } catch(e){ res.status(500).json({ok:false,error:e.message}); }
+});
+
+app.get('/api/me',auth,async(req,res)=>{
+  res.json({ok:true,user:{id:req.user.user_id,username:req.user.username,name:req.user.name,role:req.user.role,permissions:req.user.permissions}});
 });
 
 app.post('/api/logout',auth,async(req,res)=>{
@@ -280,7 +296,7 @@ app.get('/api/state', async (_req,res)=>{
   } catch(e){ res.status(500).json({ok:false,error:e.message}); }
 });
 
-app.put('/api/state', async (req,res)=>{
+app.put('/api/state', optionalAuth, async (req,res)=>{
   try {
     const data=req.body?.data;
     if(!data || typeof data!=='object') return res.status(400).json({ok:false,error:'Dados inválidos'});
@@ -288,6 +304,7 @@ app.put('/api/state', async (req,res)=>{
       VALUES('vale-da-serra',$1::jsonb,NOW())
       ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()`,
       [JSON.stringify(data)]);
+    if(req.user) await audit(req.user,'DADOS_SISTEMA_ATUALIZADOS',{origem:'app_state'});
     res.json({ok:true});
   } catch(e){ res.status(500).json({ok:false,error:e.message}); }
 });

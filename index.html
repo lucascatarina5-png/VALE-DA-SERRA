@@ -834,178 +834,6 @@ td{font-size:12.5px}
   font-weight:900;
 }
 
-
-/* v42 - ficha completa do produtor */
-.pesquisa-produtor-topo{display:grid;grid-template-columns:minmax(260px,1fr) auto;gap:12px;align-items:end}.pesquisa-acoes{justify-content:flex-end}.ficha-produtor-header{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap;background:linear-gradient(135deg,#f8fbff,#fffdf5);border:1px solid #dce6f0;border-radius:14px;padding:16px;margin-bottom:14px}.ficha-produtor-header h2{margin:0;color:#062a55}.ficha-produtor-header p{margin:5px 0 0;color:#66758a}.ficha-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.ficha-grid{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px}.ficha-subcard{box-shadow:none!important;padding:13px!important}.ficha-subcard table{min-width:620px}@media(max-width:760px){.pesquisa-produtor-topo{grid-template-columns:1fr}.pesquisa-acoes{justify-content:flex-start}.ficha-kpis{grid-template-columns:1fr 1fr}}
-
-
-/* v43 - fechamento da quinzena */
-.fechamento-filtros{
-  display:grid;
-  grid-template-columns:1fr 1fr 1fr;
-  gap:14px;
-  padding:14px;
-  background:#f8fbff;
-  border:1px solid #dce7f4;
-  border-radius:14px;
-}
-#fStatusBox{
-  border-left:5px solid #ffc400;
-}
-@media(max-width:760px){
-  .fechamento-filtros{grid-template-columns:1fr}
-}
-
-
-/* v44 - importação automática de relatórios PDF */
-.import-pdf-grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:14px;
-  padding:14px;
-  background:linear-gradient(180deg,#f8fbff,#f4f8fc);
-  border:1px solid #d9e5f2;
-  border-radius:14px;
-}
-.import-pdf-grid input{
-  min-height:44px;
-}
-.import-preview-card{
-  border:1px solid #dfe6ef!important;
-  background:#fff;
-}
-.import-confirm-btn{
-  min-width:230px;
-  font-size:15px;
-}
-#importarpdf .tablewrap{
-  max-height:430px;
-  overflow:auto;
-}
-#importarpdf th{
-  position:sticky;
-  top:0;
-  z-index:2;
-}
-@media(max-width:760px){
-  .import-pdf-grid{grid-template-columns:1fr}
-}
-
-
-/* v45 - Painel de Auditoria e Suspeitas */
-.auditoria-filtros{
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:12px;
-  padding:14px;
-  background:linear-gradient(180deg,#f8fbff,#f4f8fc);
-  border:1px solid #d9e5f2;
-  border-radius:14px;
-}
-.auditoria-legenda{
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:8px;
-  font-size:12px;
-}
-.auditoria-legenda span{
-  padding:9px 10px;
-  background:#f8fafc;
-  border:1px solid #e2e8f0;
-  border-radius:10px;
-}
-.audit-badge{
-  display:inline-block;
-  padding:6px 9px;
-  border-radius:999px;
-  font-size:10px;
-  font-weight:900;
-  white-space:nowrap;
-}
-.audit-ok{background:#e7f7eb;color:#15733a}
-.audit-att{background:#fff5d9;color:#9a6400}
-.audit-med{background:#ffe9d8;color:#b35a00}
-.audit-high{background:#fde4e4;color:#a61f1f}
-.audit-text{background:transparent!important;padding:0!important}
-.audit-modal{
-  position:fixed;
-  inset:0;
-  z-index:7000;
-  background:rgba(3,25,55,.74);
-  display:none;
-  align-items:center;
-  justify-content:center;
-  padding:20px;
-}
-.audit-box{
-  width:min(1080px,97vw);
-  max-height:90vh;
-  overflow:auto;
-  background:#fff;
-  border-radius:20px;
-  border:1px solid #dce5ef;
-  box-shadow:0 24px 70px rgba(0,0,0,.30);
-}
-.audit-head{
-  display:flex;
-  justify-content:space-between;
-  gap:18px;
-  align-items:flex-start;
-  padding:20px 22px;
-  background:linear-gradient(135deg,#062a55,#0b4d91);
-  color:#fff;
-  border-bottom:5px solid #ffc400;
-}
-.audit-head h2{margin:3px 0 4px;color:#fff}
-.audit-head p{margin:0;color:#e7f0fb}
-.audit-kicker{font-size:11px;font-weight:900;letter-spacing:1.2px;color:#ffc400}
-.audit-close{
-  width:42px;height:42px;border:0;border-radius:50%;
-  background:rgba(255,255,255,.14);color:#fff;font-size:27px;cursor:pointer;
-}
-.audit-body{padding:18px 20px 22px}
-.audit-summary-grid{
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:10px;
-  margin-bottom:14px;
-}
-.audit-stat{
-  border:1px solid #dfe6ef;
-  border-radius:12px;
-  padding:11px;
-  background:#fff;
-}
-.audit-stat span{display:block;font-size:10px;color:#66758a;text-transform:uppercase;font-weight:800}
-.audit-stat b{display:block;margin-top:5px;font-size:17px}
-.audit-warning{border-left:5px solid #ffc400;margin:12px 0}
-.audit-reasons{
-  display:grid;
-  gap:7px;
-  padding:10px 12px;
-  background:#f8fbff;
-  border:1px solid #dce6f0;
-  border-radius:10px;
-  font-size:12px;
-}
-#auditoria .tablewrap{max-height:520px;overflow:auto}
-#auditoria th{position:sticky;top:0;z-index:2}
-@media(max-width:850px){
-  .auditoria-filtros{grid-template-columns:1fr 1fr}
-  .auditoria-legenda{grid-template-columns:1fr 1fr}
-  .audit-summary-grid{grid-template-columns:1fr 1fr}
-}
-@media(max-width:560px){
-  .auditoria-filtros,.auditoria-legenda,.audit-summary-grid{grid-template-columns:1fr}
-}
-
-
-/* v47 - servidor / Supabase */
-.server-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:14px;background:linear-gradient(180deg,#f8fbff,#f4f8fc);border:1px solid #d9e5f2;border-radius:14px}
-.server-permissions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
-.server-perm{padding:6px 9px;border-radius:999px;background:#e9f2ff;color:#0b4d91;border:1px solid #c9ddf2;font-size:11px;font-weight:800}
-@media(max-width:760px){.server-grid{grid-template-columns:1fr}}
-
 </style>
 </head>
 <body>
@@ -1040,18 +868,16 @@ td{font-size:12.5px}
     <button class="active" onclick="showSection('painel',this)">🏠 Painel</button>
     <button onclick="showSection('lancamentos',this)">💧 Nova Entrada</button>
     <button class="edit-menu-button" onclick="abrirEdicaoRecebimentos(this)">✏️ Editar Recebimentos</button>
-    <button onclick="showSection('importarpdf',this)">📄 Importar Relatório PDF</button>
     <button onclick="showSection('produtores',this)">👥 Produtores</button>
-    <button onclick="showSection('auditoria',this)">🛡️ Auditoria e Suspeitas</button>
     <button onclick="showSection('pesquisa',this)">🔎 Pesquisa</button>
     <button onclick="showSection('pagamentos',this)">💰 Pagamentos</button>
-    <button onclick="showSection('fechamento',this)">🔒 Fechamento da Quinzena</button>
     <button onclick="showSection('debitos',this)">🏷️ Débitos</button>
     <button onclick="showSection('alertaswhats',this)">💬 Alertas WhatsApp</button>
     <button onclick="showSection('relatorios',this)">📊 Relatórios</button>
     <button onclick="showSection('pagamentos',this)">🧾 Comprovantes</button>
     <button onclick="showSection('backup',this)">☁️ Backup</button>
-    <button onclick="showSection('servidor',this)">☁️ Servidor & Usuários</button>
+    <button id="menuUsuarios" class="admin-only-v4" onclick="showSection('usuarios',this)">👤 Usuários e Permissões</button>
+    <button id="menuAuditoria" class="admin-only-v4" onclick="showSection('auditoria',this)">🛡️ Histórico / Auditoria</button>
     <button onclick="showSection('configuracoes',this)">⚙️ Configurações</button>
     <button onclick="sairSistema()">🚪 Sair</button>
   </div>
@@ -1062,7 +888,7 @@ td{font-size:12.5px}
     <div style="display:flex;align-items:center;gap:10px"><span style="font-size:30px">👤</span><div><small>ADMINISTRADOR</small><div style="font-weight:800;margin-top:3px">Nível: Administrador</div></div></div>
   </div>
 <div style="padding:12px 8px 2px;color:#dfe9f8;font-size:11px;line-height:1.55">
-    Versão 47.0<br>
+    Versão 40.0<br>
     © Vale da Serra Laticínios<br>
     Todos os direitos reservados
   </div>
@@ -1138,79 +964,6 @@ td{font-size:12.5px}
       </div>
     </section>
 
-
-    <section id="importarpdf" class="section">
-      <div class="card">
-        <h3>📄 IMPORTAR RELATÓRIO DE RECEBIMENTO</h3>
-        <div class="notice" style="margin-bottom:16px">
-          Selecione um ou vários relatórios PDF da Vale da Serra. O sistema lê os produtores e as entradas, mostra uma conferência e só grava depois da sua confirmação.
-        </div>
-
-        <div class="import-pdf-grid">
-          <div>
-            <label>1. Relatório(s) PDF</label>
-            <input type="file" id="pdfRelatorios" accept="application/pdf,.pdf" multiple onchange="prepararImportacaoPDF()">
-            <small class="muted">Você pode selecionar vários PDFs de uma vez.</small>
-          </div>
-          <div>
-            <label>2. Localidade destes produtores</label>
-            <input id="pdfLocalidade" placeholder="Ex.: CATARINA-CE">
-          </div>
-          <div>
-            <label>3. Responsável pelo tanque</label>
-            <input id="pdfTanqueiro" placeholder="Ex.: MARCOS KLYSMAN">
-          </div>
-          <div>
-            <label>4. Caminhão responsável (opcional)</label>
-            <input id="pdfCaminhao" placeholder="Opcional">
-          </div>
-        </div>
-
-        <div class="actions" style="margin-top:16px">
-          <button type="button" class="btn yellow" onclick="lerRelatoriosPDF()">🔍 Ler e Conferir PDF</button>
-          <button type="button" class="btn secondary" onclick="limparImportacaoPDF()">Limpar</button>
-        </div>
-
-        <div id="pdfImportStatus" class="notice" style="margin-top:16px;display:none"></div>
-
-        <div id="pdfResumoImportacao" style="display:none;margin-top:16px">
-          <div class="kpis">
-            <div class="kpi"><div class="ico blue">📄</div><div><div class="label">RELATÓRIOS</div><div class="value" id="pdfQtdArquivos">0</div></div></div>
-            <div class="kpi"><div class="ico purple">👥</div><div><div class="label">PRODUTORES</div><div class="value" id="pdfQtdProdutores">0</div></div></div>
-            <div class="kpi"><div class="ico orange">🧾</div><div><div class="label">ENTRADAS</div><div class="value" id="pdfQtdEntradas">0</div></div></div>
-            <div class="kpi"><div class="ico green">💧</div><div><div class="label">LITROS</div><div class="value" id="pdfTotalLitros">0 L</div></div></div>
-          </div>
-
-          <div class="card import-preview-card" style="margin-top:14px;box-shadow:none">
-            <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
-              <h3 style="margin:0">CONFERÊNCIA ANTES DA IMPORTAÇÃO</h3>
-              <div class="muted">Somente linhas com <b>Coletado = SIM</b> e volume maior que zero serão lançadas.</div>
-            </div>
-            <div class="tablewrap" style="margin-top:12px">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Arquivo</th>
-                    <th>Data</th>
-                    <th>Hora</th>
-                    <th>Código</th>
-                    <th>Produtor</th>
-                    <th>Litros</th>
-                    <th>Situação</th>
-                  </tr>
-                </thead>
-                <tbody id="tbPreviewImportacaoPDF"></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="actions" style="margin-top:16px">
-            <button type="button" class="btn yellow import-confirm-btn" onclick="confirmarImportacaoPDF()">✅ Confirmar Importação</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <section id="produtores" class="section">
       <div class="card">
         <h3>👥 CADASTRO DE PRODUTOR</h3>
@@ -1250,122 +1003,15 @@ td{font-size:12.5px}
       </div>
     </section>
 
-
-
-    <section id="auditoria" class="section">
-      <div class="card">
-        <h3>🛡️ PAINEL DE AUDITORIA E SUSPEITAS</h3>
-        <div class="notice" style="margin-bottom:16px">
-          Este painel identifica <b>anomalias que precisam de conferência</b>. Ele não prova fraude ou roubo. A análise agora separa <b>manhã</b> de <b>tarde/noite</b>, respeitando a diferença normal de produção entre as ordenhas, e também avalia o <b>total diário</b>.
-        </div>
-
-        <div class="auditoria-filtros">
-          <div>
-            <label>Período inicial</label>
-            <input type="date" id="aIni" oninput="renderAuditoria()">
-          </div>
-          <div>
-            <label>Período final</label>
-            <input type="date" id="aFim" oninput="renderAuditoria()">
-          </div>
-          <div>
-            <label>Localidade</label>
-            <input id="aLocalidade" placeholder="Todas as localidades" oninput="renderAuditoria()">
-          </div>
-          <div>
-            <label>Produtor</label>
-            <input id="aProdutor" placeholder="Digite parte do nome" oninput="renderAuditoria()">
-          </div>
-          <div>
-            <label>Nível mínimo</label>
-            <select id="aNivel" onchange="renderAuditoria()">
-              <option value="0">Todos</option>
-              <option value="1">Atenção</option>
-              <option value="2">Suspeita Moderada</option>
-              <option value="3">Suspeita Alta</option>
-            </select>
-          </div>
-          <div class="actions" style="align-items:end">
-            <button type="button" class="btn secondary" onclick="limparFiltrosAuditoria()">Limpar filtros</button>
-          </div>
-        </div>
-
-        <div class="kpis" style="margin-top:16px">
-          <div class="kpi"><div class="ico blue">👥</div><div><div class="label">PRODUTORES ANALISADOS</div><div class="value" id="aQtdProdutores">0</div></div></div>
-          <div class="kpi"><div class="ico orange">⚠️</div><div><div class="label">ATENÇÃO</div><div class="value" id="aQtdAtencao">0</div></div></div>
-          <div class="kpi"><div class="ico purple">🟠</div><div><div class="label">MODERADA</div><div class="value" id="aQtdModerada">0</div></div></div>
-          <div class="kpi"><div class="ico red">🚨</div><div><div class="label">ALTA</div><div class="value" id="aQtdAlta">0</div></div></div>
-        </div>
-
-        <div class="card auditoria-resumo" style="margin-top:16px;box-shadow:none">
-          <h3 style="margin-top:0">COMO O RISCO É CALCULADO</h3>
-          <div class="auditoria-legenda">
-            <span>🌅 Manhã comparada somente com histórico da manhã</span>
-            <span>🔁 Anomalias repetidas</span>
-            <span>🕒 Horário muito diferente do padrão</span>
-            <span>🌙 Tarde/noite comparada somente com histórico da tarde/noite</span>
-            <span>📊 Total diário comparado com histórico diário</span>
-          </div>
-        </div>
-
-        <div class="tablewrap" style="margin-top:16px">
-          <table>
-            <thead>
-              <tr>
-                <th>Nível</th>
-                <th>Produtor</th>
-                <th>Localidade</th>
-                <th>Última Entrada</th>
-                <th>Média Manhã</th>
-                <th>Média Tarde</th>
-                <th>Anomalias</th>
-                <th>Principais Motivos</th>
-                <th>Ação</th>
-              </tr>
-            </thead>
-            <tbody id="tbAuditoria"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
     <section id="pesquisa" class="section">
       <div class="card">
-        <h3>🔎 PESQUISA / FICHA COMPLETA DO PRODUTOR</h3>
-        <div class="notice" style="margin-bottom:14px">
-          Pesquise pelo nome. Ao localizar o produtor, você verá cadastro, produção, débitos, pagamentos e poderá editar ou imprimir a ficha individual.
-        </div>
-        <div class="pesquisa-produtor-topo">
-          <div>
-            <label>Nome do produtor</label>
-            <input id="busca" placeholder="Digite o nome do produtor..." oninput="renderPesquisa()">
-          </div>
-          <div class="actions pesquisa-acoes" id="acoesPesquisaProdutor" style="display:none">
-            <button class="btn secondary" type="button" onclick="abrirEdicaoProdutor(produtorPesquisaAtualId)">✏️ Editar Produtor</button>
-            <button class="btn yellow" type="button" onclick="imprimirFichaProdutorA4(produtorPesquisaAtualId)">🖨️ Imprimir Ficha A4</button>
-          </div>
-        </div>
+        <h3>🔎 PESQUISA DE PRODUTOR</h3>
+        <input id="busca" placeholder="Digite o nome do produtor..." oninput="renderPesquisa()" style="max-width:430px">
         <div id="resultadoPesquisa" class="muted" style="margin-top:16px">Digite um nome para pesquisar.</div>
       </div>
-
-      <div id="editarProdutorBox" class="card" style="display:none;margin-top:16px">
-        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap">
-          <h3 style="margin:0">✏️ EDITAR INFORMAÇÕES DO PRODUTOR</h3>
-          <button class="btn secondary" type="button" onclick="fecharEdicaoProdutor()">Fechar</button>
-        </div>
-        <div class="grid2" style="margin-top:14px">
-          <div><label>Nome</label><input id="eNome"></div>
-          <div><label>Localidade</label><input id="eLocal"></div>
-          <div><label>Tanqueiro responsável</label><input id="eTanqueiro"></div>
-          <div><label>Caminhão responsável</label><input id="eCaminhao"></div>
-          <div><label>WhatsApp do produtor</label><input id="eWhats"></div>
-          <div><label>WhatsApp do tanqueiro</label><input id="eWhatsTanqueiro"></div>
-        </div>
-        <div class="actions" style="margin-top:14px">
-          <button class="btn yellow" type="button" onclick="salvarEdicaoProdutor()">💾 Salvar Alterações</button>
-        </div>
-      </div>
     </section>
+
+
 
     <section id="debitos" class="section">
       <div class="card">
@@ -1521,66 +1167,6 @@ td{font-size:12.5px}
 
 
 
-
-    <section id="fechamento" class="section">
-      <div class="card">
-        <h3>🔒 FECHAMENTO DA QUINZENA</h3>
-        <div class="notice" style="margin-bottom:16px">
-          Confira todos os valores antes de fechar. Depois do fechamento, alterações em leite, débitos e pagamentos desse período ficam bloqueadas até a reabertura pelo administrador.
-        </div>
-
-        <div class="fechamento-filtros">
-          <div>
-            <label>Mês</label>
-            <input type="month" id="fMes" onchange="renderFechamento()">
-          </div>
-          <div>
-            <label>Quinzena</label>
-            <select id="fQuinzena" onchange="renderFechamento()">
-              <option value="1">1ª quinzena (01 a 15)</option>
-              <option value="2">2ª quinzena (16 ao fim do mês)</option>
-            </select>
-          </div>
-          <div>
-            <label>Localidade</label>
-            <input id="fLocalidade" placeholder="Todas as localidades" oninput="renderFechamento()">
-          </div>
-        </div>
-
-        <div class="kpis" style="margin-top:16px">
-          <div class="kpi"><div class="ico blue">💧</div><div><div class="label">LITROS</div><div class="value" id="fLitros">0 L</div></div></div>
-          <div class="kpi"><div class="ico purple">💲</div><div><div class="label">BRUTO</div><div class="value" id="fBruto">R$ 0,00</div></div></div>
-          <div class="kpi"><div class="ico orange">🧾</div><div><div class="label">SALDO DÉBITOS</div><div class="value" id="fDebitos">R$ 0,00</div></div></div>
-          <div class="kpi"><div class="ico green">✅</div><div><div class="label">LÍQUIDO</div><div class="value" id="fLiquido">R$ 0,00</div></div></div>
-        </div>
-
-        <div id="fStatusBox" class="notice" style="margin-top:16px"></div>
-
-        <div class="actions" style="margin:16px 0">
-          <button type="button" class="btn yellow" id="btnFecharQuinzena" onclick="fecharQuinzena()">🔒 Fechar Quinzena</button>
-          <button type="button" class="btn danger" id="btnReabrirQuinzena" onclick="reabrirQuinzena()" style="display:none">🔓 Reabrir Quinzena</button>
-          <button type="button" class="btn secondary" onclick="imprimirFechamentoA4()">🖨️ Imprimir Fechamento A4</button>
-        </div>
-
-        <div class="tablewrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Produtor</th>
-                <th>Localidade</th>
-                <th>Litros</th>
-                <th>Bruto</th>
-                <th>Débitos</th>
-                <th>Líquido</th>
-                <th>Status Pagamento</th>
-              </tr>
-            </thead>
-            <tbody id="tbFechamento"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
     <section id="relatorios" class="section">
       <div class="card">
         <h3>📊 RELATÓRIO COMPLETO DO PRODUTOR</h3>
@@ -1625,60 +1211,58 @@ td{font-size:12.5px}
       </div>
     </section>
 
+    
+<section id="usuarios" class="section">
+  <div class="card">
+    <h2>👤 Usuários e Permissões</h2>
+    <p style="color:#64748b">Área exclusiva do administrador. Cadastre usuários, defina perfil, senha, status e permissões.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-top:18px">
+      <div><label>Nome</label><input id="admNome" placeholder="Nome do usuário"></div>
+      <div><label>Usuário</label><input id="admUsuario" placeholder="Ex.: joao"></div>
+      <div><label>Senha</label><input id="admSenha" type="password" placeholder="Senha inicial"></div>
+      <div><label>Perfil</label><select id="admPerfil">
+        <option value="operador">Operador</option>
+        <option value="financeiro">Financeiro</option>
+        <option value="consulta">Somente consulta</option>
+        <option value="administrador">Administrador</option>
+      </select></div>
+    </div>
+    <h3 style="margin-top:20px">Permissões</h3>
+    <div id="admPermissoes" style="display:flex;flex-wrap:wrap;gap:10px">
+      <label><input type="checkbox" value="entradas"> Entradas de leite</label>
+      <label><input type="checkbox" value="produtores"> Produtores</label>
+      <label><input type="checkbox" value="pagamentos"> Pagamentos</label>
+      <label><input type="checkbox" value="debitos"> Débitos</label>
+      <label><input type="checkbox" value="relatorios"> Relatórios</label>
+      <label><input type="checkbox" value="edicao"> Editar registros</label>
+      <label><input type="checkbox" value="backup"> Backup</label>
+    </div>
+    <button style="margin-top:18px" onclick="v4CriarUsuario()">➕ Cadastrar Usuário</button>
+    <div id="admMsg" style="margin-top:12px"></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h3>Usuários cadastrados</h3>
+    <div style="overflow:auto"><table style="width:100%"><thead><tr>
+      <th>Usuário</th><th>Nome</th><th>Perfil</th><th>Status</th><th>Permissões</th><th>Ação</th>
+    </tr></thead><tbody id="admListaUsuarios"></tbody></table></div>
+  </div>
+</section>
 
-    <section id="servidor" class="section">
-      <div class="card">
-        <h3>☁️ SERVIDOR / SUPABASE</h3>
-        <div class="notice" style="margin-bottom:16px">
-          Conecte o Vale da Serra a um banco de dados online com usuários, permissões e histórico. Use somente a <b>Project URL</b> e a <b>Publishable/Anon Key</b>. Nunca use a Service Role Key neste HTML.
-        </div>
-        <div class="server-grid">
-          <div><label>Project URL</label><input id="srvUrl" placeholder="https://seu-projeto.supabase.co"></div>
-          <div><label>Publishable / Anon Key</label><input id="srvKey" type="password" placeholder="Chave pública"></div>
-          <div><label>E-mail</label><input id="srvEmail" type="email" placeholder="usuario@empresa.com"></div>
-          <div><label>Senha</label><input id="srvSenha" type="password"></div>
-        </div>
-        <div class="actions" style="margin-top:14px">
-          <button type="button" class="btn secondary" onclick="salvarConfigServidor()">💾 Salvar Configuração</button>
-          <button type="button" class="btn yellow" onclick="conectarServidor()">🔐 Entrar no Servidor</button>
-          <button type="button" class="btn danger" onclick="sairServidor()">Sair</button>
-        </div>
-        <div id="srvStatus" class="notice" style="margin-top:14px">Servidor ainda não conectado.</div>
-      </div>
+<section id="auditoria" class="section">
+  <div class="card">
+    <h2>🛡️ Histórico / Auditoria</h2>
+    <p style="color:#64748b">Registro das ações dos usuários no sistema.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:15px 0">
+      <input id="auditFiltro" placeholder="Filtrar usuário ou ação" oninput="v4FiltrarAuditoria()" style="max-width:360px">
+      <button onclick="v4CarregarAuditoria()">🔄 Atualizar</button>
+    </div>
+    <div style="overflow:auto"><table style="width:100%"><thead><tr>
+      <th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Detalhes</th>
+    </tr></thead><tbody id="auditLista"></tbody></table></div>
+  </div>
+</section>
 
-      <div class="card" style="margin-top:16px">
-        <h3>🔄 SINCRONIZAÇÃO</h3>
-        <div class="notice" style="margin-bottom:14px">
-          Na primeira migração, envie os dados deste computador. Depois, você poderá baixar novamente os dados centralizados do servidor.
-        </div>
-        <div class="actions">
-          <button type="button" class="btn yellow" onclick="enviarDadosLocaisServidor()">⬆️ Enviar dados locais</button>
-          <button type="button" class="btn secondary" onclick="baixarDadosServidor()">⬇️ Atualizar deste servidor</button>
-        </div>
-        <div id="srvSyncStatus" class="notice" style="margin-top:14px;display:none"></div>
-      </div>
-
-      <div class="card" style="margin-top:16px">
-        <h3>👥 USUÁRIO E PERMISSÕES</h3>
-        <div id="srvPerfilBox" class="notice">Nenhum usuário conectado.</div>
-        <div id="srvPermissoes" class="server-permissions"></div>
-      </div>
-
-      <div class="card" style="margin-top:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-          <h3 style="margin:0">📋 HISTÓRICO DE ATIVIDADES</h3>
-          <button type="button" class="btn secondary" onclick="carregarAuditoriaServidor()">Atualizar Histórico</button>
-        </div>
-        <div class="tablewrap" style="margin-top:12px">
-          <table>
-            <thead><tr><th>Data/Hora</th><th>Usuário</th><th>Ação</th><th>Tabela</th><th>Registro</th></tr></thead>
-            <tbody id="tbAuditoriaServidor"><tr><td colspan="5">Conecte ao servidor para consultar.</td></tr></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <section id="configuracoes" class="section">
+<section id="configuracoes" class="section">
       <div class="card">
         <h3>⚙️ CONFIGURAÇÕES DO ADMINISTRADOR</h3>
         <div class="admin-grid" style="margin-bottom:18px">
@@ -1727,8 +1311,6 @@ td{font-size:12.5px}
 </main>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 
 const KAUTH='vds_auth_v1';
@@ -1786,14 +1368,13 @@ function iniciarAutenticacao(){
   if(sessaoAtiva())mostrarSistema(); else mostrarLogin();
 }
 
-const KPROD='vds_produtores_v1', KLANC='vds_lancamentos_v1', KPAG='vds_pagamentos_v1', KDEB='vds_debitos_v1', KDEBPAG='vds_debitos_pagamentos_v1', KFECH='vds_fechamentos_v1';
+const KPROD='vds_produtores_v1', KLANC='vds_lancamentos_v1', KPAG='vds_pagamentos_v1', KDEB='vds_debitos_v1', KDEBPAG='vds_debitos_pagamentos_v1';
 const VALOR_LITRO=2.30;
 let produtores=JSON.parse(localStorage.getItem(KPROD)||'[]');
 let lancamentos=JSON.parse(localStorage.getItem(KLANC)||'[]');
 let pagamentos=JSON.parse(localStorage.getItem(KPAG)||'[]');
 let debitos=JSON.parse(localStorage.getItem(KDEB)||'[]');
 let pagamentosDebitos=JSON.parse(localStorage.getItem(KDEBPAG)||'[]');
-let fechamentos=JSON.parse(localStorage.getItem(KFECH)||'[]');
 let editId=null;
 
 function isoHoje(){return new Date().toISOString().slice(0,10)}
@@ -1882,7 +1463,7 @@ function editarProd(id){let p=prodById(id);if(!p)return;editId=id;pNome.value=p.
 function excluirProd(id){if(lancamentos.some(x=>x.prodId===id)){alert('Este produtor possui lançamentos.');return}if(confirm('Excluir produtor?')){produtores=produtores.filter(x=>x.id!==id);save()}}
 function limparProd(){editId=null;formProd.reset()}
 
-document.getElementById('formDeb').addEventListener('submit',e=>{e.preventDefault();if(periodoBloqueado(dData.value)){alert('Esta quinzena está fechada. Reabra o período antes de registrar débito.');return;}let p=prodById(dProd.value);if(!p)return;debitos.push({id:crypto.randomUUID(),data:dData.value,prodId:p.id,descricao:dDesc.value.trim(),valor:Number(dValor.value)});e.target.reset();dData.value=isoHoje();save()});
+document.getElementById('formDeb').addEventListener('submit',e=>{e.preventDefault();let p=prodById(dProd.value);if(!p)return;debitos.push({id:crypto.randomUUID(),data:dData.value,prodId:p.id,descricao:dDesc.value.trim(),valor:Number(dValor.value)});e.target.reset();dData.value=isoHoje();save()});
 
 
 function pagamentosDoDebito(debitoId){
@@ -1907,7 +1488,6 @@ function registrarPagamentoDebito(id){
     alert('Débito não encontrado.');
     return;
   }
-  if(periodoBloqueado(deb.data)){alert('Esta quinzena está fechada. Reabra o período antes de registrar pagamento deste débito.');return;}
 
   let p=prodById(deb.prodId);
   let saldo=saldoDebito(id);
@@ -1984,7 +1564,6 @@ function editarDebito(id){
     alert('Débito não encontrado.');
     return;
   }
-  if(periodoBloqueado(deb.data)){alert('Esta quinzena está fechada. Reabra o período antes de editar este débito.');return;}
 
   let produtor=prodById(deb.prodId);
   let novaData=prompt(
@@ -2054,557 +1633,9 @@ function excluirDebito(id){
   }
 }
 
-document.getElementById('formLanc').addEventListener('submit',e=>{e.preventDefault();if(periodoBloqueado(lData.value)){alert('Esta quinzena está fechada. Reabra o período antes de lançar leite.');return;}let p=prodById(lProd.value);if(!p)return;lancamentos.push({id:crypto.randomUUID(),data:lData.value,prodId:p.id,qtd:Number(lQtd.value),local:p.local,tanqueiro:p.tanqueiro,caminhao:p.caminhao});e.target.reset();lData.value=isoHoje();save()});
+document.getElementById('formLanc').addEventListener('submit',e=>{e.preventDefault();let p=prodById(lProd.value);if(!p)return;lancamentos.push({id:crypto.randomUUID(),data:lData.value,prodId:p.id,qtd:Number(lQtd.value),local:p.local,tanqueiro:p.tanqueiro,caminhao:p.caminhao});e.target.reset();lData.value=isoHoje();save()});
 function excluirLanc(id){if(confirm('Excluir lançamento?')){lancamentos=lancamentos.filter(x=>x.id!==id);save()}}
 function preencherProdutor(){let p=prodById(lProd.value);lLocal.value=p?.local||'';lTanqueiro.value=p?.tanqueiro||'';lCaminhao.value=p?.caminhao||'';lStatus.textContent=p?`Status: ${statusProd(p.id)} | Média últimos 10 dias: ${fmt(mediaUltimosDias(p.id))} L/dia`:'Selecione um produtor.'}
-
-
-let importacaoPDFAtual={arquivos:[],produtores:[],entradas:[],erros:[]};
-
-function prepararImportacaoPDF(){
-  let files=[...(document.getElementById('pdfRelatorios')?.files||[])];
-  let status=document.getElementById('pdfImportStatus');
-  if(status){
-    status.style.display='block';
-    status.innerHTML=files.length
-      ? `<b>${files.length}</b> arquivo(s) selecionado(s). Clique em <b>Ler e Conferir PDF</b>.`
-      : 'Nenhum arquivo selecionado.';
-  }
-  let resumo=document.getElementById('pdfResumoImportacao');
-  if(resumo)resumo.style.display='none';
-}
-
-function limparImportacaoPDF(){
-  let inp=document.getElementById('pdfRelatorios');
-  if(inp)inp.value='';
-  let status=document.getElementById('pdfImportStatus');
-  if(status){status.style.display='none';status.innerHTML='';}
-  let resumo=document.getElementById('pdfResumoImportacao');
-  if(resumo)resumo.style.display='none';
-  importacaoPDFAtual={arquivos:[],produtores:[],entradas:[],erros:[]};
-}
-
-function normalizarTextoPDF(v){
-  return String(v||'')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g,'')
-    .replace(/\u00a0/g,' ')
-    .replace(/\s+/g,' ')
-    .trim();
-}
-
-async function extrairTextoPDF(file){
-  if(typeof pdfjsLib==='undefined'){
-    throw new Error('Leitor de PDF não carregado. Verifique sua conexão com a internet e abra o programa novamente.');
-  }
-
-  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-  let buffer=await file.arrayBuffer();
-  let pdf=await pdfjsLib.getDocument({data:buffer}).promise;
-  let paginas=[];
-
-  for(let n=1;n<=pdf.numPages;n++){
-    let page=await pdf.getPage(n);
-    let content=await page.getTextContent();
-
-    // Agrupa itens por coordenada vertical para reconstruir linhas da tabela.
-    let linhasMap=new Map();
-    content.items.forEach(item=>{
-      let y=Math.round(item.transform?.[5]||0);
-      if(!linhasMap.has(y))linhasMap.set(y,[]);
-      linhasMap.get(y).push({
-        x:item.transform?.[4]||0,
-        str:item.str||''
-      });
-    });
-
-    let linhas=[...linhasMap.entries()]
-      .sort((a,b)=>b[0]-a[0])
-      .map(([y,items])=>items.sort((a,b)=>a.x-b.x).map(i=>i.str).join(' '))
-      .map(x=>normalizarTextoPDF(x))
-      .filter(Boolean);
-
-    paginas.push(linhas.join('\n'));
-  }
-
-  return paginas.join('\n');
-}
-
-function parseRelatorioRecebimento(texto,nomeArquivo){
-  let t=texto.replace(/\r/g,'');
-  let dataM=t.match(/Data:\s*(\d{2}\/\d{2}\/\d{4})/i);
-  let rotaM=t.match(/Rota:\s*(\d+)/i);
-  let titularM=t.match(/Nome do Titular do Tanque:\s*(.+)/i);
-  let respM=t.match(/Respons[aá]vel pelo Recebimento:\s*(.+)/i);
-
-  if(!dataM){
-    throw new Error(`Não consegui localizar a data em ${nomeArquivo}.`);
-  }
-
-  let [dd,mm,aaaa]=dataM[1].split('/');
-  let data=`${aaaa}-${mm}-${dd}`;
-  let rota=rotaM?rotaM[1]:'';
-  let titular=titularM?titularM[1].split('\n')[0].trim():'';
-  let responsavel=respM?respM[1].split('\n')[0].trim():'';
-
-  let linhas=t.split('\n').map(x=>normalizarTextoPDF(x)).filter(Boolean);
-  let registros=[];
-
-  linhas.forEach(linha=>{
-    // Formato esperado: Hora Código Nome... SIM/NÃO Volume
-    let m=linha.match(/^(\d{2}:\d{2})\s+(\d+)\s+(.+?)\s+(SIM|N[ÃA]O)\s+([\d.,]+)\s*$/i);
-    if(!m)return;
-
-    let [,hora,codigo,nome,coletado,volumeTxt]=m;
-    let volume=Number(String(volumeTxt).replace(/\./g,'').replace(',','.'))||0;
-    nome=nome.trim();
-
-    registros.push({
-      arquivo:nomeArquivo,
-      data,
-      hora,
-      codigo:String(codigo),
-      nome,
-      coletado:coletado.toUpperCase().startsWith('SIM'),
-      volume,
-      rota,
-      titular,
-      responsavel
-    });
-  });
-
-  if(!registros.length){
-    // Segunda estratégia: PDF.js pode quebrar a linha em ordem diferente.
-    // Procura sequências por linha contendo hora + código + SIM/NÃO + volume.
-    linhas.forEach(linha=>{
-      let horaM=linha.match(/\b(\d{2}:\d{2})\b/);
-      let statusM=linha.match(/\b(SIM|N[ÃA]O)\b/i);
-      if(!horaM || !statusM)return;
-
-      let antesStatus=linha.slice(0,statusM.index).trim();
-      let depoisStatus=linha.slice(statusM.index+statusM[0].length).trim();
-      let partes=antesStatus.split(/\s+/);
-      let hora=partes.shift();
-      let codigo=partes.shift();
-
-      if(!/^\d+$/.test(codigo||''))return;
-      let nome=partes.join(' ').trim();
-      let volM=depoisStatus.match(/^([\d.,]+)/);
-      let volume=volM?Number(volM[1].replace(/\./g,'').replace(',','.')):0;
-
-      if(nome){
-        registros.push({
-          arquivo:nomeArquivo,data,hora,codigo,nome,
-          coletado:statusM[0].toUpperCase().startsWith('SIM'),
-          volume,rota,titular,responsavel
-        });
-      }
-    });
-  }
-
-  return {arquivo:nomeArquivo,data,rota,titular,responsavel,registros};
-}
-
-async function lerRelatoriosPDF(){
-  let files=[...(document.getElementById('pdfRelatorios')?.files||[])];
-  let status=document.getElementById('pdfImportStatus');
-  let resumo=document.getElementById('pdfResumoImportacao');
-
-  if(!files.length){
-    alert('Selecione pelo menos um relatório PDF.');
-    return;
-  }
-
-  if(status){
-    status.style.display='block';
-    status.innerHTML='⏳ Lendo os relatórios...';
-  }
-  if(resumo)resumo.style.display='none';
-
-  importacaoPDFAtual={arquivos:[],produtores:[],entradas:[],erros:[]};
-
-  for(let file of files){
-    try{
-      let texto=await extrairTextoPDF(file);
-      let rel=parseRelatorioRecebimento(texto,file.name);
-      importacaoPDFAtual.arquivos.push(rel);
-    }catch(e){
-      importacaoPDFAtual.erros.push(`${file.name}: ${e.message||e}`);
-    }
-  }
-
-  let mapaProd=new Map();
-  let entradas=[];
-
-  importacaoPDFAtual.arquivos.forEach(rel=>{
-    rel.registros.forEach(r=>{
-      if(!mapaProd.has(r.codigo)){
-        mapaProd.set(r.codigo,{codigo:r.codigo,nome:r.nome});
-      }
-      if(r.coletado && Number(r.volume)>0){
-        entradas.push(r);
-      }
-    });
-  });
-
-  importacaoPDFAtual.produtores=[...mapaProd.values()];
-  importacaoPDFAtual.entradas=entradas;
-
-  if(!entradas.length){
-    if(status){
-      status.innerHTML=`❌ Nenhuma entrada de leite foi encontrada.${importacaoPDFAtual.erros.length?'<br>'+importacaoPDFAtual.erros.join('<br>'):''}`;
-    }
-    return;
-  }
-
-  let totalLitros=entradas.reduce((s,x)=>s+Number(x.volume),0);
-
-  pdfQtdArquivos.textContent=importacaoPDFAtual.arquivos.length;
-  pdfQtdProdutores.textContent=importacaoPDFAtual.produtores.length;
-  pdfQtdEntradas.textContent=entradas.length;
-  pdfTotalLitros.textContent=fmt(totalLitros)+' L';
-
-  tbPreviewImportacaoPDF.innerHTML=entradas.map(r=>{
-    let existente=produtores.find(p=>
-      String(p.codigo||'')===String(r.codigo) ||
-      normalizarTextoPDF(p.nome).toLowerCase()===normalizarTextoPDF(r.nome).toLowerCase()
-    );
-    let chave=`${r.arquivo}|${r.data}|${r.hora}|${r.codigo}|${r.volume}`;
-    let duplicado=lancamentos.some(x=>x.chaveImportacao===chave);
-
-    return `<tr>
-      <td>${r.arquivo}</td>
-      <td>${brDate(r.data)}</td>
-      <td>${r.hora}</td>
-      <td>${r.codigo}</td>
-      <td><b>${r.nome}</b></td>
-      <td>${fmt(r.volume)} L</td>
-      <td>${duplicado
-        ? '<span class="badge inactive">JÁ IMPORTADO</span>'
-        : existente
-          ? '<span class="badge paid">PRODUTOR EXISTE</span>'
-          : '<span class="badge pending">NOVO PRODUTOR</span>'
-      }</td>
-    </tr>`;
-  }).join('');
-
-  if(status){
-    let msg=`✅ Leitura concluída: <b>${importacaoPDFAtual.produtores.length}</b> produtor(es), <b>${entradas.length}</b> entrada(s), <b>${fmt(totalLitros)} L</b>.`;
-    if(importacaoPDFAtual.erros.length){
-      msg+=`<br><span style="color:#b52c2c">${importacaoPDFAtual.erros.join('<br>')}</span>`;
-    }
-    status.innerHTML=msg;
-  }
-  if(resumo)resumo.style.display='block';
-}
-
-function confirmarImportacaoPDF(){
-  let local=(document.getElementById('pdfLocalidade')?.value||'').trim();
-  let tanqueiro=(document.getElementById('pdfTanqueiro')?.value||'').trim();
-  let caminhao=(document.getElementById('pdfCaminhao')?.value||'').trim();
-
-  if(!importacaoPDFAtual.entradas.length){
-    alert('Leia os relatórios antes de confirmar.');
-    return;
-  }
-  if(!local){
-    alert('Informe a localidade dos produtores antes de importar.');
-    return;
-  }
-  if(!tanqueiro){
-    alert('Informe o responsável pelo tanque antes de importar.');
-    return;
-  }
-
-  let novosProd=0, entradasNovas=0, duplicados=0;
-  let totalNovos=0;
-
-  function norm(v){
-    return normalizarTextoPDF(v).toLowerCase();
-  }
-
-  importacaoPDFAtual.produtores.forEach(item=>{
-    let p=produtores.find(x=>
-      String(x.codigo||'')===String(item.codigo) ||
-      norm(x.nome)===norm(item.nome)
-    );
-
-    if(!p){
-      produtores.push({
-        id:crypto.randomUUID(),
-        codigo:item.codigo,
-        nome:item.nome,
-        local,
-        tanqueiro,
-        whatsTanqueiro:'',
-        caminhao,
-        whatsapp:''
-      });
-      novosProd++;
-    }else{
-      if(!p.codigo)p.codigo=item.codigo;
-      // Atualiza local/tanqueiro conforme informação confirmada na importação.
-      p.local=local;
-      p.tanqueiro=tanqueiro;
-      if(caminhao)p.caminhao=caminhao;
-    }
-  });
-
-  importacaoPDFAtual.entradas.forEach(r=>{
-    let p=produtores.find(x=>
-      String(x.codigo||'')===String(r.codigo) ||
-      norm(x.nome)===norm(r.nome)
-    );
-    if(!p)return;
-
-    let chave=`${r.arquivo}|${r.data}|${r.hora}|${r.codigo}|${r.volume}`;
-    let existe=lancamentos.some(x=>x.chaveImportacao===chave);
-
-    if(existe){
-      duplicados++;
-      return;
-    }
-
-    // Também protege contra duplicação idêntica sem chaveImportacao.
-    let duplicadoLegado=lancamentos.some(x=>
-      x.prodId===p.id &&
-      x.data===r.data &&
-      String(x.hora||'')===String(r.hora||'') &&
-      Number(x.qtd)===Number(r.volume)
-    );
-    if(duplicadoLegado){
-      duplicados++;
-      return;
-    }
-
-    lancamentos.push({
-      id:crypto.randomUUID(),
-      data:r.data,
-      hora:r.hora,
-      prodId:p.id,
-      qtd:Number(r.volume),
-      local,
-      tanqueiro,
-      caminhao:caminhao||p.caminhao||'',
-      rota:r.rota||'',
-      origemRelatorio:r.arquivo,
-      chaveImportacao:chave
-    });
-
-    entradasNovas++;
-    totalNovos+=Number(r.volume);
-  });
-
-  localStorage.setItem(KPROD,JSON.stringify(produtores));
-  localStorage.setItem(KLANC,JSON.stringify(lancamentos));
-
-  renderAll();
-
-  let status=document.getElementById('pdfImportStatus');
-  if(status){
-    status.style.display='block';
-    status.innerHTML=`✅ <b>Importação concluída!</b><br>
-      Novos produtores: <b>${novosProd}</b> •
-      Novas entradas: <b>${entradasNovas}</b> •
-      Litros adicionados: <b>${fmt(totalNovos)} L</b> •
-      Duplicados ignorados: <b>${duplicados}</b>.`;
-  }
-
-  alert(
-    `Importação concluída.\n\n`+
-    `Novos produtores: ${novosProd}\n`+
-    `Novas entradas: ${entradasNovas}\n`+
-    `Litros adicionados: ${fmt(totalNovos)} L\n`+
-    `Duplicados ignorados: ${duplicados}`
-  );
-}
-
-
-
-const KSERVER='vds_supabase_config_v1';
-let sbClient=null;
-let sbPerfil=null;
-
-const permissoesPorPerfil={
-  administrador:['painel','novaEntrada','importarpdf','produtores','pesquisa','pagamentos','fechamento','debitos','relatorios','alertaswhats','auditoria','backup','servidor','configuracoes'],
-  tanqueiro:['painel','novaEntrada','pesquisa','auditoria'],
-  financeiro:['painel','pesquisa','pagamentos','fechamento','debitos','relatorios'],
-  galpao:['painel'],
-  consulta:['painel','pesquisa','relatorios']
-};
-
-function configServidor(){try{return JSON.parse(localStorage.getItem(KSERVER)||'{}')}catch(e){return{}}}
-
-function preencherConfigServidor(){
-  let c=configServidor();
-  if(document.getElementById('srvUrl'))srvUrl.value=c.url||'';
-  if(document.getElementById('srvKey'))srvKey.value=c.key||'';
-  if(document.getElementById('srvEmail'))srvEmail.value=c.email||'';
-}
-
-function salvarConfigServidor(){
-  let c={url:(srvUrl.value||'').trim(),key:(srvKey.value||'').trim(),email:(srvEmail.value||'').trim()};
-  localStorage.setItem(KSERVER,JSON.stringify(c));
-  srvStatus.innerHTML='✅ Configuração salva neste navegador.';
-}
-
-function obterClienteServidor(){
-  let c=configServidor();
-  if(!c.url||!c.key)throw new Error('Informe a URL e a Publishable/Anon Key.');
-  if(typeof supabase==='undefined')throw new Error('Biblioteca Supabase não carregada. Verifique a internet.');
-  if(!sbClient)sbClient=supabase.createClient(c.url,c.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-  return sbClient;
-}
-
-async function conectarServidor(){
-  try{
-    salvarConfigServidor();
-    let cli=obterClienteServidor();
-    let email=(srvEmail.value||'').trim(),senha=srvSenha.value||'';
-    if(!email||!senha){alert('Informe e-mail e senha.');return;}
-    srvStatus.innerHTML='⏳ Entrando...';
-    let {data,error}=await cli.auth.signInWithPassword({email,password:senha});
-    if(error)throw error;
-    await carregarPerfilServidor();
-    srvStatus.innerHTML=`✅ Conectado como <b>${data.user.email}</b>.`;
-    srvSenha.value='';
-  }catch(e){srvStatus.innerHTML=`❌ ${e.message||e}`;}
-}
-
-async function sairServidor(){
-  try{await obterClienteServidor().auth.signOut()}catch(e){}
-  sbPerfil=null;
-  if(document.getElementById('srvPerfilBox'))srvPerfilBox.innerHTML='Nenhum usuário conectado.';
-  if(document.getElementById('srvPermissoes'))srvPermissoes.innerHTML='';
-  if(document.getElementById('srvStatus'))srvStatus.innerHTML='Servidor desconectado.';
-}
-
-async function carregarPerfilServidor(){
-  let cli=obterClienteServidor();
-  let {data:{user}}=await cli.auth.getUser();
-  if(!user)throw new Error('Sessão não encontrada.');
-  let {data,error}=await cli.from('profiles').select('id,nome,role,ativo').eq('id',user.id).single();
-  if(error)throw error;
-  if(!data.ativo)throw new Error('Usuário bloqueado.');
-  sbPerfil=data;
-  mostrarPerfilServidor(user.email);
-  aplicarPermissoesServidor(data.role);
-  return data;
-}
-
-function mostrarPerfilServidor(email){
-  if(!sbPerfil)return;
-  srvPerfilBox.innerHTML=`<b>${sbPerfil.nome||email}</b><br>E-mail: ${email}<br>Perfil: <b>${sbPerfil.role}</b><br>Status: ${sbPerfil.ativo?'ATIVO':'BLOQUEADO'}`;
-  srvPermissoes.innerHTML=(permissoesPorPerfil[sbPerfil.role]||[]).map(x=>`<span class="server-perm">${x}</span>`).join('');
-}
-
-function aplicarPermissoesServidor(role){
-  let permitidas=permissoesPorPerfil[role]||[];
-  document.querySelectorAll('.nav button').forEach(btn=>{
-    let oc=btn.getAttribute('onclick')||'';
-    let m=oc.match(/showSection\('([^']+)'/);
-    if(!m)return;
-    btn.style.display=permitidas.includes(m[1])?'flex':'none';
-  });
-}
-
-async function upsertEmLotes(cli,tabela,rows,tamanho=200){
-  for(let i=0;i<rows.length;i+=tamanho){
-    let lote=rows.slice(i,i+tamanho);
-    if(!lote.length)continue;
-    let {error}=await cli.from(tabela).upsert(lote,{onConflict:'id'});
-    if(error)throw new Error(`${tabela}: ${error.message}`);
-  }
-}
-
-async function enviarDadosLocaisServidor(){
-  try{
-    let cli=obterClienteServidor();
-    await carregarPerfilServidor();
-    if(sbPerfil.role!=='administrador')throw new Error('Somente administrador pode fazer a migração inicial.');
-    srvSyncStatus.style.display='block';
-    srvSyncStatus.innerHTML='⏳ Enviando...';
-
-    let prods=produtores.map(p=>({id:p.id,codigo:p.codigo||null,nome:p.nome,localidade:p.local||null,tanqueiro_nome:p.tanqueiro||null,caminhao:p.caminhao||null,whatsapp:p.whatsapp||null,whatsapp_tanqueiro:p.whatsTanqueiro||null}));
-    let ents=lancamentos.map(x=>({id:x.id,produtor_id:x.prodId,data:x.data,hora:x.hora||null,litros:Number(x.qtd)||0,localidade:x.local||null,tanqueiro_nome:x.tanqueiro||null,caminhao:x.caminhao||null,rota:x.rota||null,origem_relatorio:x.origemRelatorio||null}));
-    let debs=debitos.map(x=>({id:x.id,produtor_id:x.prodId,data:x.data,descricao:x.descricao,valor:Number(x.valor)||0}));
-    let debp=pagamentosDebitos.map(x=>({id:x.id,debito_id:x.debitoId,produtor_id:x.prodId,data:x.data,valor:Number(x.valor)||0}));
-    let pags=pagamentos.map(x=>({id:x.id,produtor_id:x.prodId,mes:x.mes||null,quinzena:String(x.quinzena||''),data_pagamento:x.dataPagamento||null,litros:Number(x.litros)||0,valor_pago:Number(x.valorPago)||0}));
-    let fech=fechamentos.map(x=>({id:x.chave,mes:x.ym,quinzena:String(x.quinzena),data_inicio:x.ini,data_fim:x.fim,fechado:!!x.fechado,fechado_em:x.dataHora||null,resumo:x.resumo||{}}));
-
-    await upsertEmLotes(cli,'producers',prods);
-    await upsertEmLotes(cli,'milk_entries',ents);
-    await upsertEmLotes(cli,'debts',debs);
-    await upsertEmLotes(cli,'debt_payments',debp);
-    await upsertEmLotes(cli,'fortnight_payments',pags);
-    await upsertEmLotes(cli,'fortnight_closures',fech);
-
-    srvSyncStatus.innerHTML=`✅ Concluído. Produtores: <b>${prods.length}</b> • Entradas: <b>${ents.length}</b> • Débitos: <b>${debs.length}</b>.`;
-  }catch(e){
-    srvSyncStatus.style.display='block';
-    srvSyncStatus.innerHTML=`❌ ${e.message||e}`;
-  }
-}
-
-async function baixarDadosServidor(){
-  try{
-    let cli=obterClienteServidor();
-    await carregarPerfilServidor();
-    srvSyncStatus.style.display='block';
-    srvSyncStatus.innerHTML='⏳ Baixando...';
-
-    const getAll=async t=>{let {data,error}=await cli.from(t).select('*');if(error)throw error;return data||[]};
-    let [prods,ents,debs,debp,pags,fech]=await Promise.all([
-      getAll('producers'),getAll('milk_entries'),getAll('debts'),getAll('debt_payments'),getAll('fortnight_payments'),getAll('fortnight_closures')
-    ]);
-
-    produtores=prods.map(p=>({id:p.id,codigo:p.codigo||'',nome:p.nome,local:p.localidade||'',tanqueiro:p.tanqueiro_nome||'',caminhao:p.caminhao||'',whatsapp:p.whatsapp||'',whatsTanqueiro:p.whatsapp_tanqueiro||''}));
-    lancamentos=ents.map(x=>({id:x.id,prodId:x.produtor_id,data:x.data,hora:x.hora||'',qtd:Number(x.litros)||0,local:x.localidade||'',tanqueiro:x.tanqueiro_nome||'',caminhao:x.caminhao||'',rota:x.rota||'',origemRelatorio:x.origem_relatorio||''}));
-    debitos=debs.map(x=>({id:x.id,prodId:x.produtor_id,data:x.data,descricao:x.descricao,valor:Number(x.valor)||0}));
-    pagamentosDebitos=debp.map(x=>({id:x.id,debitoId:x.debito_id,prodId:x.produtor_id,data:x.data,valor:Number(x.valor)||0}));
-    pagamentos=pags.map(x=>({id:x.id,prodId:x.produtor_id,mes:x.mes||'',quinzena:x.quinzena||'',dataPagamento:x.data_pagamento||'',litros:Number(x.litros)||0,valorPago:Number(x.valor_pago)||0}));
-    fechamentos=fech.map(x=>({chave:x.id,ym:x.mes,quinzena:x.quinzena,ini:x.data_inicio,fim:x.data_fim,fechado:!!x.fechado,dataHora:x.fechado_em,resumo:x.resumo||{}}));
-
-    localStorage.setItem(KPROD,JSON.stringify(produtores));
-    localStorage.setItem(KLANC,JSON.stringify(lancamentos));
-    localStorage.setItem(KDEB,JSON.stringify(debitos));
-    localStorage.setItem(KDEBPAG,JSON.stringify(pagamentosDebitos));
-    localStorage.setItem(KPAG,JSON.stringify(pagamentos));
-    localStorage.setItem(KFECH,JSON.stringify(fechamentos));
-    renderAll();
-    srvSyncStatus.innerHTML=`✅ Atualizado. Produtores: <b>${produtores.length}</b> • Entradas: <b>${lancamentos.length}</b>.`;
-  }catch(e){
-    srvSyncStatus.style.display='block';
-    srvSyncStatus.innerHTML=`❌ ${e.message||e}`;
-  }
-}
-
-async function carregarAuditoriaServidor(){
-  try{
-    let cli=obterClienteServidor();
-    await carregarPerfilServidor();
-    let {data,error}=await cli.from('audit_logs').select('created_at,user_id,action,table_name,record_id').order('created_at',{ascending:false}).limit(200);
-    if(error)throw error;
-    tbAuditoriaServidor.innerHTML=(data||[]).map(x=>`<tr><td>${new Date(x.created_at).toLocaleString('pt-BR')}</td><td>${x.user_id||'-'}</td><td><b>${x.action}</b></td><td>${x.table_name}</td><td>${x.record_id||'-'}</td></tr>`).join('')||'<tr><td colspan="5">Nenhuma atividade registrada.</td></tr>';
-  }catch(e){
-    tbAuditoriaServidor.innerHTML=`<tr><td colspan="5">Erro: ${e.message||e}</td></tr>`;
-  }
-}
-
-async function restaurarSessaoServidor(){
-  try{
-    preencherConfigServidor();
-    let c=configServidor();
-    if(!c.url||!c.key)return;
-    let cli=obterClienteServidor();
-    let {data:{session}}=await cli.auth.getSession();
-    if(session){
-      await carregarPerfilServidor();
-      srvStatus.innerHTML=`✅ Sessão restaurada: <b>${session.user.email}</b>.`;
-    }
-  }catch(e){console.warn('Supabase:',e)}
-}
 
 function renderSelects(){
   let opts='<option value="">Selecione...</option>'+
@@ -2948,7 +1979,7 @@ function abrirDetalhesMovimentacoes(){
     .sort((a,b)=>b.x.data.localeCompare(a.x.data));
 
   tituloDetalhesAlerta.textContent='Movimentações Fora do Normal';
-  subtituloDetalhesAlerta.textContent='Anomalias de volume que precisam de conferência. Para análise completa, use o Painel de Auditoria e Suspeitas.';
+  subtituloDetalhesAlerta.textContent='Entradas com quantidade fora da média recente do produtor.';
 
   conteudoDetalhesAlerta.innerHTML=arr.map(({x,p})=>{
     let anteriores=entradasProd(x.prodId).filter(a=>a.id!==x.id && a.data<=x.data);
@@ -2992,576 +2023,14 @@ document.addEventListener('click',function(e){
   if(modal && modal.style.display==='flex' && e.target===modal)fecharDetalhesAlerta();
 });
 
-
-function parseHoraMinutos(h){
-  let m=String(h||'').match(/^(\d{1,2}):(\d{2})$/);
-  if(!m)return null;
-  return Number(m[1])*60+Number(m[2]);
-}
-
-function mediaNumerica(arr){
-  if(!arr.length)return 0;
-  return arr.reduce((s,x)=>s+Number(x||0),0)/arr.length;
-}
-
-function desvioPadrao(arr){
-  if(arr.length<2)return 0;
-  let m=mediaNumerica(arr);
-  return Math.sqrt(arr.reduce((s,x)=>s+Math.pow(Number(x)-m,2),0)/arr.length);
-}
-
-function entradasProdOrdenadas(id){
-  return entradasProd(id).slice().sort((a,b)=>{
-    let c=a.data.localeCompare(b.data);
-    if(c!==0)return c;
-    return String(a.hora||'').localeCompare(String(b.hora||''));
-  });
-}
-
-
-function turnoEntrada(hora){
-  let hm=parseHoraMinutos(hora);
-  if(hm===null)return 'sem-hora';
-  return hm<12*60?'manha':'tarde';
-}
-
-function agruparTotaisDiarios(entradas){
-  let mapa={};
-  entradas.forEach(x=>{
-    if(!mapa[x.data])mapa[x.data]={data:x.data,total:0,manha:0,tarde:0};
-    let qtd=Number(x.qtd)||0;
-    mapa[x.data].total+=qtd;
-    if(turnoEntrada(x.hora)==='manha')mapa[x.data].manha+=qtd;
-    else if(turnoEntrada(x.hora)==='tarde')mapa[x.data].tarde+=qtd;
-  });
-  return Object.values(mapa).sort((a,b)=>a.data.localeCompare(b.data));
-}
-
-function resumoAuditoriaProdutor(id){
-  let p=prodById(id);
-  if(!p)return null;
-
-  let todas=entradasProdOrdenadas(id);
-  if(!todas.length)return {
-    p,nivel:0,pontos:0,motivos:[],anomalias:[],
-    media10:0,media30:0,mediaManha:0,mediaTarde:0,mediaDia:0,
-    ultima:null,totalAnomalias:0
-  };
-
-  let fim=(document.getElementById('aFim')?.value||isoHoje());
-  let ini=(document.getElementById('aIni')?.value||'1900-01-01');
-  let periodo=todas.filter(x=>x.data>=ini&&x.data<=fim);
-
-  let manhas=todas.filter(x=>turnoEntrada(x.hora)==='manha');
-  let tardes=todas.filter(x=>turnoEntrada(x.hora)==='tarde');
-  let dias=agruparTotaisDiarios(todas);
-
-  let mediaManha=mediaNumerica(manhas.slice(-20).map(x=>x.qtd));
-  let mediaTarde=mediaNumerica(tardes.slice(-20).map(x=>x.qtd));
-  let mediaDia=mediaNumerica(dias.slice(-20).map(x=>x.total));
-  let media10=mediaNumerica(todas.slice(-10).map(x=>x.qtd));
-  let media30=mediaNumerica(todas.slice(-30).map(x=>x.qtd));
-
-  let anomalias=[];
-  let motivosContagem={};
-
-  function somarMotivo(txt){
-    motivosContagem[txt]=(motivosContagem[txt]||0)+1;
-  }
-
-  periodo.forEach(x=>{
-    let turno=turnoEntrada(x.hora);
-    let qtd=Number(x.qtd)||0;
-
-    let anteriores=todas.filter(a=>{
-      if(a.id===x.id)return false;
-      if(a.data<x.data)return true;
-      if(a.data===x.data && String(a.hora||'')<String(x.hora||''))return true;
-      return false;
-    });
-
-    let baseTurno=anteriores.filter(a=>turnoEntrada(a.hora)===turno).slice(-15);
-    let mediaTurno=mediaNumerica(baseTurno.map(a=>a.qtd));
-    let dpTurno=desvioPadrao(baseTurno.map(a=>a.qtd));
-
-    let sinais=[];
-    let score=0;
-
-    // Compara manhã apenas com manhã, tarde apenas com tarde.
-    if(baseTurno.length>=4 && mediaTurno>0){
-      let dif=Math.abs(qtd-mediaTurno)/mediaTurno;
-
-      if(dif>=0.60){
-        score+=3;
-        sinais.push(`${turno==='manha'?'Manhã':'Tarde/noite'} ${Math.round(dif*100)}% fora do padrão desse mesmo turno`);
-      }else if(dif>=0.35){
-        score+=2;
-        sinais.push(`${turno==='manha'?'Manhã':'Tarde/noite'} ${Math.round(dif*100)}% fora do padrão desse mesmo turno`);
-      }else if(dif>=0.22){
-        score+=1;
-        sinais.push(`${turno==='manha'?'Manhã':'Tarde/noite'} ${Math.round(dif*100)}% fora do padrão desse mesmo turno`);
-      }
-
-      if(baseTurno.length>=8 && dpTurno>0 && Math.abs(qtd-mediaTurno)>=2.7*dpTurno){
-        score+=2;
-        sinais.push(`Volume estatisticamente muito distante do histórico da ${turno==='manha'?'manhã':'tarde/noite'}`);
-      }
-    }
-
-    // Analisa o total do dia contra os totais diários anteriores.
-    let diaAtual=agruparTotaisDiarios(todas.filter(a=>a.data===x.data))[0];
-    let diasAnteriores=agruparTotaisDiarios(todas.filter(a=>a.data<x.data)).slice(-15);
-    let mediaTotalDia=mediaNumerica(diasAnteriores.map(d=>d.total));
-    let dpTotalDia=desvioPadrao(diasAnteriores.map(d=>d.total));
-
-    if(diaAtual && diasAnteriores.length>=5 && mediaTotalDia>0){
-      let difDia=Math.abs(diaAtual.total-mediaTotalDia)/mediaTotalDia;
-      if(difDia>=0.50){
-        score+=3;
-        sinais.push(`Total diário ${Math.round(difDia*100)}% fora do padrão recente`);
-      }else if(difDia>=0.30){
-        score+=2;
-        sinais.push(`Total diário ${Math.round(difDia*100)}% fora do padrão recente`);
-      }else if(difDia>=0.20){
-        score+=1;
-        sinais.push(`Total diário ${Math.round(difDia*100)}% fora do padrão recente`);
-      }
-
-      if(diasAnteriores.length>=8 && dpTotalDia>0 && Math.abs(diaAtual.total-mediaTotalDia)>=2.7*dpTotalDia){
-        score+=2;
-        sinais.push('Total diário estatisticamente muito distante do histórico');
-      }
-    }
-
-    // Horário fora do padrão do mesmo turno.
-    let horasTurno=anteriores
-      .filter(a=>turnoEntrada(a.hora)===turno)
-      .map(a=>parseHoraMinutos(a.hora))
-      .filter(v=>v!==null)
-      .slice(-20);
-
-    let hm=parseHoraMinutos(x.hora);
-    if(hm!==null && horasTurno.length>=8){
-      let mediaHora=mediaNumerica(horasTurno);
-      let dpHora=desvioPadrao(horasTurno);
-      if(dpHora>0 && Math.abs(hm-mediaHora)>=2.8*dpHora){
-        score+=1;
-        sinais.push(`Horário fora do padrão da ${turno==='manha'?'manhã':'tarde/noite'}`);
-      }
-    }
-
-    // Não penaliza diferença natural entre manhã e tarde.
-    // Só observa desequilíbrio extremo se fugir também do padrão histórico daquele produtor.
-    if(diaAtual && diaAtual.manha>0 && diaAtual.tarde>0){
-      let razAtual=diaAtual.manha/diaAtual.tarde;
-      let razoes=diasAnteriores
-        .filter(d=>d.manha>0&&d.tarde>0)
-        .map(d=>d.manha/d.tarde);
-
-      if(razoes.length>=5){
-        let medRaz=mediaNumerica(razoes);
-        let dpRaz=desvioPadrao(razoes);
-        if(dpRaz>0 && Math.abs(razAtual-medRaz)>=3*dpRaz){
-          score+=1;
-          sinais.push('Relação manhã/tarde muito diferente do padrão habitual');
-        }
-      }
-    }
-
-    if(score>0){
-      sinais.forEach(somarMotivo);
-      anomalias.push({
-        data:x.data,
-        hora:x.hora||'-',
-        qtd,
-        turno,
-        mediaTurno,
-        mediaDia:mediaTotalDia,
-        score,
-        sinais
-      });
-    }
-  });
-
-  // Evita duplicar artificialmente o mesmo alerta diário causado por manhã e tarde.
-  let chaveUnica=new Map();
-  anomalias.forEach(a=>{
-    let k=`${a.data}|${a.hora}|${a.qtd}`;
-    if(!chaveUnica.has(k) || chaveUnica.get(k).score<a.score)chaveUnica.set(k,a);
-  });
-  anomalias=[...chaveUnica.values()].sort((a,b)=>{
-    let c=a.data.localeCompare(b.data);
-    if(c!==0)return c;
-    return String(a.hora).localeCompare(String(b.hora));
-  });
-
-  let recentes=anomalias.slice(-12);
-  let somaScores=recentes.reduce((s,a)=>s+a.score,0);
-  let repeticao=recentes.length;
-  let pontos=somaScores;
-
-  if(repeticao>=6)pontos+=3;
-  else if(repeticao>=4)pontos+=2;
-  else if(repeticao>=2)pontos+=1;
-
-  let principais=Object.entries(motivosContagem)
-    .sort((a,b)=>b[1]-a[1])
-    .slice(0,4)
-    .map(([k,v])=>v>1?`${k} (${v}x)`:k);
-
-  let nivel=0;
-  if(pontos>=12 || (repeticao>=5 && somaScores>=10))nivel=3;
-  else if(pontos>=7 || repeticao>=4)nivel=2;
-  else if(pontos>=2 || repeticao>=1)nivel=1;
-
-  return {
-    p,nivel,pontos,motivos:principais,anomalias,
-    media10,media30,mediaManha,mediaTarde,mediaDia,
-    ultima:todas[todas.length-1],
-    totalAnomalias:anomalias.length
-  };
-}
-
-function labelNivelAuditoria(n){
-  return n===3?'Suspeita Alta':n===2?'Suspeita Moderada':n===1?'Atenção':'Normal';
-}
-function classeNivelAuditoria(n){
-  return n===3?'audit-high':n===2?'audit-med':n===1?'audit-att':'audit-ok';
-}
-
-function limparFiltrosAuditoria(){
-  if(document.getElementById('aIni'))aIni.value='';
-  if(document.getElementById('aFim'))aFim.value='';
-  if(document.getElementById('aLocalidade'))aLocalidade.value='';
-  if(document.getElementById('aProdutor'))aProdutor.value='';
-  if(document.getElementById('aNivel'))aNivel.value='0';
-  renderAuditoria();
-}
-
-function renderAuditoria(){
-  if(!document.getElementById('tbAuditoria'))return;
-
-  let local=(document.getElementById('aLocalidade')?.value||'').trim().toLowerCase();
-  let nome=(document.getElementById('aProdutor')?.value||'').trim().toLowerCase();
-  let nivelMin=Number(document.getElementById('aNivel')?.value||0);
-
-  let arr=produtores
-    .filter(p=>{
-      if(local && !(p.local||'').toLowerCase().includes(local))return false;
-      if(nome && !(p.nome||'').toLowerCase().includes(nome))return false;
-      return true;
-    })
-    .map(p=>resumoAuditoriaProdutor(p.id))
-    .filter(Boolean)
-    .filter(r=>nivelMin===0 || r.nivel>=nivelMin)
-    .sort((a,b)=>{
-      if(b.nivel!==a.nivel)return b.nivel-a.nivel;
-      if(b.pontos!==a.pontos)return b.pontos-a.pontos;
-      return a.p.nome.localeCompare(b.p.nome,'pt-BR');
-    });
-
-  let todos=produtores.map(p=>resumoAuditoriaProdutor(p.id)).filter(Boolean);
-  aQtdProdutores.textContent=todos.length;
-  aQtdAtencao.textContent=todos.filter(x=>x.nivel===1).length;
-  aQtdModerada.textContent=todos.filter(x=>x.nivel===2).length;
-  aQtdAlta.textContent=todos.filter(x=>x.nivel===3).length;
-
-  tbAuditoria.innerHTML=arr.map(r=>`
-    <tr>
-      <td><span class="audit-badge ${classeNivelAuditoria(r.nivel)}">${labelNivelAuditoria(r.nivel)}</span><br><small>${r.pontos} pts</small></td>
-      <td><b>${r.p.nome}</b><br><small>Tanqueiro: ${r.p.tanqueiro||'-'}</small></td>
-      <td>${r.p.local||'-'}</td>
-      <td>${r.ultima?`${brDate(r.ultima.data)}<br><b>${fmt(r.ultima.qtd)} L</b><br><small>${r.ultima.hora||''}</small>`:'-'}</td>
-      <td>${fmt(r.mediaManha)} L</td>
-      <td>${fmt(r.mediaTarde)} L</td>
-      <td><b>${r.totalAnomalias}</b></td>
-      <td>${r.motivos.length?r.motivos.join('<br>'):'Sem sinais relevantes'}</td>
-      <td><button type="button" class="btn secondary" onclick="abrirDetalheAuditoria('${r.p.id}')">🔎 Ver análise</button></td>
-    </tr>`).join('') || '<tr><td colspan="9">Nenhum produtor encontrado com os filtros atuais.</td></tr>';
-}
-
-function abrirDetalheAuditoria(prodId){
-  let r=resumoAuditoriaProdutor(prodId);
-  if(!r)return;
-
-  let p=r.p;
-  auditTitulo.textContent=p.nome;
-  auditSubtitulo.textContent=`${p.local||'-'} • Tanqueiro: ${p.tanqueiro||'-'} • Nível: ${labelNivelAuditoria(r.nivel)}`;
-
-  let hist=entradasProdOrdenadas(prodId).slice(-30).reverse();
-  let linhasHist=hist.map(x=>{
-    let an=r.anomalias.find(a=>a.data===x.data && String(a.hora||'-')===String(x.hora||'-') && Number(a.qtd)===Number(x.qtd));
-    return `<tr>
-      <td>${brDate(x.data)}</td>
-      <td>${x.hora||'-'}</td>
-      <td><b>${fmt(x.qtd)} L</b></td>
-      <td>${an?`<span class="audit-badge ${an.score>=4?'audit-high':an.score>=2?'audit-med':'audit-att'}">${an.score} pts</span>`:'<span class="audit-badge audit-ok">Normal</span>'}</td>
-      <td>${an?an.sinais.join('<br>'):'-'}</td>
-    </tr>`;
-  }).join('');
-
-  let anom=r.anomalias.slice().reverse();
-  let linhasAnom=anom.map(a=>`<tr>
-    <td>${brDate(a.data)}</td>
-    <td>${a.hora}</td>
-    <td>${fmt(a.qtd)} L</td>
-    <td>${fmt(a.mediaTurno)} L</td>
-    <td>${fmt(a.mediaDia)} L</td>
-    <td>${a.sinais.join('<br>')}</td>
-  </tr>`).join('') || '<tr><td colspan="6">Nenhuma anomalia detectada no período.</td></tr>';
-
-  let horas=entradasProdOrdenadas(prodId).map(x=>parseHoraMinutos(x.hora)).filter(x=>x!==null);
-  let medHora=horas.length?Math.round(mediaNumerica(horas)):null;
-  let horaPadrao=medHora!==null?`${String(Math.floor(medHora/60)).padStart(2,'0')}:${String(medHora%60).padStart(2,'0')}`:'-';
-
-  auditConteudo.innerHTML=`
-    <div class="audit-summary-grid">
-      <div class="audit-stat"><span>Nível atual</span><b class="${classeNivelAuditoria(r.nivel)} audit-text">${labelNivelAuditoria(r.nivel)}</b></div>
-      <div class="audit-stat"><span>Pontuação</span><b>${r.pontos}</b></div>
-      <div class="audit-stat"><span>Anomalias detectadas</span><b>${r.totalAnomalias}</b></div>
-      <div class="audit-stat"><span>Média Manhã</span><b>${fmt(r.mediaManha)} L</b></div>
-      <div class="audit-stat"><span>Média Tarde/Noite</span><b>${fmt(r.mediaTarde)} L</b></div>
-      <div class="audit-stat"><span>Horário médio</span><b>${horaPadrao}</b></div>
-    </div>
-
-    <div class="notice audit-warning">
-      <b>Importante:</b> este resultado indica necessidade de conferência. Não deve ser usado sozinho para acusar produtor ou tanqueiro de fraude.
-    </div>
-
-    <h3>Principais sinais encontrados</h3>
-    <div class="audit-reasons">
-      ${(r.motivos.length?r.motivos:['Nenhum sinal relevante']).map(x=>`<div>• ${x}</div>`).join('')}
-    </div>
-
-    <h3>Ocorrências identificadas</h3>
-    <div class="tablewrap">
-      <table>
-        <thead><tr><th>Data</th><th>Hora</th><th>Litros</th><th>Média do Turno</th><th>Média Diária</th><th>Motivo</th></tr></thead>
-        <tbody>${linhasAnom}</tbody>
-      </table>
-    </div>
-
-    <h3 style="margin-top:18px">Histórico recente do produtor</h3>
-    <div class="tablewrap">
-      <table>
-        <thead><tr><th>Data</th><th>Hora</th><th>Litros</th><th>Sinal</th><th>Observação</th></tr></thead>
-        <tbody>${linhasHist}</tbody>
-      </table>
-    </div>
-  `;
-
-  modalAuditoriaDetalhe.style.display='flex';
-}
-
-function fecharDetalheAuditoria(){
-  let m=document.getElementById('modalAuditoriaDetalhe');
-  if(m)m.style.display='none';
-}
-
-document.addEventListener('click',function(e){
-  let m=document.getElementById('modalAuditoriaDetalhe');
-  if(m && m.style.display==='flex' && e.target===m)fecharDetalheAuditoria();
-});
-document.addEventListener('keydown',function(e){
-  if(e.key==='Escape'){
-    let m=document.getElementById('modalAuditoriaDetalhe');
-    if(m && m.style.display==='flex')fecharDetalheAuditoria();
-  }
-});
-
-
 function renderPainel(){let h=isoHoje(),ym=h.slice(0,7),hoje=lancamentos.filter(x=>x.data===h),mes=lancamentos.filter(x=>x.data.startsWith(ym));kpiHoje.textContent=fmt(hoje.reduce((s,x)=>s+Number(x.qtd),0));kpiEntradas.textContent=hoje.length;kpiAtivos.textContent=produtores.filter(p=>statusProd(p.id)==='Ativo').length;kpiMes.textContent=fmt(mes.reduce((s,x)=>s+Number(x.qtd),0));ultimas.innerHTML=lancamentos.slice().sort((a,b)=>b.data.localeCompare(a.data)).slice(0,5).map(x=>`<tr><td>${brDate(x.data)}</td><td>${prodById(x.prodId)?.nome||'-'}</td><td>${x.tanqueiro||'-'}</td><td>${fmt(x.qtd)}</td><td>${x.local||'-'}</td></tr>`).join('')||'<tr><td colspan="5">Sem entradas.</td></tr>';let inat=produtores.filter(p=>statusProd(p.id)==='Inativo').length,fora=lancamentos.filter(alertaEntrada).length,day=Number(h.slice(8,10)),q=day<=15?1:2;alerts.innerHTML=`<div class="alert clickable-alert" onclick="abrirDetalhesProdutoresInativos()"><div class="symbol">⚠️</div><div><b>${inat} produtores estão inativos</b><br><small>Sem entrega há mais de 10 dias</small></div></div><div class="alert clickable-alert" onclick="abrirDetalhesMovimentacoes()"><div class="symbol">🚨</div><div><b>${fora} movimentações fora do normal</b><br><small>Quantidades fora da média diária</small></div></div><div class="alert"><div class="symbol">ℹ️</div><div><b>${q}ª quinzena em andamento</b><br><small>Período atual de pagamento</small></div></div>`;let q1=resumoQuinzena(1),q2=resumoQuinzena(2);resQ1.innerHTML=`<b>${fmt(q1.litros)} L</b><br>Bruto: ${moeda(q1.valor)}<br>Débitos: ${moeda(q1.deb)}<br><b>Líquido: ${moeda(q1.liquido)}</b><br><span class="badge ${q1.total&&q1.pagos===q1.total?'paid':'pending'}">${q1.total&&q1.pagos===q1.total?'PAGO':'PENDENTE'}</span>`;resQ2.innerHTML=`<b>${fmt(q2.litros)} L</b><br>Bruto: ${moeda(q2.valor)}<br>Débitos: ${moeda(q2.deb)}<br><b>Líquido: ${moeda(q2.liquido)}</b><br><span class="badge ${q2.total&&q2.pagos===q2.total?'paid':'pending'}">${q2.total&&q2.pagos===q2.total?'PAGO':'PENDENTE'}</span>`}
 
-
-
-let produtorEditandoId=null;
-let produtorPesquisaAtualId=null;
-
-function abrirEdicaoProdutor(id){
-  let p=prodById(id);
-  if(!p)return;
-  produtorEditandoId=id;
-  let box=document.getElementById('editarProdutorBox');
-  if(box)box.style.display='block';
-  eNome.value=p.nome||'';
-  eLocal.value=p.local||'';
-  eTanqueiro.value=p.tanqueiro||'';
-  eCaminhao.value=p.caminhao||'';
-  eWhats.value=p.whatsapp||'';
-  eWhatsTanqueiro.value=p.whatsTanqueiro||'';
-  box?.scrollIntoView({behavior:'smooth',block:'start'});
-}
-
-function fecharEdicaoProdutor(){
-  produtorEditandoId=null;
-  let box=document.getElementById('editarProdutorBox');
-  if(box)box.style.display='none';
-}
-
-function salvarEdicaoProdutor(){
-  if(!produtorEditandoId)return;
-  let p=prodById(produtorEditandoId);
-  if(!p)return;
-  if(!eNome.value.trim()){
-    alert('O nome do produtor não pode ficar vazio.');
-    return;
-  }
-  p.nome=eNome.value.trim();
-  p.local=eLocal.value.trim();
-  p.tanqueiro=eTanqueiro.value.trim();
-  p.caminhao=eCaminhao.value.trim();
-  p.whatsapp=eWhats.value.trim();
-  p.whatsTanqueiro=eWhatsTanqueiro.value.trim();
-
-  // Atualiza os dados vinculados nos lançamentos desse produtor.
-  lancamentos.filter(x=>x.prodId===p.id).forEach(x=>{
-    x.local=p.local||x.local||'';
-    x.tanqueiro=p.tanqueiro||x.tanqueiro||'';
-    x.caminhao=p.caminhao||x.caminhao||'';
-  });
-
-  localStorage.setItem(KPROD,JSON.stringify(produtores));
-  localStorage.setItem(KLANC,JSON.stringify(lancamentos));
-  renderAll();
-  renderPesquisa();
-  fecharEdicaoProdutor();
-  alert('Informações do produtor atualizadas com sucesso.');
-}
-
-function dadosFichaProdutor(id){
-  let p=prodById(id);
-  if(!p)return null;
-  let hoje=isoHoje();
-  let dHoje=new Date(hoje+'T12:00:00');
-  let d30=new Date(dHoje);d30.setDate(d30.getDate()-29);
-  let ini30=`${d30.getFullYear()}-${String(d30.getMonth()+1).padStart(2,'0')}-${String(d30.getDate()).padStart(2,'0')}`;
-  let ym=hoje.slice(0,7);
-  let entTodas=entradasProd(id).slice().sort((a,b)=>b.data.localeCompare(a.data));
-  let ent30=entTodas.filter(x=>x.data>=ini30&&x.data<=hoje);
-  let entMes=entTodas.filter(x=>x.data.startsWith(ym));
-  let total30=ent30.reduce((s,x)=>s+Number(x.qtd),0);
-  let totalMes=entMes.reduce((s,x)=>s+Number(x.qtd),0);
-  let brutoMes=totalMes*VALOR_LITRO;
-  let debProd=debitosProd(id).slice().sort((a,b)=>b.data.localeCompare(a.data));
-  let debOriginal=debProd.reduce((s,x)=>s+Number(x.valor),0);
-  let debPago=debProd.reduce((s,x)=>s+totalPagoDebito(x.id),0);
-  let debSaldo=debProd.reduce((s,x)=>s+saldoDebito(x.id),0);
-  let pags=pagamentos.filter(x=>x.prodId===id).slice().sort((a,b)=>(b.dataPagamento||'').localeCompare(a.dataPagamento||''));
-  let u=ultimaEntrada(id);
-  return {p,hoje,ini30,entTodas,ent30,entMes,total30,totalMes,brutoMes,debProd,debOriginal,debPago,debSaldo,pags,u};
-}
-
-function renderPesquisa(){
-  let q=(document.getElementById('busca')?.value||'').trim().toLowerCase();
-  let res=document.getElementById('resultadoPesquisa');
-  let acoes=document.getElementById('acoesPesquisaProdutor');
-  if(!res)return;
-
-  if(!q){
-    produtorPesquisaAtualId=null;
-    if(acoes)acoes.style.display='none';
-    res.innerHTML='Digite um nome para pesquisar.';
-    fecharEdicaoProdutor();
-    return;
-  }
-
-  let encontrados=produtores
-    .filter(x=>(x.nome||'').toLowerCase().includes(q))
-    .sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
-
-  if(!encontrados.length){
-    produtorPesquisaAtualId=null;
-    if(acoes)acoes.style.display='none';
-    res.innerHTML='<div class="notice">Produtor não encontrado.</div>';
-    fecharEdicaoProdutor();
-    return;
-  }
-
-  let p=encontrados[0];
-  produtorPesquisaAtualId=p.id;
-  if(acoes)acoes.style.display='flex';
-  let d=dadosFichaProdutor(p.id);
-
-  let historico30=d.ent30.slice(0,30).map(x=>`<tr><td>${brDate(x.data)}</td><td>${fmt(x.qtd)} L</td><td>${moeda(Number(x.qtd)*VALOR_LITRO)}</td></tr>`).join('') || '<tr><td colspan="3">Sem entradas nos últimos 30 dias.</td></tr>';
-
-  let debitosHtml=d.debProd.slice(0,20).map(db=>{
-    let pago=totalPagoDebito(db.id),saldo=saldoDebito(db.id);
-    let hist=pagamentosDoDebito(db.id).map(pg=>`${brDate(pg.data)}: ${moeda(pg.valor)}`).join(' • ')||'-';
-    return `<tr><td>${brDate(db.data)}</td><td>${db.descricao}<br><small>Pagamentos: ${hist}</small></td><td>${moeda(db.valor)}</td><td>${moeda(pago)}</td><td><b>${moeda(saldo)}</b></td></tr>`;
-  }).join('') || '<tr><td colspan="5">Nenhum débito registrado.</td></tr>';
-
-  let pagamentosHtml=d.pags.slice(0,12).map(pg=>`<tr><td>${pg.mes||'-'} / ${pg.quinzena||'-'}ª</td><td>${pg.dataPagamento?brDate(pg.dataPagamento):'-'}</td><td>${fmt(pg.litros||0)} L</td><td>${moeda(pg.valorPago||0)}</td></tr>`).join('') || '<tr><td colspan="4">Nenhum pagamento quinzenal registrado.</td></tr>';
-
-  res.innerHTML=`
-    ${encontrados.length>1?`<div class="notice" style="margin-bottom:12px"><b>${encontrados.length}</b> produtores encontrados. Exibindo o primeiro: <b>${p.nome}</b>.</div>`:''}
-    <div class="ficha-produtor-header">
-      <div><h2>${p.nome}</h2><p>📍 ${p.local||'-'} • Tanqueiro: ${p.tanqueiro||'-'} • Caminhão: ${p.caminhao||'-'}</p></div>
-      <span class="badge ${statusProd(p.id)==='Ativo'?'paid':'inactive'}">${statusProd(p.id)}</span>
-    </div>
-    <div class="profile ficha-kpis">
-      <div class="mini">Última entrada<b>${d.u?brDate(d.u.data)+' • '+fmt(d.u.qtd)+' L':'-'}</b></div>
-      <div class="mini">Total do mês<b>${fmt(d.totalMes)} L</b></div>
-      <div class="mini">Valor bruto do mês<b>${moeda(d.brutoMes)}</b></div>
-      <div class="mini">Últimos 30 dias<b>${fmt(d.total30)} L</b></div>
-      <div class="mini">Média das entradas<b>${fmt(mediaDiasComEntrega(p.id))} L</b></div>
-      <div class="mini">Média últimos 10 dias<b>${fmt(mediaUltimosDias(p.id))} L/dia</b></div>
-      <div class="mini">Débitos originais<b>${moeda(d.debOriginal)}</b></div>
-      <div class="mini">Débitos pagos<b>${moeda(d.debPago)}</b></div>
-      <div class="mini">Saldo de débitos<b>${moeda(d.debSaldo)}</b></div>
-    </div>
-
-    <div class="ficha-grid">
-      <div class="card ficha-subcard">
-        <h3>💧 Histórico de leite — últimos 30 dias</h3>
-        <div class="tablewrap"><table><thead><tr><th>Data</th><th>Litros</th><th>Valor</th></tr></thead><tbody>${historico30}</tbody></table></div>
-      </div>
-      <div class="card ficha-subcard">
-        <h3>🧾 Débitos do produtor</h3>
-        <div class="tablewrap"><table><thead><tr><th>Data</th><th>Descrição</th><th>Original</th><th>Pago</th><th>Saldo</th></tr></thead><tbody>${debitosHtml}</tbody></table></div>
-      </div>
-    </div>
-
-    <div class="card ficha-subcard" style="margin-top:14px">
-      <h3>💰 Pagamentos quinzenais</h3>
-      <div class="tablewrap"><table><thead><tr><th>Referência</th><th>Data</th><th>Litros</th><th>Valor Pago</th></tr></thead><tbody>${pagamentosHtml}</tbody></table></div>
-    </div>`;
-}
-
-function imprimirFichaProdutorA4(id){
-  let d=dadosFichaProdutor(id);
-  if(!d)return;
-  let p=d.p;
-  let logo=(document.querySelector('.hero-logo')||document.querySelector('.logo-wrap img'))?.src||'';
-  let linhas=d.ent30.map(x=>`<tr><td>${brDate(x.data)}</td><td>${fmt(x.qtd)} L</td><td>${moeda(Number(x.qtd)*VALOR_LITRO)}</td></tr>`).join('')||'<tr><td colspan="3">Sem entradas nos últimos 30 dias.</td></tr>';
-  let deb=d.debProd.map(db=>{
-    let pago=totalPagoDebito(db.id),saldo=saldoDebito(db.id);
-    let hist=pagamentosDoDebito(db.id).map(pg=>`${brDate(pg.data)} - ${moeda(pg.valor)}`).join(' | ')||'-';
-    return `<tr><td>${brDate(db.data)}</td><td>${db.descricao}<br><small>Pagamentos: ${hist}</small></td><td>${moeda(db.valor)}</td><td>${moeda(pago)}</td><td>${moeda(saldo)}</td></tr>`;
-  }).join('')||'<tr><td colspan="5">Sem débitos.</td></tr>';
-  let pags=d.pags.map(pg=>`<tr><td>${pg.mes||'-'} / ${pg.quinzena||'-'}ª</td><td>${pg.dataPagamento?brDate(pg.dataPagamento):'-'}</td><td>${fmt(pg.litros||0)} L</td><td>${moeda(pg.valorPago||0)}</td></tr>`).join('')||'<tr><td colspan="4">Sem pagamentos quinzenais.</td></tr>';
-
-  let w=window.open('','','width=1100,height=900');
-  if(!w){alert('Permita pop-ups para imprimir a ficha.');return;}
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Ficha - ${p.nome}</title><style>
-    @page{size:A4 portrait;margin:11mm}*{box-sizing:border-box}body{font-family:Arial;color:#10233f;margin:0}.head{background:linear-gradient(135deg,#062a55,#0b4d91);color:#fff;border-radius:16px;padding:18px;display:flex;align-items:center;gap:16px;border-bottom:7px solid #ffc400}.head img{width:82px;height:82px;border-radius:50%;object-fit:cover;border:4px solid #fff}.head h1{margin:0;font-size:27px}.head p{margin:5px 0 0}.producer{margin:14px 0;border:1px solid #dfe6ef;border-radius:12px;padding:13px}.producer h2{margin:0;color:#062a55}.producer p{margin:5px 0;color:#66758a}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.k{border:1px solid #dfe6ef;border-radius:10px;padding:9px}.k span{display:block;font-size:9px;color:#66758a;text-transform:uppercase;font-weight:bold}.k b{display:block;margin-top:4px;font-size:15px}h3{color:#0a3470;font-size:13px;margin:15px 0 7px}table{width:100%;border-collapse:collapse;font-size:9px}th,td{padding:5px;border-bottom:1px solid #e7ecf2;text-align:left;vertical-align:top}th{background:#f4f7fb;color:#0a3470}.thanks{margin-top:16px;background:#062a55;color:#fff;border-radius:10px;padding:11px;text-align:center}.thanks b{color:#ffc400}.foot{text-align:center;color:#66758a;font-size:9px;margin-top:10px}.actions{text-align:center;margin:14px}.actions button{padding:10px 18px;border:0;border-radius:8px;background:#062a55;color:#fff;font-weight:bold}@media print{.actions{display:none}}
-  </style></head><body>
-    <div class="head">${logo?`<img src="${logo}">`:''}<div><h1>VALE DA SERRA LATICÍNIOS</h1><p>Ficha Completa do Produtor</p></div></div>
-    <div class="producer"><h2>${p.nome}</h2><p>📍 ${p.local||'-'} • Tanqueiro: ${p.tanqueiro||'-'} • Caminhão: ${p.caminhao||'-'} • WhatsApp: ${p.whatsapp||'-'}</p><p>Status: <b>${statusProd(p.id)}</b></p></div>
-    <div class="kpis"><div class="k"><span>Total do mês</span><b>${fmt(d.totalMes)} L</b></div><div class="k"><span>Valor bruto do mês</span><b>${moeda(d.brutoMes)}</b></div><div class="k"><span>Últimos 30 dias</span><b>${fmt(d.total30)} L</b></div><div class="k"><span>Média entradas</span><b>${fmt(mediaDiasComEntrega(p.id))} L</b></div><div class="k"><span>Débitos pagos</span><b>${moeda(d.debPago)}</b></div><div class="k"><span>Saldo de débitos</span><b>${moeda(d.debSaldo)}</b></div></div>
-    <h3>Histórico de leite — últimos 30 dias</h3><table><thead><tr><th>Data</th><th>Litros</th><th>Valor</th></tr></thead><tbody>${linhas}</tbody></table>
-    <h3>Débitos e pagamentos de débitos</h3><table><thead><tr><th>Data</th><th>Descrição</th><th>Original</th><th>Pago</th><th>Saldo</th></tr></thead><tbody>${deb}</tbody></table>
-    <h3>Pagamentos quinzenais</h3><table><thead><tr><th>Referência</th><th>Data</th><th>Litros</th><th>Valor Pago</th></tr></thead><tbody>${pags}</tbody></table>
-    <div class="thanks"><b>Obrigado pela parceria!</b><br>Vale da Serra valoriza quem produz e fortalece o campo.</div>
-    <div class="foot">Emitido em ${new Date().toLocaleString('pt-BR')} • Vale da Serra Laticínios</div>
-    <div class="actions"><button onclick="window.print()">IMPRIMIR FICHA A4</button></div>
-  </body></html>`);
-  w.document.close();
-}
+function renderPesquisa(){let q=(busca.value||'').toLowerCase().trim();if(!q){resultadoPesquisa.innerHTML='Digite um nome para pesquisar.';return}let p=produtores.find(x=>x.nome.toLowerCase().includes(q));if(!p){resultadoPesquisa.innerHTML='Produtor não encontrado.';return}let ym=isoHoje().slice(0,7),u=ultimaEntrada(p.id),tm=entradasProd(p.id).filter(x=>x.data.startsWith(ym)).reduce((s,x)=>s+Number(x.qtd),0);resultadoPesquisa.innerHTML=`<h3>${p.nome}</h3><div class="profile"><div class="mini">Localidade<b>${p.local||'-'}</b></div><div class="mini">Tanqueiro<b>${p.tanqueiro||'-'}</b></div><div class="mini">Caminhão<b>${p.caminhao||'-'}</b></div><div class="mini">Status<b>${statusProd(p.id)}</b></div><div class="mini">Última entrada<b>${u?fmt(u.qtd)+' L':'-'}</b></div><div class="mini">Total no mês<b>${fmt(tm)} L</b></div><div class="mini">Média diária<b>${fmt(mediaDiasComEntrega(p.id))} L</b></div><div class="mini">Média 10 dias<b>${fmt(mediaUltimosDias(p.id))} L</b></div></div>`}
 
 function periodoPagamento(){let ym=pgMes.value||isoHoje().slice(0,7),q=pgQuinzena.value;if(q==='1')return{ini:ym+'-01',fim:ym+'-15'};if(q==='2')return{ini:ym+'-16',fim:ym+'-31'};return{ini:ym+'-01',fim:ym+'-31'}}
 function chavePagamento(prodId,ym,q){return `${prodId}|${ym}|${q}`}
 function pagamentoDo(prodId,ym,q){return pagamentos.find(x=>x.chave===chavePagamento(prodId,ym,q))}
-function marcarPago(prodId){let ym=pgMes.value||isoHoje().slice(0,7),q=pgQuinzena.value;if(q==='mes'){alert('Selecione uma quinzena.');return}let perTmp=periodoPagamento();if(periodoBloqueado(perTmp.ini)){alert('Esta quinzena está fechada. Reabra o período antes de alterar pagamentos.');return}let per=periodoPagamento(),litros=entradasProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim).reduce((s,x)=>s+Number(x.qtd),0),valor=litros*VALOR_LITRO,deb=totalDebitosPeriodo(prodId,per.ini,per.fim),liquido=Math.max(0,valor-deb);if(!litros)return;pagamentos=pagamentos.filter(x=>x.chave!==chavePagamento(prodId,ym,q));pagamentos.push({chave:chavePagamento(prodId,ym,q),prodId,mes:ym,quinzena:q,litros,valorLitro:VALOR_LITRO,valorBruto:valor,totalDebitos:deb,valorPago:liquido,dataPagamento:isoHoje()});save()}
+function marcarPago(prodId){let ym=pgMes.value||isoHoje().slice(0,7),q=pgQuinzena.value;if(q==='mes'){alert('Selecione uma quinzena.');return}let per=periodoPagamento(),litros=entradasProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim).reduce((s,x)=>s+Number(x.qtd),0),valor=litros*VALOR_LITRO,deb=totalDebitosPeriodo(prodId,per.ini,per.fim),liquido=Math.max(0,valor-deb);if(!litros)return;pagamentos=pagamentos.filter(x=>x.chave!==chavePagamento(prodId,ym,q));pagamentos.push({chave:chavePagamento(prodId,ym,q),prodId,mes:ym,quinzena:q,litros,valorLitro:VALOR_LITRO,valorBruto:valor,totalDebitos:deb,valorPago:liquido,dataPagamento:isoHoje()});save()}
 function desfazerPagamento(prodId){let ym=pgMes.value||isoHoje().slice(0,7),q=pgQuinzena.value;pagamentos=pagamentos.filter(x=>x.chave!==chavePagamento(prodId,ym,q));save()}
 
 
@@ -3896,209 +2365,119 @@ function imprimirCupom(prodId,formato='80mm'){
   
 
 
+
+<script>
+const V4 = { token:null, user:null, audit:[] };
+
+function v4GetToken(){
+  return V4.token || localStorage.getItem('vale_token') || localStorage.getItem('token') ||
+         sessionStorage.getItem('vale_token') || sessionStorage.getItem('token') || '';
+}
+function v4Headers(){
+  const h={'Content-Type':'application/json'}, t=v4GetToken();
+  if(t) h.Authorization='Bearer '+t;
+  return h;
+}
+function v4IsAdmin(){
+  const u=V4.user || window.usuarioLogado || window.currentUser || {};
+  return String(u.role||u.perfil||'').toLowerCase()==='administrador' ||
+         String(u.username||u.usuario||'').toLowerCase()==='admin';
+}
+function v4AplicarVisibilidade(){
+  document.querySelectorAll('.admin-only-v4').forEach(x=>x.style.display=v4IsAdmin()?'':'none');
+}
+async function v4CarregarUsuarios(){
+  const body=document.getElementById('admListaUsuarios'); if(!body) return;
+  body.innerHTML='<tr><td colspan="6">Carregando...</td></tr>';
+  try{
+    const r=await fetch('/api/users',{headers:v4Headers()}); const j=await r.json();
+    if(!r.ok) throw new Error(j.error||'Falha');
+    body.innerHTML=(j.users||[]).map(u=>`<tr>
+      <td>${v4Esc(u.username||'')}</td><td>${v4Esc(u.name||'')}</td>
+      <td>${v4Esc(u.role||'')}</td><td>${u.active!==false?'🟢 Ativo':'🔴 Inativo'}</td>
+      <td>${v4Esc(Array.isArray(u.permissions)?u.permissions.join(', '):'')}</td>
+      <td><button onclick="v4AlternarUsuario('${u.id}',${u.active!==false})">${u.active!==false?'Desativar':'Ativar'}</button></td>
+    </tr>`).join('') || '<tr><td colspan="6">Nenhum usuário.</td></tr>';
+  }catch(e){body.innerHTML='<tr><td colspan="6">'+v4Esc(e.message)+'</td></tr>'}
+}
+async function v4CriarUsuario(){
+  const permissions=[...document.querySelectorAll('#admPermissoes input:checked')].map(x=>x.value);
+  const data={name:admNome.value.trim(),username:admUsuario.value.trim(),password:admSenha.value,
+              role:admPerfil.value,active:true,permissions};
+  const msg=document.getElementById('admMsg');
+  if(!data.username||!data.password){msg.textContent='Informe usuário e senha.';return}
+  try{
+    const r=await fetch('/api/users',{method:'POST',headers:v4Headers(),body:JSON.stringify(data)});
+    const j=await r.json(); if(!r.ok) throw new Error(j.error||'Erro');
+    msg.textContent='✅ Usuário cadastrado com sucesso.';
+    admNome.value=admUsuario.value=admSenha.value='';
+    document.querySelectorAll('#admPermissoes input').forEach(x=>x.checked=false);
+    await v4CarregarUsuarios();
+  }catch(e){msg.textContent='❌ '+e.message}
+}
+async function v4AlternarUsuario(id,ativo){
+  try{
+    const r=await fetch('/api/users/'+encodeURIComponent(id),{method:'PUT',headers:v4Headers(),
+      body:JSON.stringify({active:!ativo})});
+    const j=await r.json(); if(!r.ok) throw new Error(j.error||'Erro');
+    await v4CarregarUsuarios();
+  }catch(e){alert(e.message)}
+}
+async function v4CarregarAuditoria(){
+  const body=document.getElementById('auditLista'); if(!body)return;
+  body.innerHTML='<tr><td colspan="4">Carregando...</td></tr>';
+  try{
+    const r=await fetch('/api/audit',{headers:v4Headers()}); const j=await r.json();
+    if(!r.ok) throw new Error(j.error||'Falha');
+    V4.audit=j.logs||[]; v4RenderAuditoria(V4.audit);
+  }catch(e){body.innerHTML='<tr><td colspan="4">'+v4Esc(e.message)+'</td></tr>'}
+}
+function v4RenderAuditoria(logs){
+  const body=document.getElementById('auditLista'); if(!body)return;
+  body.innerHTML=logs.map(x=>`<tr><td>${v4Esc(v4Data(x.created_at))}</td>
+    <td>${v4Esc(x.username||'-')}</td><td>${v4Esc(x.action||'')}</td>
+    <td>${v4Esc(typeof x.details==='object'?JSON.stringify(x.details):String(x.details||''))}</td></tr>`).join('')
+    || '<tr><td colspan="4">Nenhum registro.</td></tr>';
+}
+function v4FiltrarAuditoria(){
+  const q=(document.getElementById('auditFiltro')?.value||'').toLowerCase();
+  v4RenderAuditoria(V4.audit.filter(x=>JSON.stringify(x).toLowerCase().includes(q)));
+}
+function v4Esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function v4Data(d){try{return new Date(d).toLocaleString('pt-BR')}catch(e){return d||''}}
+
+// Detecta quando o menu administrativo é aberto.
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  if((b.textContent||'').includes('Usuários e Permissões')) setTimeout(v4CarregarUsuarios,50);
+  if((b.textContent||'').includes('Histórico / Auditoria')) setTimeout(v4CarregarAuditoria,50);
+});
+
+// Integra com respostas de login fetch sem alterar a tela de login já existente.
+const v4Fetch=window.fetch.bind(window);
+window.fetch=async function(...args){
+  const resp=await v4Fetch(...args);
+  try{
+    const url=String(args[0]||'');
+    if(url.includes('/api/login') && resp.ok){
+      const clone=resp.clone(), j=await clone.json();
+      if(j.token){ V4.token=j.token; localStorage.setItem('vale_token',j.token); }
+      if(j.user){ V4.user=j.user; localStorage.setItem('vale_user',JSON.stringify(j.user)); }
+      setTimeout(v4AplicarVisibilidade,0);
+    }
+  }catch(e){}
+  return resp;
+};
+try{V4.user=JSON.parse(localStorage.getItem('vale_user')||'null')}catch(e){}
+document.addEventListener('DOMContentLoaded',v4AplicarVisibilidade);
+</script>
+
 </body></html>`);
   w.document.close();
 }
 
-
-function periodoFechamento(){
-  let ym=document.getElementById('fMes')?.value||isoHoje().slice(0,7);
-  let q=document.getElementById('fQuinzena')?.value||'1';
-  let ultimoDia=new Date(Number(ym.slice(0,4)),Number(ym.slice(5,7)),0).getDate();
-  return {
-    ym,q,
-    ini:q==='1'?ym+'-01':ym+'-16',
-    fim:q==='1'?ym+'-15':ym+'-'+String(ultimoDia).padStart(2,'0')
-  };
-}
-
-function chaveFechamento(ym,q){ return `${ym}|${q}`; }
-
-function fechamentoAtual(){
-  let p=periodoFechamento();
-  return fechamentos.find(x=>x.chave===chaveFechamento(p.ym,p.q));
-}
-
-function periodoBloqueado(data){
-  return fechamentos.some(f=>f.fechado && data>=f.ini && data<=f.fim);
-}
-
-function dadosFechamento(){
-  let per=periodoFechamento();
-  let filtro=(document.getElementById('fLocalidade')?.value||'').trim().toLowerCase();
-  let rows=[];
-
-  produtores.forEach(p=>{
-    if(filtro && !(p.local||'').toLowerCase().includes(filtro))return;
-
-    let litros=entradasProd(p.id)
-      .filter(x=>x.data>=per.ini&&x.data<=per.fim)
-      .reduce((s,x)=>s+Number(x.qtd),0);
-
-    let deb=debitosProd(p.id)
-      .filter(x=>x.data>=per.ini&&x.data<=per.fim)
-      .reduce((s,x)=>s+saldoDebito(x.id),0);
-
-    if(litros || deb){
-      let bruto=litros*VALOR_LITRO;
-      let liquido=Math.max(0,bruto-deb);
-      let pg=pagamentoDo(p.id,per.ym,per.q);
-      rows.push({p,litros,bruto,deb,liquido,pg});
-    }
-  });
-
-  rows.sort((a,b)=>{
-    let c=(a.p.local||'').localeCompare(b.p.local||'','pt-BR');
-    return c!==0?c:a.p.nome.localeCompare(b.p.nome,'pt-BR');
-  });
-
-  return {per,rows};
-}
-
-function renderFechamento(){
-  if(!document.getElementById('tbFechamento'))return;
-  if(!fMes.value)fMes.value=isoHoje().slice(0,7);
-
-  let {per,rows}=dadosFechamento();
-  let fec=fechamentos.find(x=>x.chave===chaveFechamento(per.ym,per.q) && x.fechado);
-
-  let litros=rows.reduce((s,x)=>s+x.litros,0);
-  let bruto=rows.reduce((s,x)=>s+x.bruto,0);
-  let deb=rows.reduce((s,x)=>s+x.deb,0);
-  let liq=rows.reduce((s,x)=>s+x.liquido,0);
-
-  fLitros.textContent=fmt(litros)+' L';
-  fBruto.textContent=moeda(bruto);
-  fDebitos.textContent=moeda(deb);
-  fLiquido.textContent=moeda(liq);
-
-  if(fec){
-    fStatusBox.innerHTML=`<b>🔒 QUINZENA FECHADA</b> • Fechada em ${new Date(fec.dataHora).toLocaleString('pt-BR')} • ${rows.length} produtor(es)`;
-    btnFecharQuinzena.style.display='none';
-    btnReabrirQuinzena.style.display='inline-flex';
-  }else{
-    fStatusBox.innerHTML=`<b>🔓 QUINZENA ABERTA</b> • Período ${brDate(per.ini)} a ${brDate(per.fim)} • ${rows.length} produtor(es)`;
-    btnFecharQuinzena.style.display='inline-flex';
-    btnReabrirQuinzena.style.display='none';
-  }
-
-  tbFechamento.innerHTML=rows.map(x=>`<tr>
-    <td><b>${x.p.nome}</b></td>
-    <td>${x.p.local||'-'}</td>
-    <td>${fmt(x.litros)} L</td>
-    <td>${moeda(x.bruto)}</td>
-    <td>${moeda(x.deb)}</td>
-    <td><b>${moeda(x.liquido)}</b></td>
-    <td><span class="badge ${x.pg?'paid':'pending'}">${x.pg?'PAGO':'PENDENTE'}</span></td>
-  </tr>`).join('') || '<tr><td colspan="7">Nenhum movimento nesta quinzena.</td></tr>';
-}
-
-function fecharQuinzena(){
-  let {per,rows}=dadosFechamento();
-  if(!rows.length){
-    alert('Não há movimentações para fechar neste período.');
-    return;
-  }
-
-  let pendentes=rows.filter(x=>!x.pg).length;
-  let aviso=pendentes
-    ? `Existem ${pendentes} produtor(es) ainda com pagamento pendente.\n\n`
-    : '';
-
-  if(!confirm(
-    `${aviso}Fechar definitivamente a ${per.q}ª quinzena de ${per.ym}?\n\n`+
-    `Período: ${brDate(per.ini)} a ${brDate(per.fim)}\n`+
-    `Produtores: ${rows.length}\n`+
-    `Litros: ${fmt(rows.reduce((s,x)=>s+x.litros,0))} L\n`+
-    `Líquido: ${moeda(rows.reduce((s,x)=>s+x.liquido,0))}\n\n`+
-    `Depois do fechamento, alterações no período serão bloqueadas até a reabertura.`
-  ))return;
-
-  let chave=chaveFechamento(per.ym,per.q);
-  fechamentos=fechamentos.filter(x=>x.chave!==chave);
-  fechamentos.push({
-    chave,
-    ym:per.ym,
-    quinzena:per.q,
-    ini:per.ini,
-    fim:per.fim,
-    fechado:true,
-    dataHora:new Date().toISOString(),
-    resumo:{
-      produtores:rows.length,
-      litros:rows.reduce((s,x)=>s+x.litros,0),
-      bruto:rows.reduce((s,x)=>s+x.bruto,0),
-      debitos:rows.reduce((s,x)=>s+x.deb,0),
-      liquido:rows.reduce((s,x)=>s+x.liquido,0)
-    }
-  });
-
-  localStorage.setItem(KFECH,JSON.stringify(fechamentos));
-  renderFechamento();
-  alert('Quinzena fechada com sucesso.');
-}
-
-function reabrirQuinzena(){
-  let per=periodoFechamento();
-  let fec=fechamentos.find(x=>x.chave===chaveFechamento(per.ym,per.q) && x.fechado);
-  if(!fec){
-    alert('Esta quinzena já está aberta.');
-    return;
-  }
-
-  if(!confirm(
-    `Reabrir a ${per.q}ª quinzena de ${per.ym}?\n\n`+
-    `Após reabrir, alterações de leite, débitos e pagamentos voltarão a ser permitidas.`
-  ))return;
-
-  fechamentos=fechamentos.filter(x=>x.chave!==fec.chave);
-  localStorage.setItem(KFECH,JSON.stringify(fechamentos));
-  renderFechamento();
-  alert('Quinzena reaberta.');
-}
-
-function imprimirFechamentoA4(){
-  let {per,rows}=dadosFechamento();
-  if(!rows.length){
-    alert('Não há dados para imprimir.');
-    return;
-  }
-
-  let logo=(document.querySelector('.hero-logo')||document.querySelector('.logo-wrap img'))?.src||'';
-  let fec=fechamentos.find(x=>x.chave===chaveFechamento(per.ym,per.q) && x.fechado);
-  let litros=rows.reduce((s,x)=>s+x.litros,0);
-  let bruto=rows.reduce((s,x)=>s+x.bruto,0);
-  let deb=rows.reduce((s,x)=>s+x.deb,0);
-  let liq=rows.reduce((s,x)=>s+x.liquido,0);
-
-  let linhas=rows.map(x=>`<tr>
-    <td>${x.p.nome}</td>
-    <td>${x.p.local||'-'}</td>
-    <td>${fmt(x.litros)} L</td>
-    <td>${moeda(x.bruto)}</td>
-    <td>${moeda(x.deb)}</td>
-    <td><b>${moeda(x.liquido)}</b></td>
-    <td>${x.pg?'PAGO':'PENDENTE'}</td>
-  </tr>`).join('');
-
-  let w=window.open('','','width=1100,height=900');
-  if(!w){alert('Permita pop-ups para imprimir.');return;}
-
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Fechamento ${per.ym} ${per.q}ª Quinzena</title><style>
-    @page{size:A4 portrait;margin:11mm}*{box-sizing:border-box}body{font-family:Arial;color:#10233f;margin:0}.head{background:linear-gradient(135deg,#062a55,#0b4d91);color:#fff;border-radius:15px;padding:18px;display:flex;align-items:center;gap:16px;border-bottom:7px solid #ffc400}.head img{width:80px;height:80px;border-radius:50%;object-fit:cover;border:4px solid #fff}.head h1{margin:0;font-size:26px}.head p{margin:5px 0 0}.status{margin:14px 0;padding:10px;border-radius:10px;background:${fec?'#e8f6eb':'#fff4df'};color:${fec?'#168638':'#b86c00'};font-weight:bold}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}.k{border:1px solid #dfe6ef;border-radius:10px;padding:9px}.k span{display:block;font-size:9px;text-transform:uppercase;color:#66758a;font-weight:bold}.k b{display:block;margin-top:4px;font-size:14px}table{width:100%;border-collapse:collapse;font-size:9px}th,td{padding:5px;border-bottom:1px solid #e7ecf2;text-align:left}th{background:#f4f7fb;color:#0a3470}.foot{text-align:center;font-size:9px;color:#66758a;margin-top:12px}.actions{text-align:center;margin:14px}.actions button{padding:10px 18px;border:0;border-radius:8px;background:#062a55;color:#fff;font-weight:bold}@media print{.actions{display:none}}
-  </style></head><body>
-    <div class="head">${logo?`<img src="${logo}">`:''}<div><h1>VALE DA SERRA LATICÍNIOS</h1><p>Fechamento da ${per.q}ª Quinzena • ${brDate(per.ini)} a ${brDate(per.fim)}</p></div></div>
-    <div class="status">${fec?'🔒 QUINZENA FECHADA':'🔓 QUINZENA ABERTA'}${fec?` • ${new Date(fec.dataHora).toLocaleString('pt-BR')}`:''}</div>
-    <div class="kpis"><div class="k"><span>Litros</span><b>${fmt(litros)} L</b></div><div class="k"><span>Bruto</span><b>${moeda(bruto)}</b></div><div class="k"><span>Débitos</span><b>${moeda(deb)}</b></div><div class="k"><span>Líquido</span><b>${moeda(liq)}</b></div></div>
-    <table><thead><tr><th>Produtor</th><th>Localidade</th><th>Litros</th><th>Bruto</th><th>Débitos</th><th>Líquido</th><th>Status</th></tr></thead><tbody>${linhas}</tbody></table>
-    <div class="foot">Emitido em ${new Date().toLocaleString('pt-BR')} • Vale da Serra Laticínios</div>
-    <div class="actions"><button onclick="window.print()">IMPRIMIR A4</button></div>
-  </body></html>`);
-  w.document.close();
-}
-
 function renderPagamentos(manteraFoco=true){
-  if(!pgMes.value)pgMes.value=isoHoje().slice(0,7);if(document.getElementById('fMes'))fMes.value=isoHoje().slice(0,7);
+  if(!pgMes.value)pgMes.value=isoHoje().slice(0,7);
 
   let ym=pgMes.value,
       q=pgQuinzena.value,
@@ -4594,10 +2973,10 @@ function imprimirRelatorioA4(){
   w.document.close();
 }
 
-function exportarBackup(){downloadBlob(JSON.stringify({produtores,lancamentos,pagamentos,debitos,pagamentosDebitos,fechamentos,versao:47},null,2),'backup_vale_da_serra.json','application/json')}
-function importarBackup(ev){let f=ev.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);produtores=d.produtores||[];lancamentos=d.lancamentos||[];pagamentos=d.pagamentos||[];debitos=d.debitos||[];pagamentosDebitos=d.pagamentosDebitos||[];fechamentos=d.fechamentos||[];save();alert('Backup importado.')}catch(e){alert('Backup inválido.')}};r.readAsText(f)}
+function exportarBackup(){downloadBlob(JSON.stringify({produtores,lancamentos,pagamentos,debitos,pagamentosDebitos,versao:40},null,2),'backup_vale_da_serra.json','application/json')}
+function importarBackup(ev){let f=ev.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);produtores=d.produtores||[];lancamentos=d.lancamentos||[];pagamentos=d.pagamentos||[];debitos=d.debitos||[];pagamentosDebitos=d.pagamentosDebitos||[];save();alert('Backup importado.')}catch(e){alert('Backup inválido.')}};r.readAsText(f)}
 function downloadBlob(txt,name,type){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type}));a.download=name;a.click();URL.revokeObjectURL(a.href)}
-function apagarTudo(){if(confirm('Apagar todos os dados?')){produtores=[];lancamentos=[];pagamentos=[];debitos=[];pagamentosDebitos=[];fechamentos=[];save()}}
+function apagarTudo(){if(confirm('Apagar todos os dados?')){produtores=[];lancamentos=[];pagamentos=[];debitos=[];pagamentosDebitos=[];save()}}
 function renderAll(secao){
   let atual=secao||secaoAtivaAtual();
   renderSelects();
@@ -4607,10 +2986,8 @@ function renderAll(secao){
   renderDebitos();
   renderAlertasWhats();
   renderPainel();
-  renderAuditoria();
   renderPesquisa();
   renderPagamentos(true);
-  renderFechamento();
   atualizarFiltrosRelatorio();
   preencherProdutor();
   restaurarSecao(atual);
@@ -4826,7 +3203,7 @@ function importarRelatoriosMarcosKlysman(){
   }
 }
 
-setInterval(clock,1000);lData.value=isoHoje();dData.value=isoHoje();pgMes.value=isoHoje().slice(0,7);importarRelatorioLagoaDosLuiz();corrigirResponsavelLagoaDosLuiz();importarRelatoriosMarcosKlysman();renderAll();inicializarAuditoria();renderAuditoria();renderRelatorioCompleto();restaurarSecao('painel');iniciarAutenticacao();
+setInterval(clock,1000);lData.value=isoHoje();dData.value=isoHoje();pgMes.value=isoHoje().slice(0,7);importarRelatorioLagoaDosLuiz();corrigirResponsavelLagoaDosLuiz();importarRelatoriosMarcosKlysman();renderAll();renderRelatorioCompleto();restaurarSecao('painel');iniciarAutenticacao();
 
 function editarRecebimento(id){
   let lanc=lancamentos.find(x=>x.id===id);
@@ -4834,7 +3211,6 @@ function editarRecebimento(id){
     alert('Recebimento não encontrado.');
     return;
   }
-  if(periodoBloqueado(lanc.data)){alert('Esta quinzena está fechada. Reabra o período antes de editar este recebimento.');return;}
 
   let produtor=produtores.find(p=>p.id===lanc.prodId);
   let nome=produtor?.nome||'Produtor';
@@ -4953,7 +3329,6 @@ function renderListaEditarRecebimentos(){
 function editarRecebimentoVisual(id){
   let lanc=lancamentos.find(x=>x.id===id);
   if(!lanc)return;
-  if(periodoBloqueado(lanc.data)){alert('Esta quinzena está fechada. Reabra o período antes de editar este recebimento.');return;}
   let p=produtores.find(p=>p.id===lanc.prodId);
 
   let data=prompt(`DATA DO RECEBIMENTO\nProdutor: ${p?.nome||'-'}\n\nDigite a data no formato AAAA-MM-DD:`,lanc.data);
@@ -5002,8 +3377,6 @@ document.addEventListener('click',function(e){
   }
 });
 
-
-setTimeout(()=>{preencherConfigServidor();restaurarSessaoServidor();},700);
 </script>
 
 <div id="modalEditarRecebimentos" class="edit-receb-modal" style="display:none">
@@ -5037,21 +3410,6 @@ setTimeout(()=>{preencherConfigServidor();restaurarSessaoServidor();},700);
       <button type="button" class="alert-detail-close" onclick="fecharDetalhesAlerta()">×</button>
     </div>
     <div id="conteudoDetalhesAlerta" class="alert-detail-body"></div>
-  </div>
-</div>
-
-
-<div id="modalAuditoriaDetalhe" class="audit-modal">
-  <div class="audit-box">
-    <div class="audit-head">
-      <div>
-        <div class="audit-kicker">VALE DA SERRA • AUDITORIA</div>
-        <h2 id="auditTitulo">Detalhes da Análise</h2>
-        <p id="auditSubtitulo"></p>
-      </div>
-      <button type="button" class="audit-close" onclick="fecharDetalheAuditoria()">×</button>
-    </div>
-    <div id="auditConteudo" class="audit-body"></div>
   </div>
 </div>
 
