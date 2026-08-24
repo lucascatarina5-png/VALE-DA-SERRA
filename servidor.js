@@ -99,11 +99,11 @@ async function initDb() {
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS app_sessions_token_uidx
                     ON app_sessions(token) WHERE token IS NOT NULL`);
   console.log('Migração: app_sessions compatibilizada com token.');
-  // V4.3 - compatibilidade com esquema legado que exigia token_hash.
-  // O login atual grava em token; portanto token_hash não pode continuar obrigatório.
+  // V4.4 - compatibilidade com banco legado.
+  // token_hash pode ser a PRIMARY KEY do banco antigo; não tentamos remover NOT NULL.
+  // Mantemos a coluna e gravamos nela o mesmo token usado pela versão atual.
   await pool.query(`ALTER TABLE app_sessions ADD COLUMN IF NOT EXISTS token_hash TEXT`);
-  await pool.query(`ALTER TABLE app_sessions ALTER COLUMN token_hash DROP NOT NULL`);
-  console.log('Migração: restrição legada token_hash removida com segurança.');
+  console.log('Migração: app_sessions compatível com token e token_hash legado.');
 
 
   await pool.query(`CREATE TABLE IF NOT EXISTS app_audit (
@@ -245,8 +245,8 @@ app.post('/api/login', async (req,res)=>{
     if(!r.rowCount || r.rows[0].active===false || !checkPassword(password,r.rows[0].password_hash))
       return res.status(401).json({ok:false,error:'Usuário ou senha incorretos'});
     const u=r.rows[0], t=token();
-    await pool.query(`INSERT INTO app_sessions(token,user_id,expires_at)
-                      VALUES($1,$2,NOW()+INTERVAL '12 hours')`,[t,String(u.id)]);
+    await pool.query(`INSERT INTO app_sessions(token,token_hash,user_id,expires_at)
+                      VALUES($1,$1,$2,NOW()+INTERVAL '12 hours')`,[t,String(u.id)]);
     await audit({user_id:String(u.id),username:u.username},'LOGIN');
     res.json({ok:true,token:t,user:{id:String(u.id),username:u.username,name:u.name,role:u.role,permissions:u.permissions}});
   } catch(e){ res.status(500).json({ok:false,error:e.message}); }
