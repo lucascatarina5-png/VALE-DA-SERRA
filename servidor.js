@@ -231,6 +231,7 @@ async function initDb() {
     status TEXT NOT NULL DEFAULT 'concluida', user_id TEXT, username TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), cancelled_at TIMESTAMPTZ, cancelled_by TEXT
   )`);
+  await pool.query(`ALTER TABLE app_store_sales ADD COLUMN IF NOT EXISTS customer_name TEXT DEFAULT ''`);
   await pool.query(`CREATE TABLE IF NOT EXISTS app_store_sale_items (
     id BIGSERIAL PRIMARY KEY, sale_id TEXT NOT NULL, product_id TEXT NOT NULL,
     product_name TEXT NOT NULL, quantity NUMERIC NOT NULL, unit_price NUMERIC NOT NULL,
@@ -494,15 +495,15 @@ app.post('/api/store/stock',auth,hasPermission('loja'),async(req,res)=>{try{
  if(!r.rowCount) return res.status(404).json({ok:false,error:'Produto não encontrado'}); await audit(req.user,'LOJA_AJUSTE_ESTOQUE',{product_id,quantity:q}); res.json({ok:true,stock:r.rows[0].stock});
 }catch(e){res.status(500).json({ok:false,error:e.message})}});
 app.post('/api/store/sales',auth,hasPermission('loja'),async(req,res)=>{
- const c=await pool.connect(); try{const {items,payment_method}=req.body||{}; if(!Array.isArray(items)||!items.length) return res.status(400).json({ok:false,error:'Venda sem produtos'});
+ const c=await pool.connect(); try{const {items,payment_method,customer_name}=req.body||{}; if(!Array.isArray(items)||!items.length) return res.status(400).json({ok:false,error:'Venda sem produtos'});
   if(!['pix','dinheiro','cartao','fiado'].includes(payment_method)) return res.status(400).json({ok:false,error:'Forma de pagamento inválida'});
   await c.query('BEGIN'); const id=crypto.randomUUID(); let total=0;
   const prepared=[]; for(const it of items){const q=Number(it.quantity); if(!(q>0)) throw new Error('Quantidade inválida');
    const pr=await c.query(`SELECT * FROM app_store_products WHERE id=$1 AND active=TRUE FOR UPDATE`,[it.product_id]); if(!pr.rowCount) throw new Error('Produto não encontrado'); const p=pr.rows[0];
    if(Number(p.stock)<q) throw new Error(`Estoque insuficiente: ${p.name}`); const unitPrice=(it.unit_price!==undefined&&it.unit_price!==null&&it.unit_price!=='')?Number(it.unit_price):Number(p.sale_price); if(!(unitPrice>=0)) throw new Error('Valor de venda inválido'); const sub=q*unitPrice; total+=sub; prepared.push([p,q,sub,unitPrice]);}
-  await c.query(`INSERT INTO app_store_sales(id,total,payment_method,user_id,username) VALUES($1,$2,$3,$4,$5)`,[id,total,payment_method,req.user.user_id||null,req.user.username||null]);
+  await c.query(`INSERT INTO app_store_sales(id,total,payment_method,user_id,username,customer_name) VALUES($1,$2,$3,$4,$5,$6)`,[id,total,payment_method,req.user.user_id||null,req.user.username||null,String(customer_name||'').trim()]);
   for(const [p,q,sub,unitPrice] of prepared){await c.query(`UPDATE app_store_products SET stock=stock-$2,updated_at=NOW() WHERE id=$1`,[p.id,q]); await c.query(`INSERT INTO app_store_sale_items(sale_id,product_id,product_name,quantity,unit_price,cost_price,subtotal) VALUES($1,$2,$3,$4,$5,$6,$7)`,[id,p.id,p.name,q,unitPrice,p.cost_price,sub]);}
-  await c.query('COMMIT'); await audit(req.user,'LOJA_VENDA',{id,total,payment_method}); res.json({ok:true,id,total});
+  await c.query('COMMIT'); await audit(req.user,'LOJA_VENDA',{id,total,payment_method,customer_name:String(customer_name||'').trim()}); res.json({ok:true,id,total});
  }catch(e){try{await c.query('ROLLBACK')}catch(_){} res.status(400).json({ok:false,error:e.message})}finally{c.release()}
 });
 app.get('/api/store/sales',auth,hasPermission('loja'),async(req,res)=>{try{
