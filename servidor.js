@@ -482,6 +482,12 @@ app.put('/api/store/products/:id',auth,hasPermission('loja'),async(req,res)=>{tr
  [req.params.id,b.name,b.category||'',b.unit||'un',Number(b.cost_price)||0,Number(b.sale_price)||0,Number(b.min_stock)||0,b.photo||null,b.variant||'',Number(b.package_value)||0,b.package_unit||'']);
  await audit(req.user,'LOJA_PRODUTO_EDITADO',{id:req.params.id}); res.json({ok:true});
 }catch(e){res.status(500).json({ok:false,error:e.message})}});
+app.delete('/api/store/products/:id',auth,hasPermission('loja'),async(req,res)=>{try{
+ const r=await pool.query(`UPDATE app_store_products SET active=FALSE,updated_at=NOW() WHERE id=$1 AND active=TRUE RETURNING id,name`,[req.params.id]);
+ if(!r.rowCount) return res.status(404).json({ok:false,error:'Produto não encontrado'});
+ await audit(req.user,'LOJA_PRODUTO_EXCLUIDO',{id:req.params.id,name:r.rows[0].name}); res.json({ok:true});
+}catch(e){res.status(500).json({ok:false,error:e.message})}});
+
 app.post('/api/store/stock',auth,hasPermission('loja'),async(req,res)=>{try{
  const {product_id,quantity}=req.body||{}; const q=Number(quantity); if(!product_id||!q) return res.status(400).json({ok:false,error:'Dados inválidos'});
  const r=await pool.query(`UPDATE app_store_products SET stock=stock+$2,updated_at=NOW() WHERE id=$1 RETURNING stock`,[product_id,q]);
@@ -493,9 +499,9 @@ app.post('/api/store/sales',auth,hasPermission('loja'),async(req,res)=>{
   await c.query('BEGIN'); const id=crypto.randomUUID(); let total=0;
   const prepared=[]; for(const it of items){const q=Number(it.quantity); if(!(q>0)) throw new Error('Quantidade inválida');
    const pr=await c.query(`SELECT * FROM app_store_products WHERE id=$1 AND active=TRUE FOR UPDATE`,[it.product_id]); if(!pr.rowCount) throw new Error('Produto não encontrado'); const p=pr.rows[0];
-   if(Number(p.stock)<q) throw new Error(`Estoque insuficiente: ${p.name}`); const sub=q*Number(p.sale_price); total+=sub; prepared.push([p,q,sub]);}
+   if(Number(p.stock)<q) throw new Error(`Estoque insuficiente: ${p.name}`); const unitPrice=(it.unit_price!==undefined&&it.unit_price!==null&&it.unit_price!=='')?Number(it.unit_price):Number(p.sale_price); if(!(unitPrice>=0)) throw new Error('Valor de venda inválido'); const sub=q*unitPrice; total+=sub; prepared.push([p,q,sub,unitPrice]);}
   await c.query(`INSERT INTO app_store_sales(id,total,payment_method,user_id,username) VALUES($1,$2,$3,$4,$5)`,[id,total,payment_method,req.user.user_id||null,req.user.username||null]);
-  for(const [p,q,sub] of prepared){await c.query(`UPDATE app_store_products SET stock=stock-$2,updated_at=NOW() WHERE id=$1`,[p.id,q]); await c.query(`INSERT INTO app_store_sale_items(sale_id,product_id,product_name,quantity,unit_price,cost_price,subtotal) VALUES($1,$2,$3,$4,$5,$6,$7)`,[id,p.id,p.name,q,p.sale_price,p.cost_price,sub]);}
+  for(const [p,q,sub,unitPrice] of prepared){await c.query(`UPDATE app_store_products SET stock=stock-$2,updated_at=NOW() WHERE id=$1`,[p.id,q]); await c.query(`INSERT INTO app_store_sale_items(sale_id,product_id,product_name,quantity,unit_price,cost_price,subtotal) VALUES($1,$2,$3,$4,$5,$6,$7)`,[id,p.id,p.name,q,unitPrice,p.cost_price,sub]);}
   await c.query('COMMIT'); await audit(req.user,'LOJA_VENDA',{id,total,payment_method}); res.json({ok:true,id,total});
  }catch(e){try{await c.query('ROLLBACK')}catch(_){} res.status(400).json({ok:false,error:e.message})}finally{c.release()}
 });
