@@ -454,6 +454,14 @@ app.get('/sw.js',(_req,res)=>{
   res.set('Service-Worker-Allowed','/');
   res.sendFile(path.join(__dirname,'sw.js'));
 });
+app.get(['/','/index.html'],(_req,res)=>{
+  res.set('Cache-Control','no-cache');
+  res.sendFile(path.join(__dirname,'index.html'));
+});
+app.get('/mobile.html',(_req,res)=>{
+  res.set('Cache-Control','no-cache');
+  res.sendFile(path.join(__dirname,'mobile.html'));
+});
 app.use(express.static(__dirname,{maxAge:'1h'}));
 app.get('*',(_req,res)=>res.sendFile(path.join(__dirname,'index.html')));
 
