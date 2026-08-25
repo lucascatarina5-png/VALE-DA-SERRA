@@ -232,6 +232,11 @@ async function initDb() {
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), cancelled_at TIMESTAMPTZ, cancelled_by TEXT
   )`);
   await pool.query(`ALTER TABLE app_store_sales ADD COLUMN IF NOT EXISTS customer_name TEXT DEFAULT ''`);
+  await pool.query(`ALTER TABLE app_store_sales ADD COLUMN IF NOT EXISTS correction_reason TEXT DEFAULT ''`);
+  await pool.query(`ALTER TABLE app_store_sales ADD COLUMN IF NOT EXISTS corrected_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE app_store_sales ADD COLUMN IF NOT EXISTS corrected_by TEXT DEFAULT ''`);
+  await pool.query(`ALTER TABLE app_store_sales ADD COLUMN IF NOT EXISTS cancel_reason TEXT DEFAULT ''`);
+
   await pool.query(`CREATE TABLE IF NOT EXISTS app_store_stock_movements (
     id BIGSERIAL PRIMARY KEY, product_id TEXT NOT NULL, product_name TEXT NOT NULL,
     movement_type TEXT NOT NULL, quantity_before NUMERIC NOT NULL, quantity_change NUMERIC NOT NULL,
@@ -559,10 +564,32 @@ app.post('/api/store/sales',auth,hasPermission('loja'),async(req,res)=>{
  }catch(e){try{await c.query('ROLLBACK')}catch(_){} res.status(400).json({ok:false,error:e.message})}finally{c.release()}
 });
 app.get('/api/store/sales',auth,hasPermission('loja'),async(req,res)=>{try{
- const days=Math.max(1,Math.min(365,Number(req.query.days)||7)); const r=await pool.query(`SELECT s.*,COALESCE(json_agg(json_build_object('product_name',i.product_name,'quantity',i.quantity,'unit_price',i.unit_price,'subtotal',i.subtotal)) FILTER (WHERE i.id IS NOT NULL),'[]') items FROM app_store_sales s LEFT JOIN app_store_sale_items i ON i.sale_id=s.id WHERE s.created_at >= NOW()-($1::text||' days')::interval GROUP BY s.id ORDER BY s.created_at DESC`,[days]); res.json({ok:true,sales:r.rows});
+ const days=Math.max(1,Math.min(365,Number(req.query.days)||7)); const includeCancelled=req.user.role==='administrador' && String(req.query.audit||'')==='1';
+ const r=await pool.query(`SELECT s.*,COALESCE(json_agg(json_build_object('product_id',i.product_id,'product_name',i.product_name,'quantity',i.quantity,'unit_price',i.unit_price,'subtotal',i.subtotal)) FILTER (WHERE i.id IS NOT NULL),'[]') items FROM app_store_sales s LEFT JOIN app_store_sale_items i ON i.sale_id=s.id WHERE s.created_at >= NOW()-($1::text||' days')::interval ${includeCancelled?'':"AND s.status<>'cancelada'"} GROUP BY s.id ORDER BY s.created_at DESC`,[days]); res.json({ok:true,sales:r.rows,is_admin:req.user.role==='administrador'});
 }catch(e){res.status(500).json({ok:false,error:e.message})}});
-app.post('/api/store/sales/:id/cancel',auth,hasPermission('loja'),async(req,res)=>{const c=await pool.connect();try{
- await c.query('BEGIN'); const s=await c.query(`SELECT * FROM app_store_sales WHERE id=$1 FOR UPDATE`,[req.params.id]); if(!s.rowCount||s.rows[0].status==='cancelada') throw new Error('Venda inválida ou já cancelada'); const its=await c.query(`SELECT * FROM app_store_sale_items WHERE sale_id=$1`,[req.params.id]); for(const i of its.rows) await c.query(`UPDATE app_store_products SET stock=stock+$2 WHERE id=$1`,[i.product_id,i.quantity]); await c.query(`UPDATE app_store_sales SET status='cancelada',cancelled_at=NOW(),cancelled_by=$2 WHERE id=$1`,[req.params.id,req.user.username]); await c.query('COMMIT'); await audit(req.user,'LOJA_VENDA_CANCELADA',{id:req.params.id}); res.json({ok:true});
+
+// V21 - correção/cancelamento de vendas: exclusivo do administrador e sempre auditado
+app.put('/api/store/sales/:id/admin-correct',auth,adminOnly,async(req,res)=>{const c=await pool.connect();try{
+ const b=req.body||{}, reason=String(b.reason||'').trim(); if(!reason) throw new Error('Informe o motivo da correção.');
+ if(!Array.isArray(b.items)||!b.items.length) throw new Error('A venda precisa ter pelo menos um produto.');
+ if(!['pix','dinheiro','cartao','fiado'].includes(b.payment_method)) throw new Error('Forma de pagamento inválida.');
+ await c.query('BEGIN'); const sr=await c.query(`SELECT * FROM app_store_sales WHERE id=$1 FOR UPDATE`,[req.params.id]);
+ if(!sr.rowCount||sr.rows[0].status==='cancelada') throw new Error('Venda inválida ou cancelada.');
+ const oldItems=(await c.query(`SELECT * FROM app_store_sale_items WHERE sale_id=$1 ORDER BY id`,[req.params.id])).rows;
+ const before={sale:sr.rows[0],items:oldItems};
+ for(const i of oldItems) await c.query(`UPDATE app_store_products SET stock=stock+$2,updated_at=NOW() WHERE id=$1`,[i.product_id,i.quantity]);
+ let total=0, prepared=[];
+ for(const it of b.items){const q=Number(it.quantity), up=Number(it.unit_price);if(!(q>0)||!(up>=0))throw new Error('Quantidade ou preço inválido.');
+   const pr=await c.query(`SELECT * FROM app_store_products WHERE id=$1 AND active=TRUE FOR UPDATE`,[it.product_id]);if(!pr.rowCount)throw new Error('Produto não encontrado.');const x=pr.rows[0];if(Number(x.stock)<q)throw new Error(`Estoque insuficiente: ${x.name}`);prepared.push([x,q,up,q*up]);total+=q*up;}
+ await c.query(`DELETE FROM app_store_sale_items WHERE sale_id=$1`,[req.params.id]);
+ for(const [x,q,up,sub] of prepared){await c.query(`UPDATE app_store_products SET stock=stock-$2,updated_at=NOW() WHERE id=$1`,[x.id,q]);await c.query(`INSERT INTO app_store_sale_items(sale_id,product_id,product_name,quantity,unit_price,cost_price,subtotal) VALUES($1,$2,$3,$4,$5,$6,$7)`,[req.params.id,x.id,x.name,q,up,x.cost_price,sub]);}
+ await c.query(`UPDATE app_store_sales SET total=$2,payment_method=$3,customer_name=$4,correction_reason=$5,corrected_at=NOW(),corrected_by=$6 WHERE id=$1`,[req.params.id,total,b.payment_method,String(b.customer_name||'').trim(),reason,req.user.username]);
+ await c.query('COMMIT'); await audit(req.user,'LOJA_VENDA_CORRIGIDA',{id:req.params.id,reason,before,after:{total,payment_method:b.payment_method,customer_name:String(b.customer_name||'').trim(),items:b.items}});res.json({ok:true,total});
+}catch(e){try{await c.query('ROLLBACK')}catch(_){}res.status(400).json({ok:false,error:e.message})}finally{c.release()}});
+
+app.post('/api/store/sales/:id/cancel',auth,adminOnly,async(req,res)=>{const c=await pool.connect();try{
+ const reason=String(req.body?.reason||'').trim();if(!reason)throw new Error('Informe o motivo do cancelamento.');
+ await c.query('BEGIN'); const s=await c.query(`SELECT * FROM app_store_sales WHERE id=$1 FOR UPDATE`,[req.params.id]); if(!s.rowCount||s.rows[0].status==='cancelada') throw new Error('Venda inválida ou já cancelada'); const its=await c.query(`SELECT * FROM app_store_sale_items WHERE sale_id=$1`,[req.params.id]); for(const i of its.rows) await c.query(`UPDATE app_store_products SET stock=stock+$2,updated_at=NOW() WHERE id=$1`,[i.product_id,i.quantity]); await c.query(`UPDATE app_store_sales SET status='cancelada',cancelled_at=NOW(),cancelled_by=$2,cancel_reason=$3 WHERE id=$1`,[req.params.id,req.user.username,reason]); await c.query('COMMIT'); await audit(req.user,'LOJA_VENDA_CANCELADA',{id:req.params.id,reason,total:s.rows[0].total,payment_method:s.rows[0].payment_method}); res.json({ok:true});
 }catch(e){try{await c.query('ROLLBACK')}catch(_){} res.status(400).json({ok:false,error:e.message})}finally{c.release()}});
 
 // PWA: tipos corretos e atualização imediata do manifest/service worker
