@@ -2466,35 +2466,6 @@ function imprimirCupom(prodId,formato='80mm'){
 
 
 
-<script>
-if ('serviceWorker' in navigator) { window.addEventListener('load', async()=>{ try { const reg=await navigator.serviceWorker.register('/sw.js',{scope:'/'}); reg.update(); } catch(e){ console.error('Falha ao registrar PWA:',e); } }); }
-</script>
-
-<style id="vds-pwa-install-style">
-#vdsInstallApp{display:none;position:fixed;right:16px;bottom:88px;z-index:99999;border:0;border-radius:16px;padding:13px 18px;background:#145c35;color:#fff;font:700 15px system-ui,-apple-system,Segoe UI,Arial;box-shadow:0 8px 24px rgba(0,0,0,.22);cursor:pointer}
-@media (display-mode:standalone){#vdsInstallApp{display:none!important}}
-</style>
-<button id="vdsInstallApp" type="button" aria-label="Instalar aplicativo Vale da Serra">📲 Instalar aplicativo</button>
-<script>
-(()=>{
- let deferredPrompt=null;
- const btn=document.getElementById('vdsInstallApp');
- const standalone=()=>window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
- window.addEventListener('beforeinstallprompt',e=>{
-   e.preventDefault(); deferredPrompt=e;
-   if(!standalone()) btn.style.display='block';
- });
- btn.addEventListener('click',async()=>{
-   if(!deferredPrompt) return;
-   deferredPrompt.prompt();
-   try{await deferredPrompt.userChoice;}catch(_){ }
-   deferredPrompt=null; btn.style.display='none';
- });
- window.addEventListener('appinstalled',()=>{deferredPrompt=null;btn.style.display='none';});
- if(standalone()) btn.style.display='none';
-})();
-<\/script>
-
 </body></html>`);
   w.document.close();
 }
@@ -2993,31 +2964,6 @@ function imprimirRelatorioA4(){
     <div class="foot">Relatório emitido em ${new Date().toLocaleString('pt-BR')} • Vale da Serra Laticínios</div>
     <div class="actions"><button onclick="window.print()">IMPRIMIR RELATÓRIO A4</button></div>
   
-<style id="vds-pwa-install-style">
-#vdsInstallApp{display:none;position:fixed;right:16px;bottom:88px;z-index:99999;border:0;border-radius:16px;padding:13px 18px;background:#145c35;color:#fff;font:700 15px system-ui,-apple-system,Segoe UI,Arial;box-shadow:0 8px 24px rgba(0,0,0,.22);cursor:pointer}
-@media (display-mode:standalone){#vdsInstallApp{display:none!important}}
-</style>
-<button id="vdsInstallApp" type="button" aria-label="Instalar aplicativo Vale da Serra">📲 Instalar aplicativo</button>
-<script>
-(()=>{
- let deferredPrompt=null;
- const btn=document.getElementById('vdsInstallApp');
- const standalone=()=>window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
- window.addEventListener('beforeinstallprompt',e=>{
-   e.preventDefault(); deferredPrompt=e;
-   if(!standalone()) btn.style.display='block';
- });
- btn.addEventListener('click',async()=>{
-   if(!deferredPrompt) return;
-   deferredPrompt.prompt();
-   try{await deferredPrompt.userChoice;}catch(_){ }
-   deferredPrompt=null; btn.style.display='none';
- });
- window.addEventListener('appinstalled',()=>{deferredPrompt=null;btn.style.display='none';});
- if(standalone()) btn.style.display='none';
-})();
-<\/script>
-
 </body></html>`);
   w.document.close();
 }
