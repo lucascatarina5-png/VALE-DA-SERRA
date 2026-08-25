@@ -437,15 +437,17 @@ app.get('/api/inventory/products',auth,hasPermission('estoque'),async(req,res)=>
 });
 
 app.post('/api/inventory/products',auth,hasPermission('estoque'),async(req,res)=>{
+  const client=await pool.connect();
   try{
-    const {name,unit='kg',min_stock=0,unit_price=0}=req.body||{};
+    const {name,unit='kg',min_stock=0,unit_price=0,initial_quantity=0}=req.body||{};
     if(!String(name||'').trim()) return res.status(400).json({ok:false,error:'Informe o produto'});
-    const id=crypto.randomUUID();
-    await pool.query(`INSERT INTO app_inventory_products(id,name,unit,min_stock,unit_price)
-      VALUES($1,$2,$3,$4,$5)`,[id,String(name).trim(),unit,Number(min_stock)||0,Number(unit_price)||0]);
-    await audit(req.user,'ESTOQUE_PRODUTO_CRIADO',{id,name});
-    res.json({ok:true,id});
-  }catch(e){res.status(500).json({ok:false,error:e.message});}
+    const initial=Number(initial_quantity)||0;
+    if(initial<0) return res.status(400).json({ok:false,error:'Quantidade inicial inválida'});
+    const id=crypto.randomUUID(); await client.query('BEGIN');
+    await client.query(`INSERT INTO app_inventory_products(id,name,unit,min_stock,unit_price) VALUES($1,$2,$3,$4,$5)`,[id,String(name).trim(),unit,Number(min_stock)||0,Number(unit_price)||0]);
+    if(initial>0) await client.query(`INSERT INTO app_inventory_movements (product_id,type,quantity,unit_price,destination,user_id,username) VALUES($1,'entrada',$2,$3,$4,$5,$6)`,[id,initial,Number(unit_price)||0,'Estoque inicial no cadastro',req.user.user_id||null,req.user.username||null]);
+    await client.query('COMMIT'); await audit(req.user,'ESTOQUE_PRODUTO_CRIADO',{id,name,initial_quantity:initial}); res.json({ok:true,id});
+  }catch(e){try{await client.query('ROLLBACK')}catch(_){} res.status(500).json({ok:false,error:e.message});} finally{client.release();}
 });
 
 app.get('/api/inventory/movements',auth,hasPermission('estoque'),async(req,res)=>{

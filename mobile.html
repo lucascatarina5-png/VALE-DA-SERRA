@@ -867,6 +867,36 @@ td{font-size:12.5px}
 .loja-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:15px 0}.loja-kpis>div,.loja-cart{background:#fff;border-radius:16px;padding:16px;box-shadow:0 4px 18px #0001}.loja-kpis b{display:block;color:#667}.loja-kpis strong{font-size:26px;color:#123c2d}.loja-actions{display:flex;gap:10px;margin:12px 0}.loja-actions button,.loja-actions select{padding:11px 15px;border:0;border-radius:10px;background:#123c2d;color:#fff;font-weight:700}.loja-layout{display:grid;grid-template-columns:1fr 340px;gap:18px}.loja-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:12px}.lj-prod{background:#fff;border-radius:16px;padding:10px;text-align:center;box-shadow:0 3px 14px #0001;cursor:pointer;border:2px solid transparent}.lj-prod:hover{border-color:#e9b51c}.lj-prod img{width:100%;height:120px;object-fit:cover;border-radius:12px;background:#eee}.lj-prod .ph{height:120px;display:grid;place-items:center;font-size:50px;background:#f4f4f4;border-radius:12px}.lj-prod b{display:block;margin-top:8px}.lj-prod-actions{display:flex;gap:6px;margin-top:8px}.lj-prod-actions button{flex:1;border:0;border-radius:8px;padding:7px;font-weight:700}.lj-del{background:#fee2e2;color:#991b1b}.lj-add{background:#e8f3ec;color:#14532d}.lj-prod small{display:block}.loja-cart{position:sticky;top:15px;height:max-content}.lj-item{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid #eee}.lj-item button{border:0;border-radius:8px;padding:5px 9px}.loja-total{display:flex;justify-content:space-between;font-size:20px;padding:16px 0}.loja-cart select,.loja-finalizar{width:100%;padding:13px;border-radius:10px;margin-top:8px}.loja-finalizar{border:0;background:#176b42;color:white;font-weight:800}.lj-modal{display:none;position:fixed;inset:0;background:#0008;z-index:100000;align-items:center;justify-content:center}.lj-modal.on{display:flex}.lj-box{width:min(520px,92vw);max-height:90vh;overflow:auto;background:#fff;border-radius:20px;padding:22px;position:relative}.lj-box input,.lj-box select{width:100%;padding:12px;margin:6px 0;border:1px solid #ccd3d0;border-radius:10px}.lj-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.lj-x{position:absolute;right:14px;top:12px;border:0;background:none;font-size:28px}.lj-photo{display:block;padding:12px;background:#f3f5f4;border-radius:10px;margin-top:8px}.lj-photo input{margin:5px 0 0}.lj-preview{display:none;width:130px;height:100px;object-fit:cover;border-radius:12px;margin:8px auto}.lj-summary{display:flex;gap:15px;flex-wrap:wrap;margin:10px 0}.lj-summary span{background:#f4f6f5;padding:10px 14px;border-radius:10px}.lj-table{width:100%;border-collapse:collapse}.lj-table th,.lj-table td{padding:9px;border-bottom:1px solid #eee;text-align:left}
 @media(max-width:800px){.loja-kpis{grid-template-columns:1fr 1fr}.loja-layout{grid-template-columns:1fr}.loja-cart{position:static}.loja-grid{grid-template-columns:repeat(2,1fr)}}
 </style>
+
+<style id="vds-mobile-v24-premium">
+@media(max-width:760px){
+:root{--mgreen:#0c4b2d;--mgreen2:#176c42;--mgold:#e7b323;--mcream:#f6f3e9}
+body.vds-mobile-mode{background:var(--mcream)!important}
+body.vds-mobile-mode .content{padding:14px 14px 108px!important}
+body.vds-mobile-mode .section.active{animation:vdsPageIn .28s cubic-bezier(.2,.8,.2,1)}
+@keyframes vdsPageIn{from{opacity:0;transform:translateY(10px) scale(.99)}to{opacity:1;transform:none}}
+#vdsMobileHome{background:linear-gradient(180deg,#edf6ef 0,#f7f4ea 38%,#f7f4ea 100%)!important}
+.vds-m-head{margin:0 -16px 0!important;padding:24px 20px 42px!important;background:linear-gradient(135deg,#073d25,#176d43)!important;border-radius:0 0 30px 30px!important;box-shadow:0 12px 30px rgba(8,63,38,.2)}
+.vds-m-head b{font-size:29px!important;letter-spacing:-.5px}.vds-m-head span{display:block;margin-top:4px}
+.vds-m-welcome{margin:-22px 2px 18px!important;position:relative;z-index:2;border:1px solid rgba(255,255,255,.8);box-shadow:0 12px 32px rgba(24,55,38,.11)!important}
+.vds-m-welcome h2{font-size:25px!important}.vds-m-welcome p{font-size:14px}
+.vds-m-grid{gap:12px!important}
+.vds-m-card{min-height:148px!important;border-radius:22px!important;padding:16px 8px!important;font-size:16px!important;box-shadow:0 8px 22px rgba(30,52,39,.08)!important;border:1px solid #e7ece7!important;transition:transform .14s ease,box-shadow .14s ease!important;position:relative;overflow:hidden}
+.vds-m-card:active{transform:scale(.965);box-shadow:0 3px 10px rgba(30,52,39,.08)!important}.vds-m-card .em{font-size:43px!important;background:#eef6f0;width:72px;height:72px;border-radius:22px;display:grid;place-items:center}
+#vdsMobileBottom{left:10px!important;right:10px!important;bottom:8px!important;border:0!important;border-radius:22px!important;padding:7px 5px calc(7px + env(safe-area-inset-bottom))!important;box-shadow:0 10px 35px rgba(0,0,0,.18)!important;overflow:hidden}
+.vds-m-nav{border-radius:15px!important;transition:.16s ease!important}.vds-m-nav:active{background:#edf6ef!important;transform:scale(.94)}.vds-m-nav i{font-size:23px!important}
+body.vds-mobile-mode .card{border:1px solid #e6ebe7!important;box-shadow:0 8px 24px rgba(24,54,37,.07)!important}
+body.vds-mobile-mode .section>h2,body.vds-mobile-mode .section>.title{color:var(--mgreen)!important}
+body.vds-mobile-mode input,body.vds-mobile-mode select,body.vds-mobile-mode textarea{border:1px solid #dce4de!important;box-shadow:0 2px 5px rgba(0,0,0,.025);transition:border .15s,box-shadow .15s}
+body.vds-mobile-mode input:focus,body.vds-mobile-mode select:focus,body.vds-mobile-mode textarea:focus{outline:none!important;border-color:#3a8a60!important;box-shadow:0 0 0 3px rgba(58,138,96,.13)!important}
+body.vds-mobile-mode .btn,body.vds-mobile-mode button{transition:transform .12s ease,filter .12s ease}body.vds-mobile-mode .btn:active,body.vds-mobile-mode button:active{transform:scale(.975)}
+body.vds-mobile-mode .lj-prod{border-radius:20px!important;box-shadow:0 7px 20px rgba(24,54,37,.08)!important;padding:9px!important}body.vds-mobile-mode .lj-prod img,body.vds-mobile-mode .lj-prod .ph{border-radius:16px!important;height:132px!important}body.vds-mobile-mode .loja-grid{gap:10px!important}
+body.vds-mobile-mode .lj-box{align-self:flex-end;width:100%!important;max-width:none!important;border-radius:26px 26px 0 0!important;padding:24px 18px calc(24px + env(safe-area-inset-bottom))!important;animation:vdsSheet .24s ease-out}
+@keyframes vdsSheet{from{transform:translateY(40px);opacity:.5}to{transform:none;opacity:1}}
+#vdsMobileAccount.open .vds-account-sheet{animation:vdsSheet .24s ease-out}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+}
+</style>
 </head>
 <body>
 
@@ -1259,6 +1289,7 @@ td{font-size:12.5px}
     <div class="est-mobile-form" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px">
       <label class="est-field"><span>Nome do produto</span><input id="estProdNome" placeholder="Ex.: Ração 22%"></label>
       <label class="est-field"><span>Unidade</span><select id="estProdUn"><option>kg</option><option>saco</option><option>un</option><option>litro</option></select></label>
+      <label class="est-field"><span>Quantidade inicial</span><input id="estProdQtd" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Ex.: 50"></label>
       <label class="est-field"><span>Estoque mínimo</span><input id="estProdMin" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Ex.: 10"></label>
       <label class="est-field"><span>Preço unitário</span><input id="estProdPreco" type="number" inputmode="decimal" step="0.01" min="0" placeholder="R$ 0,00"></label>
     </div>
@@ -2428,7 +2459,37 @@ function imprimirCupom(prodId,formato='80mm'){
   .foot{text-align:center;color:#68778c;font-size:${formato==='80mm'?'9px':'11px'};padding:10px}
   .actions{text-align:center;margin-top:10px}.actions button{padding:9px 16px;border:0;border-radius:8px;background:var(--navy);color:#fff;font-weight:bold}
   @media print{.actions{display:none}.receipt{border:none}}
-  </style></head><body>
+  </style>
+<style id="vds-mobile-v24-premium">
+@media(max-width:760px){
+:root{--mgreen:#0c4b2d;--mgreen2:#176c42;--mgold:#e7b323;--mcream:#f6f3e9}
+body.vds-mobile-mode{background:var(--mcream)!important}
+body.vds-mobile-mode .content{padding:14px 14px 108px!important}
+body.vds-mobile-mode .section.active{animation:vdsPageIn .28s cubic-bezier(.2,.8,.2,1)}
+@keyframes vdsPageIn{from{opacity:0;transform:translateY(10px) scale(.99)}to{opacity:1;transform:none}}
+#vdsMobileHome{background:linear-gradient(180deg,#edf6ef 0,#f7f4ea 38%,#f7f4ea 100%)!important}
+.vds-m-head{margin:0 -16px 0!important;padding:24px 20px 42px!important;background:linear-gradient(135deg,#073d25,#176d43)!important;border-radius:0 0 30px 30px!important;box-shadow:0 12px 30px rgba(8,63,38,.2)}
+.vds-m-head b{font-size:29px!important;letter-spacing:-.5px}.vds-m-head span{display:block;margin-top:4px}
+.vds-m-welcome{margin:-22px 2px 18px!important;position:relative;z-index:2;border:1px solid rgba(255,255,255,.8);box-shadow:0 12px 32px rgba(24,55,38,.11)!important}
+.vds-m-welcome h2{font-size:25px!important}.vds-m-welcome p{font-size:14px}
+.vds-m-grid{gap:12px!important}
+.vds-m-card{min-height:148px!important;border-radius:22px!important;padding:16px 8px!important;font-size:16px!important;box-shadow:0 8px 22px rgba(30,52,39,.08)!important;border:1px solid #e7ece7!important;transition:transform .14s ease,box-shadow .14s ease!important;position:relative;overflow:hidden}
+.vds-m-card:active{transform:scale(.965);box-shadow:0 3px 10px rgba(30,52,39,.08)!important}.vds-m-card .em{font-size:43px!important;background:#eef6f0;width:72px;height:72px;border-radius:22px;display:grid;place-items:center}
+#vdsMobileBottom{left:10px!important;right:10px!important;bottom:8px!important;border:0!important;border-radius:22px!important;padding:7px 5px calc(7px + env(safe-area-inset-bottom))!important;box-shadow:0 10px 35px rgba(0,0,0,.18)!important;overflow:hidden}
+.vds-m-nav{border-radius:15px!important;transition:.16s ease!important}.vds-m-nav:active{background:#edf6ef!important;transform:scale(.94)}.vds-m-nav i{font-size:23px!important}
+body.vds-mobile-mode .card{border:1px solid #e6ebe7!important;box-shadow:0 8px 24px rgba(24,54,37,.07)!important}
+body.vds-mobile-mode .section>h2,body.vds-mobile-mode .section>.title{color:var(--mgreen)!important}
+body.vds-mobile-mode input,body.vds-mobile-mode select,body.vds-mobile-mode textarea{border:1px solid #dce4de!important;box-shadow:0 2px 5px rgba(0,0,0,.025);transition:border .15s,box-shadow .15s}
+body.vds-mobile-mode input:focus,body.vds-mobile-mode select:focus,body.vds-mobile-mode textarea:focus{outline:none!important;border-color:#3a8a60!important;box-shadow:0 0 0 3px rgba(58,138,96,.13)!important}
+body.vds-mobile-mode .btn,body.vds-mobile-mode button{transition:transform .12s ease,filter .12s ease}body.vds-mobile-mode .btn:active,body.vds-mobile-mode button:active{transform:scale(.975)}
+body.vds-mobile-mode .lj-prod{border-radius:20px!important;box-shadow:0 7px 20px rgba(24,54,37,.08)!important;padding:9px!important}body.vds-mobile-mode .lj-prod img,body.vds-mobile-mode .lj-prod .ph{border-radius:16px!important;height:132px!important}body.vds-mobile-mode .loja-grid{gap:10px!important}
+body.vds-mobile-mode .lj-box{align-self:flex-end;width:100%!important;max-width:none!important;border-radius:26px 26px 0 0!important;padding:24px 18px calc(24px + env(safe-area-inset-bottom))!important;animation:vdsSheet .24s ease-out}
+@keyframes vdsSheet{from{transform:translateY(40px);opacity:.5}to{transform:none;opacity:1}}
+#vdsMobileAccount.open .vds-account-sheet{animation:vdsSheet .24s ease-out}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+}
+</style>
+</head><body>
   <div class="receipt">
     <div class="head">
       ${logo?`<img class="logo" src="${logo}">`:''}
@@ -2948,7 +3009,37 @@ function imprimirRelatorioA4(){
     .foot{text-align:center;color:#66758a;font-size:9px;margin-top:12px}
     .actions{text-align:center;margin:16px}.actions button{padding:10px 18px;border:0;background:#062a55;color:#fff;border-radius:8px;font-weight:bold}
     @media print{.actions{display:none}}
-  </style></head><body>
+  </style>
+<style id="vds-mobile-v24-premium">
+@media(max-width:760px){
+:root{--mgreen:#0c4b2d;--mgreen2:#176c42;--mgold:#e7b323;--mcream:#f6f3e9}
+body.vds-mobile-mode{background:var(--mcream)!important}
+body.vds-mobile-mode .content{padding:14px 14px 108px!important}
+body.vds-mobile-mode .section.active{animation:vdsPageIn .28s cubic-bezier(.2,.8,.2,1)}
+@keyframes vdsPageIn{from{opacity:0;transform:translateY(10px) scale(.99)}to{opacity:1;transform:none}}
+#vdsMobileHome{background:linear-gradient(180deg,#edf6ef 0,#f7f4ea 38%,#f7f4ea 100%)!important}
+.vds-m-head{margin:0 -16px 0!important;padding:24px 20px 42px!important;background:linear-gradient(135deg,#073d25,#176d43)!important;border-radius:0 0 30px 30px!important;box-shadow:0 12px 30px rgba(8,63,38,.2)}
+.vds-m-head b{font-size:29px!important;letter-spacing:-.5px}.vds-m-head span{display:block;margin-top:4px}
+.vds-m-welcome{margin:-22px 2px 18px!important;position:relative;z-index:2;border:1px solid rgba(255,255,255,.8);box-shadow:0 12px 32px rgba(24,55,38,.11)!important}
+.vds-m-welcome h2{font-size:25px!important}.vds-m-welcome p{font-size:14px}
+.vds-m-grid{gap:12px!important}
+.vds-m-card{min-height:148px!important;border-radius:22px!important;padding:16px 8px!important;font-size:16px!important;box-shadow:0 8px 22px rgba(30,52,39,.08)!important;border:1px solid #e7ece7!important;transition:transform .14s ease,box-shadow .14s ease!important;position:relative;overflow:hidden}
+.vds-m-card:active{transform:scale(.965);box-shadow:0 3px 10px rgba(30,52,39,.08)!important}.vds-m-card .em{font-size:43px!important;background:#eef6f0;width:72px;height:72px;border-radius:22px;display:grid;place-items:center}
+#vdsMobileBottom{left:10px!important;right:10px!important;bottom:8px!important;border:0!important;border-radius:22px!important;padding:7px 5px calc(7px + env(safe-area-inset-bottom))!important;box-shadow:0 10px 35px rgba(0,0,0,.18)!important;overflow:hidden}
+.vds-m-nav{border-radius:15px!important;transition:.16s ease!important}.vds-m-nav:active{background:#edf6ef!important;transform:scale(.94)}.vds-m-nav i{font-size:23px!important}
+body.vds-mobile-mode .card{border:1px solid #e6ebe7!important;box-shadow:0 8px 24px rgba(24,54,37,.07)!important}
+body.vds-mobile-mode .section>h2,body.vds-mobile-mode .section>.title{color:var(--mgreen)!important}
+body.vds-mobile-mode input,body.vds-mobile-mode select,body.vds-mobile-mode textarea{border:1px solid #dce4de!important;box-shadow:0 2px 5px rgba(0,0,0,.025);transition:border .15s,box-shadow .15s}
+body.vds-mobile-mode input:focus,body.vds-mobile-mode select:focus,body.vds-mobile-mode textarea:focus{outline:none!important;border-color:#3a8a60!important;box-shadow:0 0 0 3px rgba(58,138,96,.13)!important}
+body.vds-mobile-mode .btn,body.vds-mobile-mode button{transition:transform .12s ease,filter .12s ease}body.vds-mobile-mode .btn:active,body.vds-mobile-mode button:active{transform:scale(.975)}
+body.vds-mobile-mode .lj-prod{border-radius:20px!important;box-shadow:0 7px 20px rgba(24,54,37,.08)!important;padding:9px!important}body.vds-mobile-mode .lj-prod img,body.vds-mobile-mode .lj-prod .ph{border-radius:16px!important;height:132px!important}body.vds-mobile-mode .loja-grid{gap:10px!important}
+body.vds-mobile-mode .lj-box{align-self:flex-end;width:100%!important;max-width:none!important;border-radius:26px 26px 0 0!important;padding:24px 18px calc(24px + env(safe-area-inset-bottom))!important;animation:vdsSheet .24s ease-out}
+@keyframes vdsSheet{from{transform:translateY(40px);opacity:.5}to{transform:none;opacity:1}}
+#vdsMobileAccount.open .vds-account-sheet{animation:vdsSheet .24s ease-out}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+}
+</style>
+</head><body>
 
     <div class="header">
       ${logo?`<img src="${logo}">`:''}
@@ -3672,11 +3763,11 @@ async function estoqueCarregar(){
   }catch(e){const x=document.getElementById('estMsg');if(x)x.textContent='❌ '+e.message}
 }
 async function estoqueCadastrarProduto(){
-  const data={name:estProdNome.value.trim(),unit:estProdUn.value,min_stock:Number(estProdMin.value||0),unit_price:Number(estProdPreco.value||0)};
+  const data={name:estProdNome.value.trim(),unit:estProdUn.value,initial_quantity:Number(estProdQtd.value||0),min_stock:Number(estProdMin.value||0),unit_price:Number(estProdPreco.value||0)};
   if(!data.name){alert('Informe o nome do produto.');return}
   try{
     await estoqueAPI('/api/inventory/products',{method:'POST',body:JSON.stringify(data)});
-    estProdNome.value=estProdMin.value=estProdPreco.value='';
+    estProdNome.value=estProdQtd.value=estProdMin.value=estProdPreco.value='';
     await estoqueCarregar();
   }catch(e){alert('❌ '+e.message)}
 }
@@ -3783,7 +3874,37 @@ function lojaCupomTexto(){let r=LJ.lastReceipt;if(!r)return '';let linhas=['VALE
 function lojaCupomHtml(){let r=LJ.lastReceipt;if(!r)return '';return `<div style="text-align:center"><b style="font-size:18px">VALE DA SERRA</b><br><small>Comprovante de venda</small></div><hr><div><b>Venda:</b> ${String(r.id||'').slice(0,8).toUpperCase()}<br><b>Data:</b> ${new Date(r.created_at).toLocaleString('pt-BR')}<br><b>Cliente:</b> ${r.customer_name||'Não informado'}<br><b>Pagamento:</b> ${String(r.payment_method||'').toUpperCase()}</div><hr>${(r.items||[]).map(i=>`<div style="display:flex;justify-content:space-between;gap:8px;margin:5px 0"><span>${i.name}<br><small>${i.quantity} × ${ljMoney(i.unit_price)}</small></span><b>${ljMoney(i.subtotal)}</b></div>`).join('')}<hr><div style="display:flex;justify-content:space-between;font-size:18px"><b>TOTAL</b><b>${ljMoney(r.total)}</b></div><p style="text-align:center;margin-top:18px">Obrigado pela preferência!</p>`}
 function lojaAbrirCupom(){let m=document.getElementById('ljReceiptModal'),p=document.getElementById('ljReceiptPreview');if(p)p.innerHTML=lojaCupomHtml();if(m)m.classList.add('on')}
 function lojaFecharCupom(){document.getElementById('ljReceiptModal')?.classList.remove('on')}
-function lojaImprimirCupom(tipo){if(!LJ.lastReceipt)return;let w=window.open('','_blank','width=800,height=700');if(!w)return alert('Permita pop-ups para imprimir o cupom.');let mm=tipo==='80mm'?'80mm':'210mm',pad=tipo==='80mm'?'3mm':'14mm';w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Cupom Vale da Serra</title><style>@page{size:${tipo==='80mm'?'80mm auto':'A4'};margin:${tipo==='80mm'?'3mm':'12mm'}}body{font-family:Arial,sans-serif;width:${mm};max-width:100%;box-sizing:border-box;margin:0 auto;padding:${pad};font-size:${tipo==='80mm'?'12px':'14px'}}hr{border:0;border-top:1px dashed #555}</style></head><body>${lojaCupomHtml()}<script>window.onload=()=>{window.print()}<\/script></body></html>`);w.document.close()}
+function lojaImprimirCupom(tipo){if(!LJ.lastReceipt)return;let w=window.open('','_blank','width=800,height=700');if(!w)return alert('Permita pop-ups para imprimir o cupom.');let mm=tipo==='80mm'?'80mm':'210mm',pad=tipo==='80mm'?'3mm':'14mm';w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Cupom Vale da Serra</title><style>@page{size:${tipo==='80mm'?'80mm auto':'A4'};margin:${tipo==='80mm'?'3mm':'12mm'}}body{font-family:Arial,sans-serif;width:${mm};max-width:100%;box-sizing:border-box;margin:0 auto;padding:${pad};font-size:${tipo==='80mm'?'12px':'14px'}}hr{border:0;border-top:1px dashed #555}</style>
+<style id="vds-mobile-v24-premium">
+@media(max-width:760px){
+:root{--mgreen:#0c4b2d;--mgreen2:#176c42;--mgold:#e7b323;--mcream:#f6f3e9}
+body.vds-mobile-mode{background:var(--mcream)!important}
+body.vds-mobile-mode .content{padding:14px 14px 108px!important}
+body.vds-mobile-mode .section.active{animation:vdsPageIn .28s cubic-bezier(.2,.8,.2,1)}
+@keyframes vdsPageIn{from{opacity:0;transform:translateY(10px) scale(.99)}to{opacity:1;transform:none}}
+#vdsMobileHome{background:linear-gradient(180deg,#edf6ef 0,#f7f4ea 38%,#f7f4ea 100%)!important}
+.vds-m-head{margin:0 -16px 0!important;padding:24px 20px 42px!important;background:linear-gradient(135deg,#073d25,#176d43)!important;border-radius:0 0 30px 30px!important;box-shadow:0 12px 30px rgba(8,63,38,.2)}
+.vds-m-head b{font-size:29px!important;letter-spacing:-.5px}.vds-m-head span{display:block;margin-top:4px}
+.vds-m-welcome{margin:-22px 2px 18px!important;position:relative;z-index:2;border:1px solid rgba(255,255,255,.8);box-shadow:0 12px 32px rgba(24,55,38,.11)!important}
+.vds-m-welcome h2{font-size:25px!important}.vds-m-welcome p{font-size:14px}
+.vds-m-grid{gap:12px!important}
+.vds-m-card{min-height:148px!important;border-radius:22px!important;padding:16px 8px!important;font-size:16px!important;box-shadow:0 8px 22px rgba(30,52,39,.08)!important;border:1px solid #e7ece7!important;transition:transform .14s ease,box-shadow .14s ease!important;position:relative;overflow:hidden}
+.vds-m-card:active{transform:scale(.965);box-shadow:0 3px 10px rgba(30,52,39,.08)!important}.vds-m-card .em{font-size:43px!important;background:#eef6f0;width:72px;height:72px;border-radius:22px;display:grid;place-items:center}
+#vdsMobileBottom{left:10px!important;right:10px!important;bottom:8px!important;border:0!important;border-radius:22px!important;padding:7px 5px calc(7px + env(safe-area-inset-bottom))!important;box-shadow:0 10px 35px rgba(0,0,0,.18)!important;overflow:hidden}
+.vds-m-nav{border-radius:15px!important;transition:.16s ease!important}.vds-m-nav:active{background:#edf6ef!important;transform:scale(.94)}.vds-m-nav i{font-size:23px!important}
+body.vds-mobile-mode .card{border:1px solid #e6ebe7!important;box-shadow:0 8px 24px rgba(24,54,37,.07)!important}
+body.vds-mobile-mode .section>h2,body.vds-mobile-mode .section>.title{color:var(--mgreen)!important}
+body.vds-mobile-mode input,body.vds-mobile-mode select,body.vds-mobile-mode textarea{border:1px solid #dce4de!important;box-shadow:0 2px 5px rgba(0,0,0,.025);transition:border .15s,box-shadow .15s}
+body.vds-mobile-mode input:focus,body.vds-mobile-mode select:focus,body.vds-mobile-mode textarea:focus{outline:none!important;border-color:#3a8a60!important;box-shadow:0 0 0 3px rgba(58,138,96,.13)!important}
+body.vds-mobile-mode .btn,body.vds-mobile-mode button{transition:transform .12s ease,filter .12s ease}body.vds-mobile-mode .btn:active,body.vds-mobile-mode button:active{transform:scale(.975)}
+body.vds-mobile-mode .lj-prod{border-radius:20px!important;box-shadow:0 7px 20px rgba(24,54,37,.08)!important;padding:9px!important}body.vds-mobile-mode .lj-prod img,body.vds-mobile-mode .lj-prod .ph{border-radius:16px!important;height:132px!important}body.vds-mobile-mode .loja-grid{gap:10px!important}
+body.vds-mobile-mode .lj-box{align-self:flex-end;width:100%!important;max-width:none!important;border-radius:26px 26px 0 0!important;padding:24px 18px calc(24px + env(safe-area-inset-bottom))!important;animation:vdsSheet .24s ease-out}
+@keyframes vdsSheet{from{transform:translateY(40px);opacity:.5}to{transform:none;opacity:1}}
+#vdsMobileAccount.open .vds-account-sheet{animation:vdsSheet .24s ease-out}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+}
+</style>
+</head><body>${lojaCupomHtml()}<script>window.onload=()=>{window.print()}<\/script></body></html>`);w.document.close()}
 async function lojaCompartilharCupom(){let text=lojaCupomTexto();if(!text)return;try{if(navigator.share){await navigator.share({title:'Comprovante Vale da Serra',text});return}}catch(e){if(e?.name==='AbortError')return}let url='https://wa.me/?text='+encodeURIComponent(text);window.open(url,'_blank')}
 async function lojaAbrirEstoque(){let sel=document.getElementById('ljStockProduto');if(!sel)return;sel.innerHTML=LJ.products.map(p=>`<option value="${p.id}">${p.name} — ${lojaApresentacao(p)} — estoque ${Number(p.stock)}</option>`).join('');document.getElementById('ljStockModo').value='add';document.getElementById('ljStockQtd').value='';document.getElementById('ljStockNota').value='';lojaStockModoUI();sel.onchange=lojaStockModoUI;document.getElementById('ljStockModal').classList.add('on');try{let j=await ljApi('/api/store/stock-history');let d=document.getElementById('ljStockHistorico');d.innerHTML=(j.movements||[]).slice(0,20).map(m=>`<div style="padding:8px 0;border-bottom:1px solid #eee;font-size:12px"><b>${m.product_name}</b> • ${m.movement_type} • ${Number(m.quantity_before)} → ${Number(m.quantity_after)}<br>${m.reason||''} • ${m.username||''} • ${new Date(m.created_at).toLocaleString('pt-BR')}</div>`).join('')||'<small>Sem ajustes registrados.</small>'}catch(e){}}
 function lojaStockModoUI(){let p=LJ.products.find(x=>x.id===document.getElementById('ljStockProduto')?.value);let m=document.getElementById('ljStockModo')?.value,q=document.getElementById('ljStockQtd');if(q)q.placeholder=m==='set'?'Quantidade contada agora':'Quantidade do ajuste';let a=document.getElementById('ljStockAtual');if(a)a.textContent=p?`Estoque atual: ${Number(p.stock)} ${p.unit}`:''}
@@ -3813,7 +3934,7 @@ async function lojaHistoricoCaixa(){try{let j=await ljApi('/api/store/cash/histo
 <style id="loja-v15-mobile-css">
 @media(max-width:760px){body.vds-mobile-mode #loja{padding:0!important}.loja-kpis{grid-template-columns:1fr 1fr!important;gap:8px!important}.loja-kpis>div{padding:12px!important}.loja-kpis strong{font-size:20px!important}.loja-actions{display:grid!important;grid-template-columns:1fr 1fr!important}.loja-actions select{grid-column:1/-1}.loja-layout{display:block!important}.loja-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.lj-prod{padding:8px!important;border-radius:18px!important}.lj-prod img,.lj-prod .ph{height:128px!important}.lj-prod b{font-size:15px}.lj-prod small{font-size:12px}.lj-prod .lj-variant{font-weight:800;color:#806000;margin:3px 0}.loja-cart{position:sticky!important;bottom:78px!important;z-index:20;margin-top:14px;border:2px solid #e7bd2c}.loja-cart h2{font-size:18px}.loja-total{font-size:22px}.loja-finalizar{min-height:52px!important;font-size:17px!important}.lj-box{width:96vw!important;border-radius:24px!important}.lj-row{grid-template-columns:1fr!important}.lj-table{min-width:680px}.top h1{font-size:25px!important}.top p{font-size:14px!important}}
 </style>
-\n<style id="estoque-mobile-v22-css">\n@media(max-width:760px){\n body.vds-mobile-mode #estoque{padding:0!important}\n body.vds-mobile-mode #estoque>.card{padding:17px!important;margin-top:12px!important;border-radius:22px!important;overflow:visible!important}\n body.vds-mobile-mode #estoque>.card:first-child{margin-top:0!important;background:linear-gradient(135deg,#123f2b,#1c7047)!important;color:#fff!important}\n body.vds-mobile-mode #estoque>.card:first-child h2{color:#fff!important;font-size:24px!important;line-height:1.15;margin-bottom:8px!important}\n body.vds-mobile-mode #estoque>.card:first-child p{color:#e5f1e9!important;font-size:14px!important;line-height:1.45}\n body.vds-mobile-mode #estoque h3{font-size:19px!important;margin-bottom:15px!important}\n body.vds-mobile-mode #estoque .est-mobile-form{display:grid!important;grid-template-columns:1fr!important;gap:13px!important}\n body.vds-mobile-mode #estoque .est-field{display:block!important}\n body.vds-mobile-mode #estoque .est-field>span{display:block;color:#334155;font-size:13px;font-weight:850;margin:0 0 6px 2px}\n body.vds-mobile-mode #estoque input,body.vds-mobile-mode #estoque select{width:100%!important;min-width:0!important;box-sizing:border-box!important;min-height:52px!important;font-size:16px!important;border-radius:13px!important;padding:11px 12px!important;background:#fff!important}\n body.vds-mobile-mode #estoque .est-primary{width:100%!important;min-height:54px!important;border:0!important;border-radius:14px!important;background:#0f5b36!important;color:#fff!important;font-size:16px!important;font-weight:900!important;margin-top:14px!important}\n body.vds-mobile-mode #estoque #estDebitoWrap{display:none;padding:12px!important;border-radius:13px;background:#fff8df;color:#5f4a00;font-size:14px;line-height:1.35}\n body.vds-mobile-mode #estoque #estDebitoWrap input{width:auto!important;min-height:auto!important}\n body.vds-mobile-mode #estoque .est-mobile-table{overflow:auto!important;-webkit-overflow-scrolling:touch;border:1px solid #e2e8f0;border-radius:14px}\n body.vds-mobile-mode #estoque .est-mobile-table table{min-width:660px!important;margin:0!important}\n body.vds-mobile-mode #estoque .est-mobile-filter{display:grid!important;grid-template-columns:1fr!important;gap:9px!important}\n body.vds-mobile-mode #estoque .est-mobile-filter button{width:100%!important;min-height:48px!important}\n body.vds-mobile-mode #estoqueResumo{grid-template-columns:1fr 1fr!important;gap:8px!important;margin:12px 0 0!important}\n}\n</style>\n<style id="vds-mobile-v11-css">
+\n<style id="estoque-mobile-v22-css">\n@media(max-width:760px){\n body.vds-mobile-mode #estoque{padding:0!important}\n body.vds-mobile-mode #estoque>.card{padding:17px!important;margin-top:12px!important;border-radius:22px!important;overflow:visible!important}\n body.vds-mobile-mode #estoque>.card:first-child{margin-top:0!important;background:linear-gradient(135deg,#123f2b,#1c7047)!important;color:#fff!important}\n body.vds-mobile-mode #estoque>.card:first-child h2{color:#fff!important;font-size:24px!important;line-height:1.15;margin-bottom:8px!important}\n body.vds-mobile-mode #estoque>.card:first-child p{color:#e5f1e9!important;font-size:14px!important;line-height:1.45}\n body.vds-mobile-mode #estoque h3{font-size:19px!important;margin-bottom:15px!important}\n body.vds-mobile-mode #estoque .est-mobile-form{display:grid!important;grid-template-columns:1fr!important;gap:13px!important}\n body.vds-mobile-mode #estoque .est-field{display:block!important}\n body.vds-mobile-mode #estoque .est-field>span{display:block;color:#334155;font-size:13px;font-weight:850;margin:0 0 6px 2px}\n body.vds-mobile-mode #estoque input,body.vds-mobile-mode #estoque select{width:100%!important;min-width:0!important;box-sizing:border-box!important;min-height:52px!important;font-size:16px!important;border-radius:13px!important;padding:11px 12px!important;background:#fff!important}\n body.vds-mobile-mode #estoque .est-primary{width:100%!important;min-height:54px!important;border:0!important;border-radius:14px!important;background:#0f5b36!important;color:#fff!important;font-size:16px!important;font-weight:900!important;margin-top:14px!important}\n body.vds-mobile-mode #estoque #estDebitoWrap{display:none;padding:12px!important;border-radius:13px;background:#fff8df;color:#5f4a00;font-size:14px;line-height:1.35}\n body.vds-mobile-mode #estoque #estDebitoWrap input{width:auto!important;min-height:auto!important}\n body.vds-mobile-mode #estoque .est-mobile-table{overflow:auto!important;-webkit-overflow-scrolling:touch;border:1px solid #e2e8f0;border-radius:14px}\n body.vds-mobile-mode #estoque .est-mobile-table table{min-width:660px!important;margin:0!important}\n body.vds-mobile-mode #estoque .est-mobile-filter{display:grid!important;grid-template-columns:1fr!important;gap:9px!important}\n body.vds-mobile-mode #estoque .est-mobile-filter button{width:100%!important;min-height:48px!important}\n body.vds-mobile-mode #estoqueResumo{grid-template-columns:1fr 1fr!important;gap:8px!important;margin:12px 0 0!important}\n}\n</style>\n<style id="estoque-mobile-v23-fix">\n@media(max-width:760px){\n body.vds-mobile-mode #estoque .est-mobile-form{display:flex!important;flex-direction:column!important;gap:14px!important;width:100%!important}\n body.vds-mobile-mode #estoque .est-field{display:flex!important;flex-direction:column!important;width:100%!important;margin:0!important;gap:6px!important}\n body.vds-mobile-mode #estoque .est-field>span{display:block!important;width:100%!important;line-height:1.25!important;margin:0 0 2px 1px!important}\n body.vds-mobile-mode #estoque .est-field input,body.vds-mobile-mode #estoque .est-field select{display:block!important;width:100%!important;max-width:100%!important;margin:0!important;box-sizing:border-box!important}\n}\n</style>\n<style id="vds-mobile-v11-css">
 @media (max-width:760px){
  body.vds-mobile-mode .app{display:block!important;min-height:100vh;background:#f5f1e6;padding-bottom:92px}
  body.vds-mobile-mode .sidebar,body.vds-mobile-mode .hero{display:none!important}

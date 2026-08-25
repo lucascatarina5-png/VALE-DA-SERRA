@@ -1259,6 +1259,7 @@ td{font-size:12.5px}
     <div class="est-mobile-form" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px">
       <label class="est-field"><span>Nome do produto</span><input id="estProdNome" placeholder="Ex.: Ração 22%"></label>
       <label class="est-field"><span>Unidade</span><select id="estProdUn"><option>kg</option><option>saco</option><option>un</option><option>litro</option></select></label>
+      <label class="est-field"><span>Quantidade inicial</span><input id="estProdQtd" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Ex.: 50"></label>
       <label class="est-field"><span>Estoque mínimo</span><input id="estProdMin" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Ex.: 10"></label>
       <label class="est-field"><span>Preço unitário</span><input id="estProdPreco" type="number" inputmode="decimal" step="0.01" min="0" placeholder="R$ 0,00"></label>
     </div>
@@ -3672,11 +3673,11 @@ async function estoqueCarregar(){
   }catch(e){const x=document.getElementById('estMsg');if(x)x.textContent='❌ '+e.message}
 }
 async function estoqueCadastrarProduto(){
-  const data={name:estProdNome.value.trim(),unit:estProdUn.value,min_stock:Number(estProdMin.value||0),unit_price:Number(estProdPreco.value||0)};
+  const data={name:estProdNome.value.trim(),unit:estProdUn.value,initial_quantity:Number(estProdQtd.value||0),min_stock:Number(estProdMin.value||0),unit_price:Number(estProdPreco.value||0)};
   if(!data.name){alert('Informe o nome do produto.');return}
   try{
     await estoqueAPI('/api/inventory/products',{method:'POST',body:JSON.stringify(data)});
-    estProdNome.value=estProdMin.value=estProdPreco.value='';
+    estProdNome.value=estProdQtd.value=estProdMin.value=estProdPreco.value='';
     await estoqueCarregar();
   }catch(e){alert('❌ '+e.message)}
 }
