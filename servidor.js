@@ -244,6 +244,18 @@ async function initDb() {
     cost_price NUMERIC NOT NULL DEFAULT 0, subtotal NUMERIC NOT NULL
   )`);
 
+  // V20 - Abertura e fechamento de caixa
+  await pool.query(`CREATE TABLE IF NOT EXISTS app_store_cash_sessions (
+    id TEXT PRIMARY KEY, status TEXT NOT NULL DEFAULT 'aberto', opening_amount NUMERIC NOT NULL DEFAULT 0,
+    closing_counted NUMERIC, expected_cash NUMERIC, difference NUMERIC, opening_note TEXT DEFAULT '', closing_note TEXT DEFAULT '',
+    opened_by_id TEXT, opened_by TEXT, opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), closed_by_id TEXT, closed_by TEXT, closed_at TIMESTAMPTZ
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS app_store_cash_movements (
+    id BIGSERIAL PRIMARY KEY, session_id TEXT NOT NULL, movement_type TEXT NOT NULL, amount NUMERIC NOT NULL,
+    reason TEXT DEFAULT '', note TEXT DEFAULT '', user_id TEXT, username TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await pool.query(`ALTER TABLE app_store_sales ADD COLUMN IF NOT EXISTS cash_session_id TEXT`);
+
   console.log('Banco atualizado sem apagar os dados existentes.');
 }
 
@@ -506,14 +518,42 @@ app.post('/api/store/stock',auth,hasPermission('loja'),async(req,res)=>{const c=
  await c.query('COMMIT'); await audit(req.user,'LOJA_AJUSTE_ESTOQUE',{product_id,mode,before,change,after,reason}); res.json({ok:true,stock:after});
 }catch(e){try{await c.query('ROLLBACK')}catch(_){} res.status(400).json({ok:false,error:e.message})}finally{c.release()}});
 app.get('/api/store/stock-history',auth,hasPermission('loja'),async(req,res)=>{try{const r=await pool.query(`SELECT * FROM app_store_stock_movements ORDER BY created_at DESC LIMIT 500`);res.json({ok:true,movements:r.rows})}catch(e){res.status(500).json({ok:false,error:e.message})}});
+
+// V20 - Caixa do PDV
+app.get('/api/store/cash/status',auth,hasPermission('loja'),async(req,res)=>{try{
+ const r=await pool.query(`SELECT * FROM app_store_cash_sessions WHERE status='aberto' AND opened_by=$1 ORDER BY opened_at DESC LIMIT 1`,[req.user.username]);
+ if(!r.rowCount)return res.json({ok:true,session:null}); const x=r.rows[0];
+ const sales=await pool.query(`SELECT payment_method,COALESCE(SUM(total),0) total,COUNT(*) qtd FROM app_store_sales WHERE cash_session_id=$1 AND status<>'cancelada' GROUP BY payment_method`,[x.id]);
+ const mov=await pool.query(`SELECT COALESCE(SUM(CASE WHEN movement_type='suprimento' THEN amount ELSE -amount END),0) net FROM app_store_cash_movements WHERE session_id=$1`,[x.id]);
+ const cashSales=Number((sales.rows.find(a=>a.payment_method==='dinheiro')||{}).total||0); const expected=Number(x.opening_amount)+cashSales+Number(mov.rows[0].net||0);
+ res.json({ok:true,session:{...x,expected_cash:expected,sales:sales.rows}});
+}catch(e){res.status(500).json({ok:false,error:e.message})}});
+app.post('/api/store/cash/open',auth,hasPermission('loja'),async(req,res)=>{try{
+ const ex=await pool.query(`SELECT id FROM app_store_cash_sessions WHERE status='aberto' AND opened_by=$1 LIMIT 1`,[req.user.username]); if(ex.rowCount)return res.status(400).json({ok:false,error:'Você já possui um caixa aberto.'});
+ const amount=Number(req.body?.opening_amount||0); if(!(amount>=0))return res.status(400).json({ok:false,error:'Valor inicial inválido'}); const id=crypto.randomUUID();
+ await pool.query(`INSERT INTO app_store_cash_sessions(id,opening_amount,opening_note,opened_by_id,opened_by) VALUES($1,$2,$3,$4,$5)`,[id,amount,String(req.body?.note||''),req.user.user_id||null,req.user.username]); await audit(req.user,'CAIXA_ABERTO',{id,opening_amount:amount}); res.json({ok:true,id});
+}catch(e){res.status(400).json({ok:false,error:e.message})}});
+app.post('/api/store/cash/movement',auth,hasPermission('loja'),async(req,res)=>{try{
+ const {type,amount,reason,note}=req.body||{}; if(!['suprimento','sangria'].includes(type)||!(Number(amount)>0))return res.status(400).json({ok:false,error:'Movimentação inválida'});
+ const r=await pool.query(`SELECT id FROM app_store_cash_sessions WHERE status='aberto' AND opened_by=$1 ORDER BY opened_at DESC LIMIT 1`,[req.user.username]); if(!r.rowCount)return res.status(400).json({ok:false,error:'Abra o caixa primeiro.'});
+ await pool.query(`INSERT INTO app_store_cash_movements(session_id,movement_type,amount,reason,note,user_id,username) VALUES($1,$2,$3,$4,$5,$6,$7)`,[r.rows[0].id,type,Number(amount),String(reason||''),String(note||''),req.user.user_id||null,req.user.username]); await audit(req.user,'CAIXA_MOVIMENTO',{session_id:r.rows[0].id,type,amount:Number(amount)});res.json({ok:true});
+}catch(e){res.status(400).json({ok:false,error:e.message})}});
+app.post('/api/store/cash/close',auth,hasPermission('loja'),async(req,res)=>{const c=await pool.connect();try{
+ await c.query('BEGIN'); const r=await c.query(`SELECT * FROM app_store_cash_sessions WHERE status='aberto' AND opened_by=$1 ORDER BY opened_at DESC LIMIT 1 FOR UPDATE`,[req.user.username]); if(!r.rowCount)throw new Error('Nenhum caixa aberto.'); const x=r.rows[0];
+ const cs=await c.query(`SELECT COALESCE(SUM(total),0) total FROM app_store_sales WHERE cash_session_id=$1 AND status<>'cancelada' AND payment_method='dinheiro'`,[x.id]); const mv=await c.query(`SELECT COALESCE(SUM(CASE WHEN movement_type='suprimento' THEN amount ELSE -amount END),0) net FROM app_store_cash_movements WHERE session_id=$1`,[x.id]);
+ const expected=Number(x.opening_amount)+Number(cs.rows[0].total)+Number(mv.rows[0].net); const counted=Number(req.body?.counted_amount); if(!(counted>=0))throw new Error('Informe o valor contado no caixa.'); const diff=counted-expected;
+ await c.query(`UPDATE app_store_cash_sessions SET status='fechado',closing_counted=$2,expected_cash=$3,difference=$4,closing_note=$5,closed_by_id=$6,closed_by=$7,closed_at=NOW() WHERE id=$1`,[x.id,counted,expected,diff,String(req.body?.note||''),req.user.user_id||null,req.user.username]); await c.query('COMMIT'); await audit(req.user,'CAIXA_FECHADO',{id:x.id,expected,counted,difference:diff});res.json({ok:true,id:x.id,expected_cash:expected,counted_amount:counted,difference:diff});
+}catch(e){try{await c.query('ROLLBACK')}catch(_){}res.status(400).json({ok:false,error:e.message})}finally{c.release()}});
+app.get('/api/store/cash/history',auth,hasPermission('loja'),async(req,res)=>{try{const r=await pool.query(`SELECT * FROM app_store_cash_sessions ORDER BY opened_at DESC LIMIT 200`);res.json({ok:true,sessions:r.rows})}catch(e){res.status(500).json({ok:false,error:e.message})}});
+
 app.post('/api/store/sales',auth,hasPermission('loja'),async(req,res)=>{
- const c=await pool.connect(); try{const {items,payment_method,customer_name}=req.body||{}; if(!Array.isArray(items)||!items.length) return res.status(400).json({ok:false,error:'Venda sem produtos'});
+ const c=await pool.connect(); try{const {items,payment_method,customer_name}=req.body||{}; if(!Array.isArray(items)||!items.length) return res.status(400).json({ok:false,error:'Venda sem produtos'}); const sx=await c.query(`SELECT id FROM app_store_cash_sessions WHERE status='aberto' AND opened_by=$1 ORDER BY opened_at DESC LIMIT 1`,[req.user.username]); if(!sx.rowCount) return res.status(400).json({ok:false,error:'Abra o caixa antes de iniciar as vendas.'}); const cashSessionId=sx.rows[0].id;
   if(!['pix','dinheiro','cartao','fiado'].includes(payment_method)) return res.status(400).json({ok:false,error:'Forma de pagamento inválida'});
   await c.query('BEGIN'); const id=crypto.randomUUID(); let total=0;
   const prepared=[]; for(const it of items){const q=Number(it.quantity); if(!(q>0)) throw new Error('Quantidade inválida');
    const pr=await c.query(`SELECT * FROM app_store_products WHERE id=$1 AND active=TRUE FOR UPDATE`,[it.product_id]); if(!pr.rowCount) throw new Error('Produto não encontrado'); const p=pr.rows[0];
    if(Number(p.stock)<q) throw new Error(`Estoque insuficiente: ${p.name}`); const unitPrice=(it.unit_price!==undefined&&it.unit_price!==null&&it.unit_price!=='')?Number(it.unit_price):Number(p.sale_price); if(!(unitPrice>=0)) throw new Error('Valor de venda inválido'); const sub=q*unitPrice; total+=sub; prepared.push([p,q,sub,unitPrice]);}
-  await c.query(`INSERT INTO app_store_sales(id,total,payment_method,user_id,username,customer_name) VALUES($1,$2,$3,$4,$5,$6)`,[id,total,payment_method,req.user.user_id||null,req.user.username||null,String(customer_name||'').trim()]);
+  await c.query(`INSERT INTO app_store_sales(id,total,payment_method,user_id,username,customer_name,cash_session_id) VALUES($1,$2,$3,$4,$5,$6,$7)`,[id,total,payment_method,req.user.user_id||null,req.user.username||null,String(customer_name||'').trim(),cashSessionId]);
   for(const [p,q,sub,unitPrice] of prepared){await c.query(`UPDATE app_store_products SET stock=stock-$2,updated_at=NOW() WHERE id=$1`,[p.id,q]); await c.query(`INSERT INTO app_store_sale_items(sale_id,product_id,product_name,quantity,unit_price,cost_price,subtotal) VALUES($1,$2,$3,$4,$5,$6,$7)`,[id,p.id,p.name,q,unitPrice,p.cost_price,sub]);}
   await c.query('COMMIT'); await audit(req.user,'LOJA_VENDA',{id,total,payment_method,customer_name:String(customer_name||'').trim()}); res.json({ok:true,id,total});
  }catch(e){try{await c.query('ROLLBACK')}catch(_){} res.status(400).json({ok:false,error:e.message})}finally{c.release()}
