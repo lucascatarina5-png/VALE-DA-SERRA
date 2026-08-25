@@ -1375,7 +1375,10 @@ body.vds-mobile-mode .lj-box{align-self:flex-end;width:100%!important;max-width:
     <h2>🛡️ Histórico / Auditoria</h2>
     <p style="color:#64748b">Registro das ações dos usuários no sistema.</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin:15px 0">
-      <input id="auditFiltro" placeholder="Filtrar usuário ou ação" oninput="v4FiltrarAuditoria()" style="max-width:360px">
+      <input id="auditFiltro" placeholder="Pesquisar usuário, ação ou detalhe" oninput="v4FiltrarAuditoria()" style="min-width:220px;flex:1">
+      <select id="auditUsuario" onchange="v4FiltrarAuditoria()" style="min-width:160px"><option value="">Todos os funcionários</option></select>
+      <select id="auditAcao" onchange="v4FiltrarAuditoria()" style="min-width:180px"><option value="">Todas as ações</option></select>
+      <input id="auditData" type="date" onchange="v4FiltrarAuditoria()" title="Filtrar por data">
       <button onclick="v4CarregarAuditoria()">🔄 Atualizar</button>
     </div>
     <div style="overflow:auto"><table style="width:100%"><thead><tr>
@@ -1604,12 +1607,12 @@ document.addEventListener('keydown',e=>{
   }
 });
 
-document.getElementById('formProd').addEventListener('submit',e=>{e.preventDefault();let p={id:editId||crypto.randomUUID(),nome:pNome.value.trim(),local:pLocal.value.trim(),tanqueiro:pTanqueiro.value.trim(),whatsTanqueiro:pWhatsTanqueiro.value.trim(),caminhao:pCaminhao.value.trim(),whatsapp:pWhats.value.trim()};if(editId)produtores=produtores.map(x=>x.id===editId?p:x);else produtores.push(p);editId=null;e.target.reset();save()});
+document.getElementById('formProd').addEventListener('submit',e=>{e.preventDefault();let eraEdicao=!!editId,p={id:editId||crypto.randomUUID(),nome:pNome.value.trim(),local:pLocal.value.trim(),tanqueiro:pTanqueiro.value.trim(),whatsTanqueiro:pWhatsTanqueiro.value.trim(),caminhao:pCaminhao.value.trim(),whatsapp:pWhats.value.trim()};if(editId)produtores=produtores.map(x=>x.id===editId?p:x);else produtores.push(p);v25Audit(eraEdicao?'PRODUTOR_EDITADO':'PRODUTOR_CRIADO',{nome:p.nome,local:p.local,tanqueiro:p.tanqueiro,caminhao:p.caminhao});editId=null;e.target.reset();save()});
 function editarProd(id){let p=prodById(id);if(!p)return;editId=id;pNome.value=p.nome;pLocal.value=p.local;pTanqueiro.value=p.tanqueiro;pWhatsTanqueiro.value=p.whatsTanqueiro||'';pCaminhao.value=p.caminhao;pWhats.value=p.whatsapp||'';window.scrollTo({top:0,behavior:'smooth'})}
-function excluirProd(id){if(lancamentos.some(x=>x.prodId===id)){alert('Este produtor possui lançamentos.');return}if(confirm('Excluir produtor?')){produtores=produtores.filter(x=>x.id!==id);save()}}
+function excluirProd(id){if(lancamentos.some(x=>x.prodId===id)){alert('Este produtor possui lançamentos.');return}let p=prodById(id);if(confirm('Excluir produtor?')){produtores=produtores.filter(x=>x.id!==id);v25Audit('PRODUTOR_EXCLUIDO',{nome:p?.nome||id,local:p?.local||''});save()}}
 function limparProd(){editId=null;formProd.reset()}
 
-document.getElementById('formDeb').addEventListener('submit',e=>{e.preventDefault();let p=prodById(dProd.value);if(!p)return;debitos.push({id:crypto.randomUUID(),data:dData.value,prodId:p.id,descricao:dDesc.value.trim(),valor:Number(dValor.value)});e.target.reset();dData.value=isoHoje();save()});
+document.getElementById('formDeb').addEventListener('submit',e=>{e.preventDefault();let p=prodById(dProd.value);if(!p)return;let d={id:crypto.randomUUID(),data:dData.value,prodId:p.id,descricao:dDesc.value.trim(),valor:Number(dValor.value)};debitos.push(d);v25Audit('DEBITO_CRIADO',{produtor:p.nome,descricao:d.descricao,valor:d.valor,data:d.data});e.target.reset();dData.value=isoHoje();save()});
 
 
 function pagamentosDoDebito(debitoId){
@@ -1687,6 +1690,7 @@ function registrarPagamentoDebito(id){
     data,
     valor
   });
+  v25Audit('DEBITO_PAGAMENTO_REGISTRADO',{produtor:p?.nome||'',descricao:deb.descricao,valor,data,saldo_apos:saldo-valor});
 
   localStorage.setItem(KDEBPAG,JSON.stringify(pagamentosDebitos));
   renderAll();
@@ -1699,6 +1703,7 @@ function excluirPagamentoDebito(id){
   if(!pg)return;
   if(!confirm('Excluir este registro de pagamento do débito?'))return;
   pagamentosDebitos=pagamentosDebitos.filter(x=>x.id!==id);
+  v25Audit('DEBITO_PAGAMENTO_EXCLUIDO',{valor:pg?.valor||0,data:pg?.data||'',debitoId:pg?.debitoId||''});
   localStorage.setItem(KDEBPAG,JSON.stringify(pagamentosDebitos));
   renderAll();
   try{renderRelatorioCompleto();}catch(e){}
@@ -1779,8 +1784,8 @@ function excluirDebito(id){
   }
 }
 
-document.getElementById('formLanc').addEventListener('submit',e=>{e.preventDefault();let p=prodById(lProd.value);if(!p)return;lancamentos.push({id:crypto.randomUUID(),data:lData.value,prodId:p.id,qtd:Number(lQtd.value),local:p.local,tanqueiro:p.tanqueiro,caminhao:p.caminhao});e.target.reset();lData.value=isoHoje();save()});
-function excluirLanc(id){if(confirm('Excluir lançamento?')){lancamentos=lancamentos.filter(x=>x.id!==id);save()}}
+document.getElementById('formLanc').addEventListener('submit',e=>{e.preventDefault();let p=prodById(lProd.value);if(!p)return;let l={id:crypto.randomUUID(),data:lData.value,prodId:p.id,qtd:Number(lQtd.value),local:p.local,tanqueiro:p.tanqueiro,caminhao:p.caminhao};lancamentos.push(l);v25Audit('LEITE_ENTRADA_REGISTRADA',{produtor:p.nome,litros:l.qtd,data:l.data,local:l.local});e.target.reset();lData.value=isoHoje();save()});
+function excluirLanc(id){let l=lancamentos.find(x=>x.id===id),p=l?prodById(l.prodId):null;if(confirm('Excluir lançamento?')){lancamentos=lancamentos.filter(x=>x.id!==id);v25Audit('LEITE_ENTRADA_EXCLUIDA',{produtor:p?.nome||'',litros:l?.qtd||0,data:l?.data||''});save()}}
 function preencherProdutor(){let p=prodById(lProd.value);lLocal.value=p?.local||'';lTanqueiro.value=p?.tanqueiro||'';lCaminhao.value=p?.caminhao||'';lStatus.textContent=p?`Status: ${statusProd(p.id)} | Média últimos 10 dias: ${fmt(mediaUltimosDias(p.id))} L/dia`:'Selecione um produtor.'}
 
 function renderSelects(){
@@ -2176,8 +2181,8 @@ function renderPesquisa(){let q=(busca.value||'').toLowerCase().trim();if(!q){re
 function periodoPagamento(){let ym=pgMes.value||isoHoje().slice(0,7),q=pgQuinzena.value;if(q==='1')return{ini:ym+'-01',fim:ym+'-15'};if(q==='2')return{ini:ym+'-16',fim:ym+'-31'};return{ini:ym+'-01',fim:ym+'-31'}}
 function chavePagamento(prodId,ym,q){return `${prodId}|${ym}|${q}`}
 function pagamentoDo(prodId,ym,q){return pagamentos.find(x=>x.chave===chavePagamento(prodId,ym,q))}
-function marcarPago(prodId){let ym=pgMes.value||isoHoje().slice(0,7),q=pgQuinzena.value;if(q==='mes'){alert('Selecione uma quinzena.');return}let per=periodoPagamento(),litros=entradasProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim).reduce((s,x)=>s+Number(x.qtd),0),valor=litros*VALOR_LITRO,deb=totalDebitosPeriodo(prodId,per.ini,per.fim),liquido=Math.max(0,valor-deb);if(!litros)return;pagamentos=pagamentos.filter(x=>x.chave!==chavePagamento(prodId,ym,q));pagamentos.push({chave:chavePagamento(prodId,ym,q),prodId,mes:ym,quinzena:q,litros,valorLitro:VALOR_LITRO,valorBruto:valor,totalDebitos:deb,valorPago:liquido,dataPagamento:isoHoje()});save()}
-function desfazerPagamento(prodId){let ym=pgMes.value||isoHoje().slice(0,7),q=pgQuinzena.value;pagamentos=pagamentos.filter(x=>x.chave!==chavePagamento(prodId,ym,q));save()}
+function marcarPago(prodId){let ym=pgMes.value||isoHoje().slice(0,7),q=pgQuinzena.value;if(q==='mes'){alert('Selecione uma quinzena.');return}let per=periodoPagamento(),litros=entradasProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim).reduce((s,x)=>s+Number(x.qtd),0),valor=litros*VALOR_LITRO,deb=totalDebitosPeriodo(prodId,per.ini,per.fim),liquido=Math.max(0,valor-deb);if(!litros)return;pagamentos=pagamentos.filter(x=>x.chave!==chavePagamento(prodId,ym,q));pagamentos.push({chave:chavePagamento(prodId,ym,q),prodId,mes:ym,quinzena:q,litros,valorLitro:VALOR_LITRO,valorBruto:valor,totalDebitos:deb,valorPago:liquido,dataPagamento:isoHoje()});v25Audit('PAGAMENTO_QUINZENA_REGISTRADO',{produtor:prodById(prodId)?.nome||'',quinzena:q,mes:ym,litros,valor:liquido});save()}
+function desfazerPagamento(prodId){let ym=pgMes.value||isoHoje().slice(0,7),q=pgQuinzena.value;pagamentos=pagamentos.filter(x=>x.chave!==chavePagamento(prodId,ym,q));v25Audit('PAGAMENTO_QUINZENA_DESFEITO',{produtor:prodById(prodId)?.nome||'',quinzena:q,mes:ym});save()}
 
 
 function normalizarWhats(n){
@@ -3624,19 +3629,40 @@ async function v4CarregarAuditoria(){
   try{
     const r=await fetch('/api/audit',{headers:v4Headers()}); const j=await r.json();
     if(!r.ok) throw new Error(j.error||'Falha');
-    V4.audit=j.logs||[]; v4RenderAuditoria(V4.audit);
+    V4.audit=j.logs||[];
+    const us=document.getElementById('auditUsuario'), ac=document.getElementById('auditAcao');
+    if(us){const atual=us.value;us.innerHTML='<option value="">Todos os funcionários</option>'+[...new Set(V4.audit.map(x=>x.username).filter(Boolean))].sort().map(x=>`<option>${v4Esc(x)}</option>`).join('');us.value=atual}
+    if(ac){const atual=ac.value;ac.innerHTML='<option value="">Todas as ações</option>'+[...new Set(V4.audit.map(x=>x.action).filter(Boolean))].sort().map(x=>`<option>${v4Esc(x)}</option>`).join('');ac.value=atual}
+    v4FiltrarAuditoria();
   }catch(e){body.innerHTML='<tr><td colspan="4">'+v4Esc(e.message)+'</td></tr>'}
+}
+const V25_AUDIT_LABELS={
+ LOGIN:'Entrou no sistema',LOGOUT:'Saiu do sistema',USUARIO_CRIADO:'Criou usuário',USUARIO_ALTERADO:'Alterou usuário/permissões',
+ PRODUTOR_CRIADO:'Cadastrou produtor',PRODUTOR_EDITADO:'Editou produtor',PRODUTOR_EXCLUIDO:'Excluiu produtor',
+ LEITE_ENTRADA_REGISTRADA:'Registrou entrada de leite',LEITE_ENTRADA_EXCLUIDA:'Excluiu entrada de leite',
+ DEBITO_CRIADO:'Cadastrou débito',DEBITO_EXCLUIDO:'Excluiu débito',DEBITO_PAGAMENTO_REGISTRADO:'Registrou pagamento de débito',DEBITO_PAGAMENTO_EXCLUIDO:'Excluiu pagamento de débito',
+ PAGAMENTO_QUINZENA_REGISTRADO:'Marcou quinzena como paga',PAGAMENTO_QUINZENA_DESFEITO:'Desfez pagamento da quinzena',
+ ESTOQUE_PRODUTO_CRIADO:'Cadastrou produto no galpão',ESTOQUE_ENTRADA:'Entrada no estoque/galpão',ESTOQUE_SAIDA:'Saída do estoque/galpão',
+ LOJA_PRODUTO_CRIADO:'Cadastrou produto na loja',LOJA_PRODUTO_EDITADO:'Editou produto da loja',LOJA_PRODUTO_EXCLUIDO:'Excluiu produto da loja',LOJA_AJUSTE_ESTOQUE:'Ajustou estoque da loja',
+ LOJA_VENDA:'Realizou venda',LOJA_VENDA_CORRIGIDA:'Corrigiu venda (ADM)',LOJA_VENDA_CANCELADA:'Cancelou venda (ADM)',
+ CAIXA_ABERTO:'Abriu caixa',CAIXA_MOVIMENTO:'Movimentou caixa',CAIXA_FECHADO:'Fechou caixa',BACKUP_IMPORTADO:'Importou backup',DADOS_APAGADOS:'Apagou dados'
+};
+function v25AuditLabel(a){return V25_AUDIT_LABELS[a]||String(a||'').replaceAll('_',' ')}
+function v25Detalhes(d){
+  if(!d)return '-'; if(typeof d==='string')return d;
+  const nomes={nome:'Nome',producer_name:'Produtor',produtor:'Produtor',qtd:'Quantidade',quantity:'Quantidade',litros:'Litros',valor:'Valor',amount:'Valor',descricao:'Descrição',payment_method:'Pagamento',customer_name:'Cliente',reason:'Motivo',opening_amount:'Valor inicial',expected:'Esperado',counted:'Contado',difference:'Diferença',type:'Tipo',before:'Antes',after:'Depois',username:'Usuário',role:'Perfil'};
+  return Object.entries(d).filter(([k,v])=>v!==null&&v!==undefined&&typeof v!=='object').map(([k,v])=>`${nomes[k]||k}: ${v}`).join(' • ') || JSON.stringify(d);
 }
 function v4RenderAuditoria(logs){
   const body=document.getElementById('auditLista'); if(!body)return;
-  body.innerHTML=logs.map(x=>`<tr><td>${v4Esc(v4Data(x.created_at))}</td>
-    <td>${v4Esc(x.username||'-')}</td><td>${v4Esc(x.action||'')}</td>
-    <td>${v4Esc(typeof x.details==='object'?JSON.stringify(x.details):String(x.details||''))}</td></tr>`).join('')
-    || '<tr><td colspan="4">Nenhum registro.</td></tr>';
+  body.innerHTML=logs.map(x=>`<tr><td>${v4Esc(v4Data(x.created_at))}</td><td><b>${v4Esc(x.username||'-')}</b></td><td>${v4Esc(v25AuditLabel(x.action))}</td><td>${v4Esc(v25Detalhes(x.details))}</td></tr>`).join('') || '<tr><td colspan="4">Nenhum registro encontrado.</td></tr>';
 }
 function v4FiltrarAuditoria(){
-  const q=(document.getElementById('auditFiltro')?.value||'').toLowerCase();
-  v4RenderAuditoria(V4.audit.filter(x=>JSON.stringify(x).toLowerCase().includes(q)));
+  const q=(document.getElementById('auditFiltro')?.value||'').toLowerCase(),u=document.getElementById('auditUsuario')?.value||'',a=document.getElementById('auditAcao')?.value||'',dt=document.getElementById('auditData')?.value||'';
+  v4RenderAuditoria(V4.audit.filter(x=>{const dia=x.created_at?new Date(x.created_at).toLocaleDateString('en-CA'):'';return (!q||JSON.stringify(x).toLowerCase().includes(q)||v25AuditLabel(x.action).toLowerCase().includes(q))&&(!u||x.username===u)&&(!a||x.action===a)&&(!dt||dia===dt)}));
+}
+async function v25Audit(action,details={}){
+  try{if(!V4.token)return;await fetch('/api/audit/event',{method:'POST',headers:v4Headers(),body:JSON.stringify({action,details})})}catch(e){console.warn('Auditoria:',e)}
 }
 function v4Esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 function v4Data(d){try{return new Date(d).toLocaleString('pt-BR')}catch(e){return d||''}}

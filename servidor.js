@@ -403,6 +403,25 @@ app.get('/api/audit',auth,adminOnly,async(_req,res)=>{
   } catch(e){ res.status(500).json({ok:false,error:e.message}); }
 });
 
+// V25 - eventos detalhados das funções legadas (produtores, leite, débitos e pagamentos).
+// O usuário vem exclusivamente da sessão autenticada; o cliente não pode escolher quem aparece no log.
+app.post('/api/audit/event',auth,async(req,res)=>{
+  try {
+    const action=String(req.body?.action||'').trim().toUpperCase();
+    const details=(req.body?.details && typeof req.body.details==='object') ? req.body.details : {};
+    const allowed=new Set([
+      'PRODUTOR_CRIADO','PRODUTOR_EDITADO','PRODUTOR_EXCLUIDO',
+      'LEITE_ENTRADA_REGISTRADA','LEITE_ENTRADA_EXCLUIDA',
+      'DEBITO_CRIADO','DEBITO_EXCLUIDO','DEBITO_PAGAMENTO_REGISTRADO','DEBITO_PAGAMENTO_EXCLUIDO',
+      'PAGAMENTO_QUINZENA_REGISTRADO','PAGAMENTO_QUINZENA_DESFEITO',
+      'BACKUP_IMPORTADO','DADOS_APAGADOS'
+    ]);
+    if(!allowed.has(action)) return res.status(400).json({ok:false,error:'Evento de auditoria inválido'});
+    await audit(req.user,action,details);
+    res.json({ok:true});
+  } catch(e){res.status(500).json({ok:false,error:e.message});}
+});
+
 app.get('/api/state', async (_req,res)=>{
   try {
     const r=await pool.query("SELECT data,updated_at FROM app_state WHERE id='vale-da-serra'");
