@@ -232,6 +232,12 @@ async function initDb() {
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), cancelled_at TIMESTAMPTZ, cancelled_by TEXT
   )`);
   await pool.query(`ALTER TABLE app_store_sales ADD COLUMN IF NOT EXISTS customer_name TEXT DEFAULT ''`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS app_store_stock_movements (
+    id BIGSERIAL PRIMARY KEY, product_id TEXT NOT NULL, product_name TEXT NOT NULL,
+    movement_type TEXT NOT NULL, quantity_before NUMERIC NOT NULL, quantity_change NUMERIC NOT NULL,
+    quantity_after NUMERIC NOT NULL, reason TEXT DEFAULT '', note TEXT DEFAULT '',
+    user_id TEXT, username TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
   await pool.query(`CREATE TABLE IF NOT EXISTS app_store_sale_items (
     id BIGSERIAL PRIMARY KEY, sale_id TEXT NOT NULL, product_id TEXT NOT NULL,
     product_name TEXT NOT NULL, quantity NUMERIC NOT NULL, unit_price NUMERIC NOT NULL,
@@ -489,11 +495,17 @@ app.delete('/api/store/products/:id',auth,hasPermission('loja'),async(req,res)=>
  await audit(req.user,'LOJA_PRODUTO_EXCLUIDO',{id:req.params.id,name:r.rows[0].name}); res.json({ok:true});
 }catch(e){res.status(500).json({ok:false,error:e.message})}});
 
-app.post('/api/store/stock',auth,hasPermission('loja'),async(req,res)=>{try{
- const {product_id,quantity}=req.body||{}; const q=Number(quantity); if(!product_id||!q) return res.status(400).json({ok:false,error:'Dados inválidos'});
- const r=await pool.query(`UPDATE app_store_products SET stock=stock+$2,updated_at=NOW() WHERE id=$1 RETURNING stock`,[product_id,q]);
- if(!r.rowCount) return res.status(404).json({ok:false,error:'Produto não encontrado'}); await audit(req.user,'LOJA_AJUSTE_ESTOQUE',{product_id,quantity:q}); res.json({ok:true,stock:r.rows[0].stock});
-}catch(e){res.status(500).json({ok:false,error:e.message})}});
+app.post('/api/store/stock',auth,hasPermission('loja'),async(req,res)=>{const c=await pool.connect();try{
+ const {product_id,quantity,mode='delta',reason='',note=''}=req.body||{}; const q=Number(quantity); if(!product_id||!Number.isFinite(q)) return res.status(400).json({ok:false,error:'Dados inválidos'});
+ await c.query('BEGIN'); const pr=await c.query(`SELECT id,name,stock FROM app_store_products WHERE id=$1 AND active=TRUE FOR UPDATE`,[product_id]);
+ if(!pr.rowCount) throw new Error('Produto não encontrado'); const before=Number(pr.rows[0].stock); let after,change,type;
+ if(mode==='set'){if(q<0) throw new Error('O estoque não pode ser negativo'); after=q;change=after-before;type='contagem';}
+ else {if(q===0) throw new Error('Informe uma quantidade diferente de zero');after=before+q;if(after<0) throw new Error('Estoque insuficiente');change=q;type=q>0?'entrada':'retirada';}
+ await c.query(`UPDATE app_store_products SET stock=$2,updated_at=NOW() WHERE id=$1`,[product_id,after]);
+ await c.query(`INSERT INTO app_store_stock_movements(product_id,product_name,movement_type,quantity_before,quantity_change,quantity_after,reason,note,user_id,username) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[product_id,pr.rows[0].name,type,before,change,after,String(reason||''),String(note||''),req.user.user_id||null,req.user.username||null]);
+ await c.query('COMMIT'); await audit(req.user,'LOJA_AJUSTE_ESTOQUE',{product_id,mode,before,change,after,reason}); res.json({ok:true,stock:after});
+}catch(e){try{await c.query('ROLLBACK')}catch(_){} res.status(400).json({ok:false,error:e.message})}finally{c.release()}});
+app.get('/api/store/stock-history',auth,hasPermission('loja'),async(req,res)=>{try{const r=await pool.query(`SELECT * FROM app_store_stock_movements ORDER BY created_at DESC LIMIT 500`);res.json({ok:true,movements:r.rows})}catch(e){res.status(500).json({ok:false,error:e.message})}});
 app.post('/api/store/sales',auth,hasPermission('loja'),async(req,res)=>{
  const c=await pool.connect(); try{const {items,payment_method,customer_name}=req.body||{}; if(!Array.isArray(items)||!items.length) return res.status(400).json({ok:false,error:'Venda sem produtos'});
   if(!['pix','dinheiro','cartao','fiado'].includes(payment_method)) return res.status(400).json({ok:false,error:'Forma de pagamento inválida'});
