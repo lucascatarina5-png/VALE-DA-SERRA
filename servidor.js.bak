@@ -214,26 +214,6 @@ async function initDb() {
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
 
-
-  // V14 - Loja / PDV (migração aditiva: preserva todos os dados existentes)
-  await pool.query(`CREATE TABLE IF NOT EXISTS app_store_products (
-    id TEXT PRIMARY KEY, name TEXT NOT NULL, category TEXT DEFAULT '', unit TEXT NOT NULL DEFAULT 'un',
-    cost_price NUMERIC NOT NULL DEFAULT 0, sale_price NUMERIC NOT NULL DEFAULT 0,
-    stock NUMERIC NOT NULL DEFAULT 0, min_stock NUMERIC NOT NULL DEFAULT 0,
-    photo TEXT, active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  )`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS app_store_sales (
-    id TEXT PRIMARY KEY, total NUMERIC NOT NULL DEFAULT 0, payment_method TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'concluida', user_id TEXT, username TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), cancelled_at TIMESTAMPTZ, cancelled_by TEXT
-  )`);
-  await pool.query(`CREATE TABLE IF NOT EXISTS app_store_sale_items (
-    id BIGSERIAL PRIMARY KEY, sale_id TEXT NOT NULL, product_id TEXT NOT NULL,
-    product_name TEXT NOT NULL, quantity NUMERIC NOT NULL, unit_price NUMERIC NOT NULL,
-    cost_price NUMERIC NOT NULL DEFAULT 0, subtotal NUMERIC NOT NULL
-  )`);
-
   console.log('Banco atualizado sem apagar os dados existentes.');
 }
 
@@ -461,47 +441,6 @@ app.post('/api/inventory/movements',auth,hasPermission('estoque'),async(req,res)
     res.status(500).json({ok:false,error:e.message});
   }finally{client.release();}
 });
-
-
-// V14 - API Loja / PDV
-app.get('/api/store/products',auth,hasPermission('loja'),async(req,res)=>{try{
-  const r=await pool.query(`SELECT * FROM app_store_products WHERE active=TRUE ORDER BY name`);
-  res.json({ok:true,products:r.rows});
-}catch(e){res.status(500).json({ok:false,error:e.message})}});
-app.post('/api/store/products',auth,hasPermission('loja'),async(req,res)=>{try{
-  const b=req.body||{}, id=crypto.randomUUID(); if(!String(b.name||'').trim()) return res.status(400).json({ok:false,error:'Informe o nome do produto'});
-  await pool.query(`INSERT INTO app_store_products(id,name,category,unit,cost_price,sale_price,stock,min_stock,photo) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-   [id,String(b.name).trim(),b.category||'',b.unit||'un',Number(b.cost_price)||0,Number(b.sale_price)||0,Number(b.stock)||0,Number(b.min_stock)||0,b.photo||null]);
-  await audit(req.user,'LOJA_PRODUTO_CRIADO',{id,name:b.name,stock:Number(b.stock)||0}); res.json({ok:true,id});
-}catch(e){res.status(500).json({ok:false,error:e.message})}});
-app.put('/api/store/products/:id',auth,hasPermission('loja'),async(req,res)=>{try{
- const b=req.body||{}; await pool.query(`UPDATE app_store_products SET name=$2,category=$3,unit=$4,cost_price=$5,sale_price=$6,min_stock=$7,photo=COALESCE($8,photo),updated_at=NOW() WHERE id=$1`,
- [req.params.id,b.name,b.category||'',b.unit||'un',Number(b.cost_price)||0,Number(b.sale_price)||0,Number(b.min_stock)||0,b.photo||null]);
- await audit(req.user,'LOJA_PRODUTO_EDITADO',{id:req.params.id}); res.json({ok:true});
-}catch(e){res.status(500).json({ok:false,error:e.message})}});
-app.post('/api/store/stock',auth,hasPermission('loja'),async(req,res)=>{try{
- const {product_id,quantity}=req.body||{}; const q=Number(quantity); if(!product_id||!q) return res.status(400).json({ok:false,error:'Dados inválidos'});
- const r=await pool.query(`UPDATE app_store_products SET stock=stock+$2,updated_at=NOW() WHERE id=$1 RETURNING stock`,[product_id,q]);
- if(!r.rowCount) return res.status(404).json({ok:false,error:'Produto não encontrado'}); await audit(req.user,'LOJA_AJUSTE_ESTOQUE',{product_id,quantity:q}); res.json({ok:true,stock:r.rows[0].stock});
-}catch(e){res.status(500).json({ok:false,error:e.message})}});
-app.post('/api/store/sales',auth,hasPermission('loja'),async(req,res)=>{
- const c=await pool.connect(); try{const {items,payment_method}=req.body||{}; if(!Array.isArray(items)||!items.length) return res.status(400).json({ok:false,error:'Venda sem produtos'});
-  if(!['pix','dinheiro','cartao','fiado'].includes(payment_method)) return res.status(400).json({ok:false,error:'Forma de pagamento inválida'});
-  await c.query('BEGIN'); const id=crypto.randomUUID(); let total=0;
-  const prepared=[]; for(const it of items){const q=Number(it.quantity); if(!(q>0)) throw new Error('Quantidade inválida');
-   const pr=await c.query(`SELECT * FROM app_store_products WHERE id=$1 AND active=TRUE FOR UPDATE`,[it.product_id]); if(!pr.rowCount) throw new Error('Produto não encontrado'); const p=pr.rows[0];
-   if(Number(p.stock)<q) throw new Error(`Estoque insuficiente: ${p.name}`); const sub=q*Number(p.sale_price); total+=sub; prepared.push([p,q,sub]);}
-  await c.query(`INSERT INTO app_store_sales(id,total,payment_method,user_id,username) VALUES($1,$2,$3,$4,$5)`,[id,total,payment_method,req.user.user_id||null,req.user.username||null]);
-  for(const [p,q,sub] of prepared){await c.query(`UPDATE app_store_products SET stock=stock-$2,updated_at=NOW() WHERE id=$1`,[p.id,q]); await c.query(`INSERT INTO app_store_sale_items(sale_id,product_id,product_name,quantity,unit_price,cost_price,subtotal) VALUES($1,$2,$3,$4,$5,$6,$7)`,[id,p.id,p.name,q,p.sale_price,p.cost_price,sub]);}
-  await c.query('COMMIT'); await audit(req.user,'LOJA_VENDA',{id,total,payment_method}); res.json({ok:true,id,total});
- }catch(e){try{await c.query('ROLLBACK')}catch(_){} res.status(400).json({ok:false,error:e.message})}finally{c.release()}
-});
-app.get('/api/store/sales',auth,hasPermission('loja'),async(req,res)=>{try{
- const days=Math.max(1,Math.min(365,Number(req.query.days)||7)); const r=await pool.query(`SELECT s.*,COALESCE(json_agg(json_build_object('product_name',i.product_name,'quantity',i.quantity,'unit_price',i.unit_price,'subtotal',i.subtotal)) FILTER (WHERE i.id IS NOT NULL),'[]') items FROM app_store_sales s LEFT JOIN app_store_sale_items i ON i.sale_id=s.id WHERE s.created_at >= NOW()-($1::text||' days')::interval GROUP BY s.id ORDER BY s.created_at DESC`,[days]); res.json({ok:true,sales:r.rows});
-}catch(e){res.status(500).json({ok:false,error:e.message})}});
-app.post('/api/store/sales/:id/cancel',auth,hasPermission('loja'),async(req,res)=>{const c=await pool.connect();try{
- await c.query('BEGIN'); const s=await c.query(`SELECT * FROM app_store_sales WHERE id=$1 FOR UPDATE`,[req.params.id]); if(!s.rowCount||s.rows[0].status==='cancelada') throw new Error('Venda inválida ou já cancelada'); const its=await c.query(`SELECT * FROM app_store_sale_items WHERE sale_id=$1`,[req.params.id]); for(const i of its.rows) await c.query(`UPDATE app_store_products SET stock=stock+$2 WHERE id=$1`,[i.product_id,i.quantity]); await c.query(`UPDATE app_store_sales SET status='cancelada',cancelled_at=NOW(),cancelled_by=$2 WHERE id=$1`,[req.params.id,req.user.username]); await c.query('COMMIT'); await audit(req.user,'LOJA_VENDA_CANCELADA',{id:req.params.id}); res.json({ok:true});
-}catch(e){try{await c.query('ROLLBACK')}catch(_){} res.status(400).json({ok:false,error:e.message})}finally{c.release()}});
 
 // PWA: tipos corretos e atualização imediata do manifest/service worker
 app.get('/manifest.webmanifest',(_req,res)=>{
