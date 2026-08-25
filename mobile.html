@@ -2466,91 +2466,9 @@ function imprimirCupom(prodId,formato='80mm'){
 
 
 
-<script>
-if ('serviceWorker' in navigator) { window.addEventListener('load', async()=>{ try { const reg=await navigator.serviceWorker.register('/sw.js',{scope:'/'}); reg.update(); } catch(e){ console.error('Falha ao registrar PWA:',e); } }); }
-</script>
-
-<style id="vds-pwa-install-style">
-#vdsInstallApp{display:none;position:fixed;right:16px;bottom:88px;z-index:99999;border:0;border-radius:16px;padding:13px 18px;background:#145c35;color:#fff;font:700 15px system-ui,-apple-system,Segoe UI,Arial;box-shadow:0 8px 24px rgba(0,0,0,.22);cursor:pointer}
-@media (display-mode:standalone){#vdsInstallApp{display:none!important}}
-</style>
-<button id="vdsInstallApp" type="button" aria-label="Instalar aplicativo Vale da Serra">📲 Instalar aplicativo</button>
-<script>
-(()=>{
- let deferredPrompt=null;
- const btn=document.getElementById('vdsInstallApp');
- const standalone=()=>window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
- window.addEventListener('beforeinstallprompt',e=>{
-   e.preventDefault(); deferredPrompt=e;
-   if(!standalone()) btn.style.display='block';
- });
- btn.addEventListener('click',async()=>{
-   if(!deferredPrompt) return;
-   deferredPrompt.prompt();
-   try{await deferredPrompt.userChoice;}catch(_){ }
-   deferredPrompt=null; btn.style.display='none';
- });
- window.addEventListener('appinstalled',()=>{deferredPrompt=null;btn.style.display='none';});
- if(standalone()) btn.style.display='none';
-})();
-</script>
 
 
-<style id="vds-mobile-v10-css">
-@media (max-width:760px){
- body.vds-mobile-mode .app{display:block!important;min-height:100vh;background:#f5f1e6;padding-bottom:92px}
- body.vds-mobile-mode .sidebar,body.vds-mobile-mode .hero{display:none!important}
- body.vds-mobile-mode .content{padding:14px!important;max-width:none!important}
- body.vds-mobile-mode .section{display:none!important}
- body.vds-mobile-mode .section.active{display:block!important}
- body.vds-mobile-mode #painel{display:none!important}
- body.vds-mobile-mode .card{border-radius:18px!important}
- body.vds-mobile-mode .tablewrap{overflow:auto;-webkit-overflow-scrolling:touch}
- body.vds-mobile-mode #vdsMobileHome{display:block}
- body.vds-mobile-mode.vds-in-section #vdsMobileHome{display:none}
-}
-#vdsMobileHome,#vdsMobileBottom,#vdsMobileAccount{display:none}
-@media(max-width:760px){
- #vdsMobileHome{min-height:calc(100vh - 92px);background:#f5f1e6;margin:-14px;padding:0 16px 110px}
- .vds-m-head{background:linear-gradient(135deg,#0d4d2e,#1d7447);color:#fff;margin:0 -16px 18px;padding:22px 18px 24px}
- .vds-m-head b{font-size:27px;display:block}.vds-m-head span{opacity:.9;font-size:15px}
- .vds-m-welcome{background:#fff;border-radius:24px;padding:22px;margin:0 0 18px;box-shadow:0 8px 25px rgba(0,0,0,.06)}
- .vds-m-welcome h2{margin:0 0 8px;color:#143f2b;font-size:27px}.vds-m-welcome p{margin:0;color:#6c766f}
- .vds-m-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
- .vds-m-card{border:0;background:#fff;border-radius:24px;min-height:170px;padding:18px 10px;box-shadow:0 8px 25px rgba(0,0,0,.06);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;color:#123f2a;font-weight:850;font-size:19px;text-align:center}
- .vds-m-card .em{font-size:52px;line-height:1}
- #vdsMobileBottom{position:fixed;left:0;right:0;bottom:0;z-index:9998;background:#fff;border-top:1px solid #ddd;padding:8px 8px calc(8px + env(safe-area-inset-bottom));grid-template-columns:repeat(4,1fr);box-shadow:0 -5px 20px rgba(0,0,0,.08)}
- body.vds-mobile-mode #vdsMobileBottom{display:grid}
- .vds-m-nav{border:0;background:transparent;color:#526158;min-height:58px!important;font-size:13px!important;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}.vds-m-nav i{font-style:normal;font-size:25px}
- #vdsMobileAccount{position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.45);align-items:flex-end}
- #vdsMobileAccount.open{display:flex}.vds-account-sheet{width:100%;background:#fff;border-radius:24px 24px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom))}.vds-account-sheet h3{font-size:23px;margin:0 0 8px}.vds-account-sheet p{color:#65726a}.vds-account-sheet button{width:100%;margin-top:12px;border:0;border-radius:14px;padding:13px;background:#0f5b36;color:#fff;font-weight:800}
-}
-</style>
-<div id="vdsMobileAccount"><div class="vds-account-sheet"><h3>👤 Minha Conta</h3><p id="vdsMobileUser">Vale da Serra</p><button onclick="sairSistema()">Sair do sistema</button><button style="background:#e9eee9;color:#234" onclick="vdsCloseAccount()">Fechar</button></div></div>
-<script id="vds-mobile-v10-js">
-(function(){
- const isMobile=()=>window.matchMedia('(max-width:760px)').matches;
- function userName(){try{return (JSON.parse(localStorage.getItem('vale_user')||'{}').name||JSON.parse(localStorage.getItem('vale_user')||'{}').username||'Usuário')}catch(e){return 'Usuário'}}
- function ensure(){
-  if(!isMobile())return;
-  document.body.classList.add('vds-mobile-mode');
-  const content=document.querySelector('.content'); if(!content||document.getElementById('vdsMobileHome'))return;
-  const home=document.createElement('div');home.id='vdsMobileHome';
-  home.innerHTML=`<div class="vds-m-head"><b>🐄 Vale da Serra</b><span id="vdsMobileRole"></span></div><div class="vds-m-welcome"><h2>Olá, <span id="vdsMobileHello"></span></h2><p>Escolha uma operação.</p></div><div class="vds-m-grid"><button class="vds-m-card" onclick="vdsMobileGo('estoque')"><span class="em">📦</span>Estoque / Galpão</button><button class="vds-m-card" onclick="vdsMobileGo('produtores')"><span class="em">👨‍🌾</span>Produtores</button><button class="vds-m-card" onclick="vdsMobileGo('lancamentos')"><span class="em">🥛</span>Entrada de Leite</button><button class="vds-m-card" onclick="vdsMobileGo('pesquisa')"><span class="em">🧾</span>Histórico</button></div>`;
-  content.prepend(home);
-  const nav=document.createElement('div');nav.id='vdsMobileBottom';nav.innerHTML=`<button class="vds-m-nav" onclick="vdsMobileHome()"><i>🏠</i>Início</button><button class="vds-m-nav" onclick="vdsMobileGo('estoque')"><i>📦</i>Estoque</button><button class="vds-m-nav" onclick="vdsMobileGo('produtores')"><i>👨‍🌾</i>Produtores</button><button class="vds-m-nav" onclick="vdsOpenAccount()"><i>👤</i>Conta</button>`;document.body.appendChild(nav);
-  updateUser(); vdsMobileHome();
- }
- function updateUser(){const n=userName();const h=document.getElementById('vdsMobileHello'),r=document.getElementById('vdsMobileRole'),u=document.getElementById('vdsMobileUser');if(h)h.textContent=n;if(r)r.textContent=n;if(u)u.textContent='Usuário: '+n}
- window.vdsMobileHome=function(){document.body.classList.remove('vds-in-section');document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));window.scrollTo(0,0)};
- window.vdsMobileGo=function(id){document.body.classList.add('vds-in-section');try{showSection(id,null)}catch(e){const s=document.getElementById(id);document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));if(s)s.classList.add('active')}if(id==='estoque'){try{estoqueCarregar()}catch(e){}}window.scrollTo(0,0)};
- window.vdsOpenAccount=function(){updateUser();document.getElementById('vdsMobileAccount')?.classList.add('open')};
- window.vdsCloseAccount=function(){document.getElementById('vdsMobileAccount')?.classList.remove('open')};
- const old=window.mostrarSistema;window.mostrarSistema=function(){if(old)old();setTimeout(()=>{ensure();updateUser();vdsMobileHome()},0)};
- document.addEventListener('DOMContentLoaded',()=>{if(sessionStorage.getItem('vds_logged_v1')==='1'){ensure()}});
- window.addEventListener('resize',()=>{if(isMobile())ensure();else document.body.classList.remove('vds-mobile-mode','vds-in-section')});
-})();
-</script>
+
 
 </body></html>`);
   w.document.close();
@@ -3050,87 +2968,7 @@ function imprimirRelatorioA4(){
     <div class="foot">Relatório emitido em ${new Date().toLocaleString('pt-BR')} • Vale da Serra Laticínios</div>
     <div class="actions"><button onclick="window.print()">IMPRIMIR RELATÓRIO A4</button></div>
   
-<style id="vds-pwa-install-style">
-#vdsInstallApp{display:none;position:fixed;right:16px;bottom:88px;z-index:99999;border:0;border-radius:16px;padding:13px 18px;background:#145c35;color:#fff;font:700 15px system-ui,-apple-system,Segoe UI,Arial;box-shadow:0 8px 24px rgba(0,0,0,.22);cursor:pointer}
-@media (display-mode:standalone){#vdsInstallApp{display:none!important}}
-</style>
-<button id="vdsInstallApp" type="button" aria-label="Instalar aplicativo Vale da Serra">📲 Instalar aplicativo</button>
-<script>
-(()=>{
- let deferredPrompt=null;
- const btn=document.getElementById('vdsInstallApp');
- const standalone=()=>window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
- window.addEventListener('beforeinstallprompt',e=>{
-   e.preventDefault(); deferredPrompt=e;
-   if(!standalone()) btn.style.display='block';
- });
- btn.addEventListener('click',async()=>{
-   if(!deferredPrompt) return;
-   deferredPrompt.prompt();
-   try{await deferredPrompt.userChoice;}catch(_){ }
-   deferredPrompt=null; btn.style.display='none';
- });
- window.addEventListener('appinstalled',()=>{deferredPrompt=null;btn.style.display='none';});
- if(standalone()) btn.style.display='none';
-})();
-</script>
 
-
-<style id="vds-mobile-v10-css">
-@media (max-width:760px){
- body.vds-mobile-mode .app{display:block!important;min-height:100vh;background:#f5f1e6;padding-bottom:92px}
- body.vds-mobile-mode .sidebar,body.vds-mobile-mode .hero{display:none!important}
- body.vds-mobile-mode .content{padding:14px!important;max-width:none!important}
- body.vds-mobile-mode .section{display:none!important}
- body.vds-mobile-mode .section.active{display:block!important}
- body.vds-mobile-mode #painel{display:none!important}
- body.vds-mobile-mode .card{border-radius:18px!important}
- body.vds-mobile-mode .tablewrap{overflow:auto;-webkit-overflow-scrolling:touch}
- body.vds-mobile-mode #vdsMobileHome{display:block}
- body.vds-mobile-mode.vds-in-section #vdsMobileHome{display:none}
-}
-#vdsMobileHome,#vdsMobileBottom,#vdsMobileAccount{display:none}
-@media(max-width:760px){
- #vdsMobileHome{min-height:calc(100vh - 92px);background:#f5f1e6;margin:-14px;padding:0 16px 110px}
- .vds-m-head{background:linear-gradient(135deg,#0d4d2e,#1d7447);color:#fff;margin:0 -16px 18px;padding:22px 18px 24px}
- .vds-m-head b{font-size:27px;display:block}.vds-m-head span{opacity:.9;font-size:15px}
- .vds-m-welcome{background:#fff;border-radius:24px;padding:22px;margin:0 0 18px;box-shadow:0 8px 25px rgba(0,0,0,.06)}
- .vds-m-welcome h2{margin:0 0 8px;color:#143f2b;font-size:27px}.vds-m-welcome p{margin:0;color:#6c766f}
- .vds-m-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
- .vds-m-card{border:0;background:#fff;border-radius:24px;min-height:170px;padding:18px 10px;box-shadow:0 8px 25px rgba(0,0,0,.06);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:13px;color:#123f2a;font-weight:850;font-size:19px;text-align:center}
- .vds-m-card .em{font-size:52px;line-height:1}
- #vdsMobileBottom{position:fixed;left:0;right:0;bottom:0;z-index:9998;background:#fff;border-top:1px solid #ddd;padding:8px 8px calc(8px + env(safe-area-inset-bottom));grid-template-columns:repeat(4,1fr);box-shadow:0 -5px 20px rgba(0,0,0,.08)}
- body.vds-mobile-mode #vdsMobileBottom{display:grid}
- .vds-m-nav{border:0;background:transparent;color:#526158;min-height:58px!important;font-size:13px!important;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}.vds-m-nav i{font-style:normal;font-size:25px}
- #vdsMobileAccount{position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.45);align-items:flex-end}
- #vdsMobileAccount.open{display:flex}.vds-account-sheet{width:100%;background:#fff;border-radius:24px 24px 0 0;padding:24px 20px calc(24px + env(safe-area-inset-bottom))}.vds-account-sheet h3{font-size:23px;margin:0 0 8px}.vds-account-sheet p{color:#65726a}.vds-account-sheet button{width:100%;margin-top:12px;border:0;border-radius:14px;padding:13px;background:#0f5b36;color:#fff;font-weight:800}
-}
-</style>
-<div id="vdsMobileAccount"><div class="vds-account-sheet"><h3>👤 Minha Conta</h3><p id="vdsMobileUser">Vale da Serra</p><button onclick="sairSistema()">Sair do sistema</button><button style="background:#e9eee9;color:#234" onclick="vdsCloseAccount()">Fechar</button></div></div>
-<script id="vds-mobile-v10-js">
-(function(){
- const isMobile=()=>window.matchMedia('(max-width:760px)').matches;
- function userName(){try{return (JSON.parse(localStorage.getItem('vale_user')||'{}').name||JSON.parse(localStorage.getItem('vale_user')||'{}').username||'Usuário')}catch(e){return 'Usuário'}}
- function ensure(){
-  if(!isMobile())return;
-  document.body.classList.add('vds-mobile-mode');
-  const content=document.querySelector('.content'); if(!content||document.getElementById('vdsMobileHome'))return;
-  const home=document.createElement('div');home.id='vdsMobileHome';
-  home.innerHTML=`<div class="vds-m-head"><b>🐄 Vale da Serra</b><span id="vdsMobileRole"></span></div><div class="vds-m-welcome"><h2>Olá, <span id="vdsMobileHello"></span></h2><p>Escolha uma operação.</p></div><div class="vds-m-grid"><button class="vds-m-card" onclick="vdsMobileGo('estoque')"><span class="em">📦</span>Estoque / Galpão</button><button class="vds-m-card" onclick="vdsMobileGo('produtores')"><span class="em">👨‍🌾</span>Produtores</button><button class="vds-m-card" onclick="vdsMobileGo('lancamentos')"><span class="em">🥛</span>Entrada de Leite</button><button class="vds-m-card" onclick="vdsMobileGo('pesquisa')"><span class="em">🧾</span>Histórico</button></div>`;
-  content.prepend(home);
-  const nav=document.createElement('div');nav.id='vdsMobileBottom';nav.innerHTML=`<button class="vds-m-nav" onclick="vdsMobileHome()"><i>🏠</i>Início</button><button class="vds-m-nav" onclick="vdsMobileGo('estoque')"><i>📦</i>Estoque</button><button class="vds-m-nav" onclick="vdsMobileGo('produtores')"><i>👨‍🌾</i>Produtores</button><button class="vds-m-nav" onclick="vdsOpenAccount()"><i>👤</i>Conta</button>`;document.body.appendChild(nav);
-  updateUser(); vdsMobileHome();
- }
- function updateUser(){const n=userName();const h=document.getElementById('vdsMobileHello'),r=document.getElementById('vdsMobileRole'),u=document.getElementById('vdsMobileUser');if(h)h.textContent=n;if(r)r.textContent=n;if(u)u.textContent='Usuário: '+n}
- window.vdsMobileHome=function(){document.body.classList.remove('vds-in-section');document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));window.scrollTo(0,0)};
- window.vdsMobileGo=function(id){document.body.classList.add('vds-in-section');try{showSection(id,null)}catch(e){const s=document.getElementById(id);document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));if(s)s.classList.add('active')}if(id==='estoque'){try{estoqueCarregar()}catch(e){}}window.scrollTo(0,0)};
- window.vdsOpenAccount=function(){updateUser();document.getElementById('vdsMobileAccount')?.classList.add('open')};
- window.vdsCloseAccount=function(){document.getElementById('vdsMobileAccount')?.classList.remove('open')};
- const old=window.mostrarSistema;window.mostrarSistema=function(){if(old)old();setTimeout(()=>{ensure();updateUser();vdsMobileHome()},0)};
- document.addEventListener('DOMContentLoaded',()=>{if(sessionStorage.getItem('vds_logged_v1')==='1'){ensure()}});
- window.addEventListener('resize',()=>{if(isMobile())ensure();else document.body.classList.remove('vds-mobile-mode','vds-in-section')});
-})();
-</script>
 
 </body></html>`);
   w.document.close();
@@ -3888,6 +3726,14 @@ function estoqueResumo(){
 }
 </script>
 
+
+
+
+<script id="vds-pwa-register">
+if ('serviceWorker' in navigator) {
+ window.addEventListener('load', ()=>navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(console.error));
+}
+</script>
 <style id="vds-pwa-install-style">
 #vdsInstallApp{display:none;position:fixed;right:16px;bottom:88px;z-index:99999;border:0;border-radius:16px;padding:13px 18px;background:#145c35;color:#fff;font:700 15px system-ui,-apple-system,Segoe UI,Arial;box-shadow:0 8px 24px rgba(0,0,0,.22);cursor:pointer}
 @media (display-mode:standalone){#vdsInstallApp{display:none!important}}
@@ -3914,7 +3760,7 @@ function estoqueResumo(){
 </script>
 
 
-<style id="vds-mobile-v10-css">
+<style id="vds-mobile-v11-css">
 @media (max-width:760px){
  body.vds-mobile-mode .app{display:block!important;min-height:100vh;background:#f5f1e6;padding-bottom:92px}
  body.vds-mobile-mode .sidebar,body.vds-mobile-mode .hero{display:none!important}
@@ -3945,7 +3791,7 @@ function estoqueResumo(){
 }
 </style>
 <div id="vdsMobileAccount"><div class="vds-account-sheet"><h3>👤 Minha Conta</h3><p id="vdsMobileUser">Vale da Serra</p><button onclick="sairSistema()">Sair do sistema</button><button style="background:#e9eee9;color:#234" onclick="vdsCloseAccount()">Fechar</button></div></div>
-<script id="vds-mobile-v10-js">
+<script id="vds-mobile-v11-js">
 (function(){
  const isMobile=()=>window.matchMedia('(max-width:760px)').matches;
  function userName(){try{return (JSON.parse(localStorage.getItem('vale_user')||'{}').name||JSON.parse(localStorage.getItem('vale_user')||'{}').username||'Usuário')}catch(e){return 'Usuário'}}
@@ -3969,6 +3815,5 @@ function estoqueResumo(){
  window.addEventListener('resize',()=>{if(isMobile())ensure();else document.body.classList.remove('vds-mobile-mode','vds-in-section')});
 })();
 </script>
-
 </body>
 </html>

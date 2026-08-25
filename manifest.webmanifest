@@ -1,10 +1,10 @@
 {
-  "id": "/vale-da-serra-mobile",
+  "id": "/mobile.html",
   "name": "Vale da Serra - Controle de Leite",
   "short_name": "Vale da Serra",
   "description": "Controle de entrada de leite, produtores, estoque e gestão Vale da Serra.",
   "lang": "pt-BR",
-  "start_url": "/mobile.html?source=pwa-v10",
+  "start_url": "/mobile.html",
   "scope": "/",
   "display": "standalone",
   "display_override": [
