@@ -1256,46 +1256,46 @@ td{font-size:12.5px}
 
   <div class="card" style="margin-top:16px">
     <h3>➕ Cadastrar Produto</h3>
-    <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px">
-      <input id="estProdNome" placeholder="Produto (ex.: Ração 22%)">
-      <select id="estProdUn"><option>kg</option><option>saco</option><option>un</option><option>litro</option></select>
-      <input id="estProdMin" type="number" step="0.01" min="0" placeholder="Estoque mínimo">
-      <input id="estProdPreco" type="number" step="0.01" min="0" placeholder="Preço unitário R$">
+    <div class="est-mobile-form" style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px">
+      <label class="est-field"><span>Nome do produto</span><input id="estProdNome" placeholder="Ex.: Ração 22%"></label>
+      <label class="est-field"><span>Unidade</span><select id="estProdUn"><option>kg</option><option>saco</option><option>un</option><option>litro</option></select></label>
+      <label class="est-field"><span>Estoque mínimo</span><input id="estProdMin" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Ex.: 10"></label>
+      <label class="est-field"><span>Preço unitário</span><input id="estProdPreco" type="number" inputmode="decimal" step="0.01" min="0" placeholder="R$ 0,00"></label>
     </div>
-    <button style="margin-top:12px" onclick="estoqueCadastrarProduto()">Cadastrar Produto</button>
+    <button class="est-primary" style="margin-top:12px" onclick="estoqueCadastrarProduto()">➕ Cadastrar Produto</button>
   </div>
 
   <div class="card" style="margin-top:16px">
     <h3>🔄 Registrar Movimentação</h3>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
-      <select id="estMovProd"></select>
-      <select id="estMovTipo" onchange="estoqueAtualizarCampos()"><option value="entrada">Entrada</option><option value="saida">Saída</option></select>
-      <input id="estMovQtd" type="number" step="0.01" min="0.01" placeholder="Quantidade">
-      <input id="estMovValor" type="number" step="0.01" min="0" placeholder="Valor unitário R$">
-      <select id="estMovProdutor"><option value="">Sem produtor / uso interno</option></select>
-      <input id="estMovDestino" placeholder="Destino / observação">
+    <div class="est-mobile-form" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+      <label class="est-field"><span>Produto</span><select id="estMovProd"></select></label>
+      <label class="est-field"><span>Tipo de movimentação</span><select id="estMovTipo" onchange="estoqueAtualizarCampos()"><option value="entrada">➕ Entrada</option><option value="saida">➖ Saída</option></select></label>
+      <label class="est-field"><span>Quantidade</span><input id="estMovQtd" type="number" inputmode="decimal" step="0.01" min="0.01" placeholder="Ex.: 10"></label>
+      <label class="est-field"><span>Valor unitário</span><input id="estMovValor" type="number" inputmode="decimal" step="0.01" min="0" placeholder="R$ 0,00"></label>
+      <label class="est-field"><span>Produtor / responsável</span><select id="estMovProdutor"><option value="">Sem produtor / uso interno</option></select></label>
+      <label class="est-field"><span>Destino / observação</span><input id="estMovDestino" placeholder="Ex.: consumo interno, produtor..."></label>
     </div>
     <label id="estDebitoWrap" style="display:none;margin-top:12px">
       <input type="checkbox" id="estGerarDebito"> Lançar automaticamente o valor desta saída como débito do produtor
     </label>
-    <button style="margin-top:12px" onclick="estoqueRegistrarMovimento()">Registrar Movimentação</button>
+    <button class="est-primary" style="margin-top:12px" onclick="estoqueRegistrarMovimento()">🔄 Registrar Movimentação</button>
     <div id="estMsg" style="margin-top:10px"></div>
   </div>
 
   <div class="card" style="margin-top:16px">
     <h3>📋 Posição Atual do Estoque</h3>
-    <div style="overflow:auto"><table style="width:100%"><thead><tr>
+    <div class="est-mobile-table" style="overflow:auto"><table style="width:100%"><thead><tr>
       <th>Produto</th><th>Unidade</th><th>Saldo</th><th>Mínimo</th><th>Preço</th><th>Situação</th>
     </tr></thead><tbody id="estTabelaProdutos"></tbody></table></div>
   </div>
 
   <div class="card" style="margin-top:16px">
     <h3>🧾 Histórico de Movimentações</h3>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+    <div class="est-mobile-filter" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
       <input id="estFiltro" placeholder="Filtrar produto, usuário, produtor..." oninput="estoqueRenderMovimentos()">
       <button onclick="estoqueCarregar()">🔄 Atualizar</button>
     </div>
-    <div style="overflow:auto"><table style="width:100%"><thead><tr>
+    <div class="est-mobile-table" style="overflow:auto"><table style="width:100%"><thead><tr>
       <th>Data/Hora</th><th>Tipo</th><th>Produto</th><th>Qtd.</th><th>Produtor/Destino</th><th>Usuário</th><th>Valor</th>
     </tr></thead><tbody id="estTabelaMov"></tbody></table></div>
   </div>
@@ -3813,7 +3813,7 @@ async function lojaHistoricoCaixa(){try{let j=await ljApi('/api/store/cash/histo
 <style id="loja-v15-mobile-css">
 @media(max-width:760px){body.vds-mobile-mode #loja{padding:0!important}.loja-kpis{grid-template-columns:1fr 1fr!important;gap:8px!important}.loja-kpis>div{padding:12px!important}.loja-kpis strong{font-size:20px!important}.loja-actions{display:grid!important;grid-template-columns:1fr 1fr!important}.loja-actions select{grid-column:1/-1}.loja-layout{display:block!important}.loja-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}.lj-prod{padding:8px!important;border-radius:18px!important}.lj-prod img,.lj-prod .ph{height:128px!important}.lj-prod b{font-size:15px}.lj-prod small{font-size:12px}.lj-prod .lj-variant{font-weight:800;color:#806000;margin:3px 0}.loja-cart{position:sticky!important;bottom:78px!important;z-index:20;margin-top:14px;border:2px solid #e7bd2c}.loja-cart h2{font-size:18px}.loja-total{font-size:22px}.loja-finalizar{min-height:52px!important;font-size:17px!important}.lj-box{width:96vw!important;border-radius:24px!important}.lj-row{grid-template-columns:1fr!important}.lj-table{min-width:680px}.top h1{font-size:25px!important}.top p{font-size:14px!important}}
 </style>
-<style id="vds-mobile-v11-css">
+\n<style id="estoque-mobile-v22-css">\n@media(max-width:760px){\n body.vds-mobile-mode #estoque{padding:0!important}\n body.vds-mobile-mode #estoque>.card{padding:17px!important;margin-top:12px!important;border-radius:22px!important;overflow:visible!important}\n body.vds-mobile-mode #estoque>.card:first-child{margin-top:0!important;background:linear-gradient(135deg,#123f2b,#1c7047)!important;color:#fff!important}\n body.vds-mobile-mode #estoque>.card:first-child h2{color:#fff!important;font-size:24px!important;line-height:1.15;margin-bottom:8px!important}\n body.vds-mobile-mode #estoque>.card:first-child p{color:#e5f1e9!important;font-size:14px!important;line-height:1.45}\n body.vds-mobile-mode #estoque h3{font-size:19px!important;margin-bottom:15px!important}\n body.vds-mobile-mode #estoque .est-mobile-form{display:grid!important;grid-template-columns:1fr!important;gap:13px!important}\n body.vds-mobile-mode #estoque .est-field{display:block!important}\n body.vds-mobile-mode #estoque .est-field>span{display:block;color:#334155;font-size:13px;font-weight:850;margin:0 0 6px 2px}\n body.vds-mobile-mode #estoque input,body.vds-mobile-mode #estoque select{width:100%!important;min-width:0!important;box-sizing:border-box!important;min-height:52px!important;font-size:16px!important;border-radius:13px!important;padding:11px 12px!important;background:#fff!important}\n body.vds-mobile-mode #estoque .est-primary{width:100%!important;min-height:54px!important;border:0!important;border-radius:14px!important;background:#0f5b36!important;color:#fff!important;font-size:16px!important;font-weight:900!important;margin-top:14px!important}\n body.vds-mobile-mode #estoque #estDebitoWrap{display:none;padding:12px!important;border-radius:13px;background:#fff8df;color:#5f4a00;font-size:14px;line-height:1.35}\n body.vds-mobile-mode #estoque #estDebitoWrap input{width:auto!important;min-height:auto!important}\n body.vds-mobile-mode #estoque .est-mobile-table{overflow:auto!important;-webkit-overflow-scrolling:touch;border:1px solid #e2e8f0;border-radius:14px}\n body.vds-mobile-mode #estoque .est-mobile-table table{min-width:660px!important;margin:0!important}\n body.vds-mobile-mode #estoque .est-mobile-filter{display:grid!important;grid-template-columns:1fr!important;gap:9px!important}\n body.vds-mobile-mode #estoque .est-mobile-filter button{width:100%!important;min-height:48px!important}\n body.vds-mobile-mode #estoqueResumo{grid-template-columns:1fr 1fr!important;gap:8px!important;margin:12px 0 0!important}\n}\n</style>\n<style id="vds-mobile-v11-css">
 @media (max-width:760px){
  body.vds-mobile-mode .app{display:block!important;min-height:100vh;background:#f5f1e6;padding-bottom:92px}
  body.vds-mobile-mode .sidebar,body.vds-mobile-mode .hero{display:none!important}
