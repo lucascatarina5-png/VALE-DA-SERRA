@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vale da Serra - Controle de Entrada de Leite</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0a3470">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Vale da Serra">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <style>
 :root{
   --navy:#062a55; --navy2:#0b3d74; --yellow:#ffc600; --gold:#f0a800;
@@ -834,6 +841,23 @@ td{font-size:12.5px}
   font-weight:900;
 }
 
+</style>
+
+<style id="pwa-mobile-polish">
+@media(max-width:760px){
+ html,body{min-height:100%;overscroll-behavior-y:none}
+ body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+ .sidebar{position:sticky!important;top:0;z-index:50;padding-top:max(8px,env(safe-area-inset-top))}
+ .nav{scrollbar-width:none;-webkit-overflow-scrolling:touch}
+ .nav::-webkit-scrollbar{display:none}
+ .nav button{min-height:52px;touch-action:manipulation}
+ button,.btn,input,select,textarea{font-size:16px!important}
+ .btn,button{min-height:44px}
+ input,select,textarea{min-height:46px}
+ .content{padding-left:12px!important;padding-right:12px!important}
+ .card{border-radius:18px}
+}
+@media(display-mode:standalone){body{-webkit-user-select:none;user-select:none}input,textarea{-webkit-user-select:text;user-select:text}}
 </style>
 </head>
 <body>
@@ -2439,6 +2463,10 @@ function imprimirCupom(prodId,formato='80mm'){
 
 
 
+
+<script>
+if ('serviceWorker' in navigator) { window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(console.error)); }
+</script>
 </body></html>`);
   w.document.close();
 }
