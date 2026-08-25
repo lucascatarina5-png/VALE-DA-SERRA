@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vale da Serra - Controle de Entrada de Leite</title>
 <link rel="manifest" href="/manifest.webmanifest">
-<meta name="theme-color" content="#0a3470">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+<meta name="theme-color" content="#145c35">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -2465,7 +2467,7 @@ function imprimirCupom(prodId,formato='80mm'){
 
 
 <script>
-if ('serviceWorker' in navigator) { window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(console.error)); }
+if ('serviceWorker' in navigator) { window.addEventListener('load', async()=>{ try { const reg=await navigator.serviceWorker.register('/sw.js',{scope:'/'}); reg.update(); } catch(e){ console.error('Falha ao registrar PWA:',e); } }); }
 </script>
 </body></html>`);
   w.document.close();

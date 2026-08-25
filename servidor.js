@@ -442,7 +442,19 @@ app.post('/api/inventory/movements',auth,hasPermission('estoque'),async(req,res)
   }finally{client.release();}
 });
 
-app.use(express.static(__dirname));
+// PWA: tipos corretos e atualização imediata do manifest/service worker
+app.get('/manifest.webmanifest',(_req,res)=>{
+  res.type('application/manifest+json');
+  res.set('Cache-Control','no-cache, no-store, must-revalidate');
+  res.sendFile(path.join(__dirname,'manifest.webmanifest'));
+});
+app.get('/sw.js',(_req,res)=>{
+  res.type('application/javascript');
+  res.set('Cache-Control','no-cache, no-store, must-revalidate');
+  res.set('Service-Worker-Allowed','/');
+  res.sendFile(path.join(__dirname,'sw.js'));
+});
+app.use(express.static(__dirname,{maxAge:'1h'}));
 app.get('*',(_req,res)=>res.sendFile(path.join(__dirname,'index.html')));
 
 initDb()
