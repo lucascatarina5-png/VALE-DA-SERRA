@@ -220,9 +220,12 @@ async function initDb() {
     id TEXT PRIMARY KEY, name TEXT NOT NULL, category TEXT DEFAULT '', unit TEXT NOT NULL DEFAULT 'un',
     cost_price NUMERIC NOT NULL DEFAULT 0, sale_price NUMERIC NOT NULL DEFAULT 0,
     stock NUMERIC NOT NULL DEFAULT 0, min_stock NUMERIC NOT NULL DEFAULT 0,
-    photo TEXT, active BOOLEAN NOT NULL DEFAULT TRUE,
+    photo TEXT, variant TEXT DEFAULT '', package_value NUMERIC NOT NULL DEFAULT 0, package_unit TEXT DEFAULT '', active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
+  await pool.query(`ALTER TABLE app_store_products ADD COLUMN IF NOT EXISTS variant TEXT DEFAULT ''`);
+  await pool.query(`ALTER TABLE app_store_products ADD COLUMN IF NOT EXISTS package_value NUMERIC NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE app_store_products ADD COLUMN IF NOT EXISTS package_unit TEXT DEFAULT ''`);
   await pool.query(`CREATE TABLE IF NOT EXISTS app_store_sales (
     id TEXT PRIMARY KEY, total NUMERIC NOT NULL DEFAULT 0, payment_method TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'concluida', user_id TEXT, username TEXT,
@@ -470,13 +473,13 @@ app.get('/api/store/products',auth,hasPermission('loja'),async(req,res)=>{try{
 }catch(e){res.status(500).json({ok:false,error:e.message})}});
 app.post('/api/store/products',auth,hasPermission('loja'),async(req,res)=>{try{
   const b=req.body||{}, id=crypto.randomUUID(); if(!String(b.name||'').trim()) return res.status(400).json({ok:false,error:'Informe o nome do produto'});
-  await pool.query(`INSERT INTO app_store_products(id,name,category,unit,cost_price,sale_price,stock,min_stock,photo) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-   [id,String(b.name).trim(),b.category||'',b.unit||'un',Number(b.cost_price)||0,Number(b.sale_price)||0,Number(b.stock)||0,Number(b.min_stock)||0,b.photo||null]);
+  await pool.query(`INSERT INTO app_store_products(id,name,category,unit,cost_price,sale_price,stock,min_stock,photo,variant,package_value,package_unit) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+   [id,String(b.name).trim(),b.category||'',b.unit||'un',Number(b.cost_price)||0,Number(b.sale_price)||0,Number(b.stock)||0,Number(b.min_stock)||0,b.photo||null,b.variant||'',Number(b.package_value)||0,b.package_unit||'']);
   await audit(req.user,'LOJA_PRODUTO_CRIADO',{id,name:b.name,stock:Number(b.stock)||0}); res.json({ok:true,id});
 }catch(e){res.status(500).json({ok:false,error:e.message})}});
 app.put('/api/store/products/:id',auth,hasPermission('loja'),async(req,res)=>{try{
- const b=req.body||{}; await pool.query(`UPDATE app_store_products SET name=$2,category=$3,unit=$4,cost_price=$5,sale_price=$6,min_stock=$7,photo=COALESCE($8,photo),updated_at=NOW() WHERE id=$1`,
- [req.params.id,b.name,b.category||'',b.unit||'un',Number(b.cost_price)||0,Number(b.sale_price)||0,Number(b.min_stock)||0,b.photo||null]);
+ const b=req.body||{}; await pool.query(`UPDATE app_store_products SET name=$2,category=$3,unit=$4,cost_price=$5,sale_price=$6,min_stock=$7,photo=COALESCE($8,photo),variant=$9,package_value=$10,package_unit=$11,updated_at=NOW() WHERE id=$1`,
+ [req.params.id,b.name,b.category||'',b.unit||'un',Number(b.cost_price)||0,Number(b.sale_price)||0,Number(b.min_stock)||0,b.photo||null,b.variant||'',Number(b.package_value)||0,b.package_unit||'']);
  await audit(req.user,'LOJA_PRODUTO_EDITADO',{id:req.params.id}); res.json({ok:true});
 }catch(e){res.status(500).json({ok:false,error:e.message})}});
 app.post('/api/store/stock',auth,hasPermission('loja'),async(req,res)=>{try{
