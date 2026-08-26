@@ -261,6 +261,23 @@ async function initDb() {
   )`);
   await pool.query(`ALTER TABLE app_store_sales ADD COLUMN IF NOT EXISTS cash_session_id TEXT`);
 
+  // V31 - lotes/validade e contas fiado (migração aditiva)
+  await pool.query(`CREATE TABLE IF NOT EXISTS app_store_lots (
+    id TEXT PRIMARY KEY, product_id TEXT NOT NULL, lot_code TEXT NOT NULL DEFAULT '',
+    manufacture_date DATE, expiry_date DATE, quantity NUMERIC NOT NULL DEFAULT 0,
+    created_by TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_store_lots_product_expiry ON app_store_lots(product_id,expiry_date)`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS app_store_credit_accounts (
+    id TEXT PRIMARY KEY, sale_id TEXT, customer_name TEXT NOT NULL, original_amount NUMERIC NOT NULL DEFAULT 0,
+    paid_amount NUMERIC NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'aberta',
+    created_by TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS app_store_credit_payments (
+    id TEXT PRIMARY KEY, account_id TEXT NOT NULL, amount NUMERIC NOT NULL, payment_method TEXT NOT NULL DEFAULT 'dinheiro',
+    note TEXT DEFAULT '', username TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+
   console.log('Banco atualizado sem apagar os dados existentes.');
 }
 
@@ -545,6 +562,31 @@ app.post('/api/store/stock',auth,hasPermission('loja'),async(req,res)=>{const c=
 }catch(e){try{await c.query('ROLLBACK')}catch(_){} res.status(400).json({ok:false,error:e.message})}finally{c.release()}});
 app.get('/api/store/stock-history',auth,hasPermission('loja'),async(req,res)=>{try{const r=await pool.query(`SELECT * FROM app_store_stock_movements ORDER BY created_at DESC LIMIT 500`);res.json({ok:true,movements:r.rows})}catch(e){res.status(500).json({ok:false,error:e.message})}});
 
+// V31 - Lotes e validade
+app.get('/api/store/lots',auth,hasPermission('loja'),async(req,res)=>{try{
+ const r=await pool.query(`SELECT l.*,p.name product_name,p.unit FROM app_store_lots l JOIN app_store_products p ON p.id=l.product_id WHERE l.quantity>0 ORDER BY l.expiry_date NULLS LAST,l.created_at`);
+ res.json({ok:true,lots:r.rows});
+}catch(e){res.status(500).json({ok:false,error:e.message})}});
+app.post('/api/store/lots',auth,hasPermission('loja'),async(req,res)=>{const c=await pool.connect();try{
+ const b=req.body||{},q=Number(b.quantity);if(!b.product_id||!(q>0))throw new Error('Informe produto e quantidade do lote.');
+ await c.query('BEGIN');const pr=await c.query(`SELECT id,name,stock FROM app_store_products WHERE id=$1 AND active=TRUE FOR UPDATE`,[b.product_id]);if(!pr.rowCount)throw new Error('Produto não encontrado.');
+ const id=crypto.randomUUID();await c.query(`INSERT INTO app_store_lots(id,product_id,lot_code,manufacture_date,expiry_date,quantity,created_by) VALUES($1,$2,$3,$4,$5,$6,$7)`,[id,b.product_id,String(b.lot_code||'').trim(),b.manufacture_date||null,b.expiry_date||null,q,req.user.username]);
+ const before=Number(pr.rows[0].stock),after=before+q;await c.query(`UPDATE app_store_products SET stock=$2,updated_at=NOW() WHERE id=$1`,[b.product_id,after]);
+ await c.query(`INSERT INTO app_store_stock_movements(product_id,product_name,movement_type,quantity_before,quantity_change,quantity_after,reason,note,user_id,username) VALUES($1,$2,'entrada',$3,$4,$5,'Entrada por lote',$6,$7,$8)`,[b.product_id,pr.rows[0].name,before,q,after,`Lote ${b.lot_code||'-'} • Validade ${b.expiry_date||'-'}`,req.user.user_id||null,req.user.username]);
+ await c.query('COMMIT');await audit(req.user,'LOJA_LOTE_CRIADO',{product_id:b.product_id,lote:b.lot_code||'',validade:b.expiry_date||null,quantity:q});res.json({ok:true,id,stock:after});
+}catch(e){try{await c.query('ROLLBACK')}catch(_){}res.status(400).json({ok:false,error:e.message})}finally{c.release()}});
+
+// V31 - Contas de clientes / Fiado
+app.get('/api/store/credit',auth,hasPermission('loja'),async(req,res)=>{try{
+ const r=await pool.query(`SELECT a.*, (a.original_amount-a.paid_amount) balance, COALESCE(json_agg(json_build_object('id',p.id,'amount',p.amount,'payment_method',p.payment_method,'note',p.note,'username',p.username,'created_at',p.created_at)) FILTER(WHERE p.id IS NOT NULL),'[]') payments FROM app_store_credit_accounts a LEFT JOIN app_store_credit_payments p ON p.account_id=a.id GROUP BY a.id ORDER BY a.created_at DESC`);res.json({ok:true,accounts:r.rows});
+}catch(e){res.status(500).json({ok:false,error:e.message})}});
+app.post('/api/store/credit/:id/pay',auth,hasPermission('loja'),async(req,res)=>{const c=await pool.connect();try{
+ const amount=Number(req.body?.amount),method=String(req.body?.payment_method||'dinheiro');if(!(amount>0)||!['dinheiro','pix','cartao'].includes(method))throw new Error('Pagamento inválido.');
+ await c.query('BEGIN');const a=await c.query(`SELECT * FROM app_store_credit_accounts WHERE id=$1 FOR UPDATE`,[req.params.id]);if(!a.rowCount)throw new Error('Conta não encontrada.');const bal=Number(a.rows[0].original_amount)-Number(a.rows[0].paid_amount);if(amount>bal+0.001)throw new Error('Valor maior que o saldo devedor.');
+ await c.query(`INSERT INTO app_store_credit_payments(id,account_id,amount,payment_method,note,username) VALUES($1,$2,$3,$4,$5,$6)`,[crypto.randomUUID(),req.params.id,amount,method,String(req.body?.note||''),req.user.username]);const paid=Number(a.rows[0].paid_amount)+amount;await c.query(`UPDATE app_store_credit_accounts SET paid_amount=$2,status=$3,updated_at=NOW() WHERE id=$1`,[req.params.id,paid,paid+0.001>=Number(a.rows[0].original_amount)?'paga':'parcial']);
+ await c.query('COMMIT');await audit(req.user,'LOJA_FIADO_PAGAMENTO',{conta:req.params.id,cliente:a.rows[0].customer_name,amount,method});res.json({ok:true,balance:Number(a.rows[0].original_amount)-paid});
+}catch(e){try{await c.query('ROLLBACK')}catch(_){}res.status(400).json({ok:false,error:e.message})}finally{c.release()}});
+
 // V20 - Caixa do PDV
 app.get('/api/store/cash/status',auth,hasPermission('loja'),async(req,res)=>{try{
  const r=await pool.query(`SELECT * FROM app_store_cash_sessions WHERE status='aberto' AND opened_by=$1 ORDER BY opened_at DESC LIMIT 1`,[req.user.username]);
@@ -575,13 +617,16 @@ app.get('/api/store/cash/history',auth,hasPermission('loja'),async(req,res)=>{tr
 app.post('/api/store/sales',auth,hasPermission('loja'),async(req,res)=>{
  const c=await pool.connect(); try{const {items,payment_method,customer_name}=req.body||{}; if(!Array.isArray(items)||!items.length) return res.status(400).json({ok:false,error:'Venda sem produtos'}); const sx=await c.query(`SELECT id FROM app_store_cash_sessions WHERE status='aberto' AND opened_by=$1 ORDER BY opened_at DESC LIMIT 1`,[req.user.username]); if(!sx.rowCount) return res.status(400).json({ok:false,error:'Abra o caixa antes de iniciar as vendas.'}); const cashSessionId=sx.rows[0].id;
   if(!['pix','dinheiro','cartao','fiado'].includes(payment_method)) return res.status(400).json({ok:false,error:'Forma de pagamento inválida'});
+  if(payment_method==='fiado' && !String(customer_name||'').trim()) return res.status(400).json({ok:false,error:'Informe o nome do cliente para venda fiado.'});
   await c.query('BEGIN'); const id=crypto.randomUUID(); let total=0;
   const prepared=[]; for(const it of items){const q=Number(it.quantity); if(!(q>0)) throw new Error('Quantidade inválida');
    const pr=await c.query(`SELECT * FROM app_store_products WHERE id=$1 AND active=TRUE FOR UPDATE`,[it.product_id]); if(!pr.rowCount) throw new Error('Produto não encontrado'); const p=pr.rows[0];
    if(Number(p.stock)<q) throw new Error(`Estoque insuficiente: ${p.name}`); const unitPrice=(it.unit_price!==undefined&&it.unit_price!==null&&it.unit_price!=='')?Number(it.unit_price):Number(p.sale_price); if(!(unitPrice>=0)) throw new Error('Valor de venda inválido'); const sub=q*unitPrice; total+=sub; prepared.push([p,q,sub,unitPrice]);}
   await c.query(`INSERT INTO app_store_sales(id,total,payment_method,user_id,username,customer_name,cash_session_id) VALUES($1,$2,$3,$4,$5,$6,$7)`,[id,total,payment_method,req.user.user_id||null,req.user.username||null,String(customer_name||'').trim(),cashSessionId]);
-  for(const [p,q,sub,unitPrice] of prepared){await c.query(`UPDATE app_store_products SET stock=stock-$2,updated_at=NOW() WHERE id=$1`,[p.id,q]); await c.query(`INSERT INTO app_store_sale_items(sale_id,product_id,product_name,quantity,unit_price,cost_price,subtotal) VALUES($1,$2,$3,$4,$5,$6,$7)`,[id,p.id,p.name,q,unitPrice,p.cost_price,sub]);}
-  await c.query('COMMIT'); await audit(req.user,'LOJA_VENDA',{id,total,payment_method,customer_name:String(customer_name||'').trim()}); res.json({ok:true,id,total});
+  for(const [p,q,sub,unitPrice] of prepared){await c.query(`UPDATE app_store_products SET stock=stock-$2,updated_at=NOW() WHERE id=$1`,[p.id,q]); await c.query(`INSERT INTO app_store_sale_items(sale_id,product_id,product_name,quantity,unit_price,cost_price,subtotal) VALUES($1,$2,$3,$4,$5,$6,$7)`,[id,p.id,p.name,q,unitPrice,p.cost_price,sub]);
+   let rest=q;const lots=await c.query(`SELECT * FROM app_store_lots WHERE product_id=$1 AND quantity>0 ORDER BY expiry_date NULLS LAST,created_at FOR UPDATE`,[p.id]);for(const lot of lots.rows){if(rest<=0)break;const take=Math.min(rest,Number(lot.quantity));await c.query(`UPDATE app_store_lots SET quantity=quantity-$2,updated_at=NOW() WHERE id=$1`,[lot.id,take]);rest-=take;}}
+  if(payment_method==='fiado') await c.query(`INSERT INTO app_store_credit_accounts(id,sale_id,customer_name,original_amount,created_by) VALUES($1,$2,$3,$4,$5)`,[crypto.randomUUID(),id,String(customer_name).trim(),total,req.user.username]);
+  await c.query('COMMIT'); await audit(req.user,'LOJA_VENDA',{id,total,payment_method,customer_name:String(customer_name||'').trim()}); res.json({ok:true,id,total,credit:payment_method==='fiado'});
  }catch(e){try{await c.query('ROLLBACK')}catch(_){} res.status(400).json({ok:false,error:e.message})}finally{c.release()}
 });
 app.get('/api/store/sales',auth,hasPermission('loja'),async(req,res)=>{try{
