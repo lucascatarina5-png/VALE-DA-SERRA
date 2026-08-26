@@ -897,7 +897,20 @@ body.vds-mobile-mode .lj-box{align-self:flex-end;width:100%!important;max-width:
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 }
 </style>
-</head>
+<style>
+/* V26 - TEMA RUSTICO MODERNO VALE DA SERRA */
+:root{--rustic-green:#123f2b;--rustic-green2:#0a2e22;--rustic-gold:#c9952e;--rustic-cream:#f8f3e8;--rustic-line:#e5d8bd}
+.sidebar{background:linear-gradient(180deg,#082b21,#123f2b 58%,#071f18)!important;border-right:3px solid var(--rustic-gold)!important}
+.nav button{border:1px solid transparent!important;border-radius:13px!important;margin:5px 0!important;display:flex!important;align-items:center!important;gap:10px!important}
+.nav button.active,.nav button:hover{background:linear-gradient(90deg,#b67d18,#d6a63d)!important;color:#fff!important;box-shadow:0 6px 16px rgba(0,0,0,.18)!important}
+.rustic-menu-icon{width:31px;height:31px;object-fit:cover;border-radius:8px;background:#f8f3e8;padding:2px;box-shadow:0 2px 6px rgba(0,0,0,.16);flex:0 0 31px}
+.rustic-title-accent{color:var(--rustic-gold)}
+.vds-m-card .em img{width:100%;height:100%;object-fit:cover;border-radius:18px}
+body.vds-mobile-mode .vds-m-head{background:linear-gradient(135deg,#082b21,#17613e)!important;border-bottom:3px solid #c9952e!important}
+body.vds-mobile-mode .vds-m-card{background:linear-gradient(180deg,#fff,#fbf7ee)!important;border:1px solid #eadfc8!important}
+body.vds-mobile-mode .vds-m-card .em{background:#f6efe0!important;border:1px solid #ead9b8!important}
+body.vds-mobile-mode #vdsMobileBottom{border-top:2px solid #c9952e!important;background:rgba(255,253,248,.98)!important}
+</style></head>
 <body>
 
 <div id="loginScreen" class="login-screen">
@@ -2550,6 +2563,15 @@ body.vds-mobile-mode .lj-box{align-self:flex-end;width:100%!important;max-width:
 
 
 
+
+<script>
+(function(){
+ const A='assets/rustic/';
+ const maps=[['painel','painel.png'],['lancamentos','entrada.png'],['produtores','produtores.png'],['pesquisa','pesquisa.png'],['pagamentos','pagamentos.png'],['debitos','debitos.png'],['estoque','estoque.png'],['loja','loja.png'],['relatorios','relatorios.png'],['auditoria','auditoria.png'],['usuarios','produtores.png']];
+ function rusticMenus(){document.querySelectorAll('.nav button').forEach(b=>{if(b.querySelector('.rustic-menu-icon'))return;let oc=(b.getAttribute('onclick')||'').toLowerCase();let hit=maps.find(x=>oc.includes("'"+x[0]+"'")||oc.includes('"'+x[0]+'"'));if(hit){let img=document.createElement('img');img.className='rustic-menu-icon';img.src=A+hit[1];img.alt='';b.insertBefore(img,b.firstChild);b.childNodes.forEach(n=>{if(n.nodeType===3)n.nodeValue=n.nodeValue.replace(/^[^A-Za-zÀ-ÿ]+\s*/,'')})}})}
+ document.addEventListener('DOMContentLoaded',rusticMenus);setTimeout(rusticMenus,700);
+})();
+</script>
 </body></html>`);
   w.document.close();
 }
@@ -4000,7 +4022,7 @@ async function lojaHistoricoCaixa(){try{let j=await ljApi('/api/store/cash/histo
   document.body.classList.add('vds-mobile-mode');
   const content=document.querySelector('.content'); if(!content||document.getElementById('vdsMobileHome'))return;
   const home=document.createElement('div');home.id='vdsMobileHome';
-  home.innerHTML=`<div class="vds-m-head"><b>🐄 Vale da Serra</b><span id="vdsMobileRole"></span></div><div class="vds-m-welcome"><h2>Olá, <span id="vdsMobileHello"></span></h2><p>Escolha uma operação.</p></div><div class="vds-m-grid"><button class="vds-m-card" onclick="vdsMobileGo('estoque')"><span class="em">📦</span>Estoque / Galpão</button><button class="vds-m-card" onclick="vdsMobileGo('produtores')"><span class="em">👨‍🌾</span>Produtores</button><button class="vds-m-card" onclick="vdsMobileGo('lancamentos')"><span class="em">🥛</span>Entrada de Leite</button><button class="vds-m-card" onclick="vdsMobileGo('pesquisa')"><span class="em">🧾</span>Histórico</button><button class="vds-m-card" data-m-permission="loja" onclick="vdsMobileGo('loja')"><span class="em">🛒</span>Loja / PDV</button></div>`;
+  home.innerHTML=`<div class="vds-m-head"><b>🐄 Vale da Serra</b><span id="vdsMobileRole"></span></div><div class="vds-m-welcome"><h2>Olá, <span id="vdsMobileHello"></span></h2><p>Escolha uma operação.</p></div><div class="vds-m-grid"><button class="vds-m-card" onclick="vdsMobileGo('estoque')"><span class="em"><img src="assets/rustic/estoque.png" alt=""></span>Estoque / Galpão</button><button class="vds-m-card" onclick="vdsMobileGo('produtores')"><span class="em"><img src="assets/rustic/produtores.png" alt=""></span>Produtores</button><button class="vds-m-card" onclick="vdsMobileGo('lancamentos')"><span class="em"><img src="assets/rustic/entrada.png" alt=""></span>Entrada de Leite</button><button class="vds-m-card" onclick="vdsMobileGo('pesquisa')"><span class="em"><img src="assets/rustic/pesquisa.png" alt=""></span>Histórico</button><button class="vds-m-card" data-m-permission="loja" onclick="vdsMobileGo('loja')"><span class="em"><img src="assets/rustic/loja.png" alt=""></span>Loja / PDV</button></div>`;
   content.prepend(home);
   const nav=document.createElement('div');nav.id='vdsMobileBottom';nav.innerHTML=`<button class="vds-m-nav" onclick="vdsMobileHome()"><i>🏠</i>Início</button><button class="vds-m-nav" onclick="vdsMobileGo('estoque')"><i>📦</i>Estoque</button><button class="vds-m-nav" onclick="vdsMobileGo('produtores')"><i>👨‍🌾</i>Produtores</button><button class="vds-m-nav" data-m-permission="loja" onclick="vdsMobileGo('loja')"><i>🛒</i>PDV</button><button class="vds-m-nav" onclick="vdsOpenAccount()"><i>👤</i>Conta</button>`;document.body.appendChild(nav);
   updateUser(); vdsMobileHome();

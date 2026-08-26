@@ -867,7 +867,20 @@ td{font-size:12.5px}
 .loja-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:15px 0}.loja-kpis>div,.loja-cart{background:#fff;border-radius:16px;padding:16px;box-shadow:0 4px 18px #0001}.loja-kpis b{display:block;color:#667}.loja-kpis strong{font-size:26px;color:#123c2d}.loja-actions{display:flex;gap:10px;margin:12px 0}.loja-actions button,.loja-actions select{padding:11px 15px;border:0;border-radius:10px;background:#123c2d;color:#fff;font-weight:700}.loja-layout{display:grid;grid-template-columns:1fr 340px;gap:18px}.loja-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:12px}.lj-prod{background:#fff;border-radius:16px;padding:10px;text-align:center;box-shadow:0 3px 14px #0001;cursor:pointer;border:2px solid transparent}.lj-prod:hover{border-color:#e9b51c}.lj-prod img{width:100%;height:120px;object-fit:cover;border-radius:12px;background:#eee}.lj-prod .ph{height:120px;display:grid;place-items:center;font-size:50px;background:#f4f4f4;border-radius:12px}.lj-prod b{display:block;margin-top:8px}.lj-prod-actions{display:flex;gap:6px;margin-top:8px}.lj-prod-actions button{flex:1;border:0;border-radius:8px;padding:7px;font-weight:700}.lj-del{background:#fee2e2;color:#991b1b}.lj-add{background:#e8f3ec;color:#14532d}.lj-prod small{display:block}.loja-cart{position:sticky;top:15px;height:max-content}.lj-item{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid #eee}.lj-item button{border:0;border-radius:8px;padding:5px 9px}.loja-total{display:flex;justify-content:space-between;font-size:20px;padding:16px 0}.loja-cart select,.loja-finalizar{width:100%;padding:13px;border-radius:10px;margin-top:8px}.loja-finalizar{border:0;background:#176b42;color:white;font-weight:800}.lj-modal{display:none;position:fixed;inset:0;background:#0008;z-index:100000;align-items:center;justify-content:center}.lj-modal.on{display:flex}.lj-box{width:min(520px,92vw);max-height:90vh;overflow:auto;background:#fff;border-radius:20px;padding:22px;position:relative}.lj-box input,.lj-box select{width:100%;padding:12px;margin:6px 0;border:1px solid #ccd3d0;border-radius:10px}.lj-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.lj-x{position:absolute;right:14px;top:12px;border:0;background:none;font-size:28px}.lj-photo{display:block;padding:12px;background:#f3f5f4;border-radius:10px;margin-top:8px}.lj-photo input{margin:5px 0 0}.lj-preview{display:none;width:130px;height:100px;object-fit:cover;border-radius:12px;margin:8px auto}.lj-summary{display:flex;gap:15px;flex-wrap:wrap;margin:10px 0}.lj-summary span{background:#f4f6f5;padding:10px 14px;border-radius:10px}.lj-table{width:100%;border-collapse:collapse}.lj-table th,.lj-table td{padding:9px;border-bottom:1px solid #eee;text-align:left}
 @media(max-width:800px){.loja-kpis{grid-template-columns:1fr 1fr}.loja-layout{grid-template-columns:1fr}.loja-cart{position:static}.loja-grid{grid-template-columns:repeat(2,1fr)}}
 </style>
-</head>
+<style>
+/* V26 - TEMA RUSTICO MODERNO VALE DA SERRA */
+:root{--rustic-green:#123f2b;--rustic-green2:#0a2e22;--rustic-gold:#c9952e;--rustic-cream:#f8f3e8;--rustic-line:#e5d8bd}
+.sidebar{background:linear-gradient(180deg,#082b21,#123f2b 58%,#071f18)!important;border-right:3px solid var(--rustic-gold)!important}
+.nav button{border:1px solid transparent!important;border-radius:13px!important;margin:5px 0!important;display:flex!important;align-items:center!important;gap:10px!important}
+.nav button.active,.nav button:hover{background:linear-gradient(90deg,#b67d18,#d6a63d)!important;color:#fff!important;box-shadow:0 6px 16px rgba(0,0,0,.18)!important}
+.rustic-menu-icon{width:31px;height:31px;object-fit:cover;border-radius:8px;background:#f8f3e8;padding:2px;box-shadow:0 2px 6px rgba(0,0,0,.16);flex:0 0 31px}
+.rustic-title-accent{color:var(--rustic-gold)}
+.vds-m-card .em img{width:100%;height:100%;object-fit:cover;border-radius:18px}
+body.vds-mobile-mode .vds-m-head{background:linear-gradient(135deg,#082b21,#17613e)!important;border-bottom:3px solid #c9952e!important}
+body.vds-mobile-mode .vds-m-card{background:linear-gradient(180deg,#fff,#fbf7ee)!important;border:1px solid #eadfc8!important}
+body.vds-mobile-mode .vds-m-card .em{background:#f6efe0!important;border:1px solid #ead9b8!important}
+body.vds-mobile-mode #vdsMobileBottom{border-top:2px solid #c9952e!important;background:rgba(255,253,248,.98)!important}
+</style></head>
 <body>
 
 <div id="loginScreen" class="login-screen">
@@ -2490,6 +2503,15 @@ function imprimirCupom(prodId,formato='80mm'){
 
 
 
+
+<script>
+(function(){
+ const A='assets/rustic/';
+ const maps=[['painel','painel.png'],['lancamentos','entrada.png'],['produtores','produtores.png'],['pesquisa','pesquisa.png'],['pagamentos','pagamentos.png'],['debitos','debitos.png'],['estoque','estoque.png'],['loja','loja.png'],['relatorios','relatorios.png'],['auditoria','auditoria.png'],['usuarios','produtores.png']];
+ function rusticMenus(){document.querySelectorAll('.nav button').forEach(b=>{if(b.querySelector('.rustic-menu-icon'))return;let oc=(b.getAttribute('onclick')||'').toLowerCase();let hit=maps.find(x=>oc.includes("'"+x[0]+"'")||oc.includes('"'+x[0]+'"'));if(hit){let img=document.createElement('img');img.className='rustic-menu-icon';img.src=A+hit[1];img.alt='';b.insertBefore(img,b.firstChild);b.childNodes.forEach(n=>{if(n.nodeType===3)n.nodeValue=n.nodeValue.replace(/^[^A-Za-zÀ-ÿ]+\s*/,'')})}})}
+ document.addEventListener('DOMContentLoaded',rusticMenus);setTimeout(rusticMenus,700);
+})();
+</script>
 </body></html>`);
   w.document.close();
 }
