@@ -985,7 +985,7 @@ td{font-size:12.5px}
     <div style="display:flex;align-items:center;gap:10px"><span style="font-size:30px">👤</span><div><small>ADMINISTRADOR</small><div style="font-weight:800;margin-top:3px">Nível: Administrador</div></div></div>
   </div>
 <div style="padding:12px 8px 2px;color:#dfe9f8;font-size:11px;line-height:1.55">
-    Versão 40.0<br>
+    Versão 41.0<br>
     © Vale da Serra Laticínios<br>
     Todos os direitos reservados
   </div>
@@ -1083,7 +1083,13 @@ td{font-size:12.5px}
     <section id="lancamentos" class="section">
       <div class="card">
         <h3>💧 REGISTRAR ENTRADA DE LEITE</h3>
-        <form id="formLanc">
+        <div class="v38-photo-import" style="margin:0 0 16px;padding:14px;border:1px solid #d7e4d8;border-radius:16px;background:linear-gradient(135deg,#f7fbf5,#fffdf5)">
+  <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+    <div><b style="color:#123d2a;font-size:16px">📸 Leitura Inteligente da Folha de Leite</b><div style="font-size:12px;color:#64748b;margin-top:3px">Tire uma foto da folha, confira os nomes e litros e só depois confirme as entradas.</div></div>
+    <button id="v38FotoLeiteBtn" type="button" onclick="v38AbrirFotoLeite()" style="background:#1f6b3a;color:#fff;border:0;border-radius:12px;padding:11px 16px;font-weight:800;cursor:pointer">📷 Importar por Foto</button>
+  </div>
+</div>
+<form id="formLanc">
           <div><label>Data</label><input type="date" id="lData" required></div>
           <div><label>Produtor</label><select id="lProd" required onchange="preencherProdutor()"></select></div>
           <div><label>Quantidade recebida (litros)</label><input type="number" min="0" step="0.01" id="lQtd" required></div>
@@ -2555,6 +2561,76 @@ function imprimirCupom(prodId,formato='80mm'){
 
 
 
+
+<div id="v38FotoLeiteModal" style="display:none;position:fixed;inset:0;background:rgba(5,24,18,.68);z-index:10050;align-items:center;justify-content:center;padding:14px">
+  <div style="width:min(920px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:22px;box-shadow:0 22px 70px rgba(0,0,0,.35);padding:18px">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><h2 style="margin:0;color:#153d2a">📸 Leitura Inteligente da Folha</h2><div style="color:#64748b;font-size:12px;margin-top:4px">A leitura é assistida: revise tudo antes de salvar.</div></div><button type="button" onclick="v38FecharFotoLeite()" style="border:0;background:#eef2ef;border-radius:10px;font-size:22px;width:38px;height:38px">×</button></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;margin-top:16px">
+      <label style="font-weight:700;color:#334155">Data<input id="v38FotoData" type="date" style="display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:12px;border:1px solid #cbd5e1;border-radius:11px;font-size:16px"></label>
+      <label style="font-weight:700;color:#334155">Localidade<select id="v38FotoLocal" style="display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:12px;border:1px solid #cbd5e1;border-radius:11px;font-size:16px"></select></label>
+      <label style="font-weight:700;color:#334155">Foto da folha<input id="v38FotoArquivo" type="file" accept="image/*" capture="environment" style="display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:9px;border:1px solid #cbd5e1;border-radius:11px"></label>
+    </div>
+    <div id="v38FotoPreviewWrap" style="display:none;margin-top:12px"><img id="v38FotoPreview" style="max-width:100%;max-height:260px;border-radius:14px;border:1px solid #e2e8f0"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button type="button" onclick="v38LerFotoLeite()" style="background:#c99b2d;color:#fff;border:0;border-radius:12px;padding:12px 16px;font-weight:900">🔎 Ler Foto</button><span id="v38FotoStatus" style="align-self:center;color:#64748b;font-weight:700"></span></div>
+    <div id="v38FotoResultados" style="margin-top:16px"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+const V38_FOTO={linhas:[],texto:''};
+function v38Norm(t){return String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim()}
+function v38Dist(a,b){a=v38Norm(a);b=v38Norm(b);const m=a.length,n=b.length,d=Array.from({length:m+1},()=>Array(n+1).fill(0));for(let i=0;i<=m;i++)d[i][0]=i;for(let j=0;j<=n;j++)d[0][j]=j;for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[m][n]}
+function v38Score(a,b){a=v38Norm(a);b=v38Norm(b);if(!a||!b)return 0;if(a.includes(b)||b.includes(a))return .96;return 1-v38Dist(a,b)/Math.max(a.length,b.length,1)}
+function v38LocProd(p){return String(p.local||p.localidade||p.locality||'')}
+function v38NomeProd(p){return String(p.nome||p.name||'')}
+function v38AbrirFotoLeite(){
+  if(typeof v4TemPermissao==='function'&&!v4TemPermissao('entradas')) return alert('Você não possui permissão para importar entradas.');
+  const m=document.getElementById('v38FotoLeiteModal'); if(!m)return; m.style.display='flex';
+  const dt=document.getElementById('v38FotoData'); if(dt&&!dt.value)dt.value=(typeof isoHoje==='function'?isoHoje():new Date().toISOString().slice(0,10));
+  const locais=[...new Set((window.produtores||produtores||[]).map(v38LocProd).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const sl=document.getElementById('v38FotoLocal'); if(sl)sl.innerHTML='<option value="">Todas as localidades</option>'+locais.map(x=>`<option>${v4Esc(x)}</option>`).join('');
+}
+function v38FecharFotoLeite(){const m=document.getElementById('v38FotoLeiteModal');if(m)m.style.display='none'}
+document.addEventListener('change',e=>{if(e.target?.id==='v38FotoArquivo'&&e.target.files?.[0]){const u=URL.createObjectURL(e.target.files[0]);v38FotoPreview.src=u;v38FotoPreviewWrap.style.display='block'}});
+function v38ExtrairLinha(txt,lista){
+  const original=String(txt||'').trim(); if(!original)return null;
+  const nums=[...original.matchAll(/(?:^|\s)(\d{1,5}(?:[.,]\d{1,2})?)(?=\s|$|l|L)/g)].map(m=>Number(m[1].replace(',','.'))).filter(n=>n>=0&&n<10000);
+  if(!nums.length)return null; const litros=nums[nums.length-1];
+  const nomeTxt=original.replace(/\d{1,5}(?:[.,]\d{1,2})?\s*[lL]?/g,' ').replace(/[-–—:|]/g,' ').trim();
+  let best=null,score=0; for(const p of lista){const sc=v38Score(nomeTxt,v38NomeProd(p));if(sc>score){score=sc;best=p}}
+  return {texto:original,litros,prodId:best?.id||'',prodNome:best?v38NomeProd(best):nomeTxt,score};
+}
+async function v38LerFotoLeite(){
+  const f=document.getElementById('v38FotoArquivo')?.files?.[0]; if(!f)return alert('Escolha ou tire uma foto da folha.');
+  const st=document.getElementById('v38FotoStatus');st.textContent='Preparando leitura...';
+  if(!window.Tesseract){st.textContent='Não foi possível carregar o leitor de imagem. Verifique a internet.';return}
+  try{
+    const ret=await Tesseract.recognize(f,'por',{logger:m=>{if(m.status==='recognizing text')st.textContent='Lendo foto... '+Math.round((m.progress||0)*100)+'%';else if(m.status)st.textContent=m.status}});
+    V38_FOTO.texto=ret.data?.text||'';
+    const local=document.getElementById('v38FotoLocal')?.value||'';
+    let lista=(window.produtores||produtores||[]).filter(p=>!local||v38Norm(v38LocProd(p))===v38Norm(local)); if(!lista.length)lista=(window.produtores||produtores||[]);
+    const linhas=V38_FOTO.texto.split(/\r?\n/).map(x=>v38ExtrairLinha(x,lista)).filter(Boolean);
+    V38_FOTO.linhas=linhas; st.textContent=`Leitura concluída: ${linhas.length} linha(s) encontrada(s).`;
+    v38RenderFotoLinhas();
+  }catch(e){console.error(e);st.textContent='Falha na leitura: '+(e.message||e)}
+}
+function v38ProdOptions(sel,local){let lista=(window.produtores||produtores||[]).filter(p=>!local||v38Norm(v38LocProd(p))===v38Norm(local));return '<option value="">Confirmar produtor...</option>'+lista.map(p=>`<option value="${p.id}" ${String(p.id)===String(sel)?'selected':''}>${v4Esc(v38NomeProd(p))}</option>`).join('')}
+function v38RenderFotoLinhas(){
+ const box=document.getElementById('v38FotoResultados'),local=document.getElementById('v38FotoLocal')?.value||'';if(!box)return;
+ if(!V38_FOTO.linhas.length){box.innerHTML='<div style="padding:14px;background:#fff4e5;border-radius:12px">Nenhuma linha com nome + quantidade foi reconhecida. Você pode tirar outra foto mais reta e iluminada.</div>';return}
+ box.innerHTML='<h3 style="color:#153d2a;margin:0 0 8px">Conferência antes de salvar</h3><div style="overflow:auto"><table style="width:100%;border-collapse:collapse;min-width:560px"><tr><th style="text-align:left;padding:8px">Produtor</th><th style="padding:8px">Litros</th><th style="padding:8px">Confiança</th><th style="padding:8px">Usar</th></tr>'+V38_FOTO.linhas.map((x,i)=>`<tr style="border-top:1px solid #e2e8f0"><td style="padding:8px"><select id="v38p${i}" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px">${v38ProdOptions(x.prodId,local)}</select><div style="font-size:11px;color:#94a3b8;margin-top:3px">Lido: ${v4Esc(x.texto)}</div></td><td style="padding:8px"><input id="v38q${i}" type="number" min="0" step="0.01" value="${x.litros}" style="width:110px;padding:10px;border:1px solid #cbd5e1;border-radius:9px;font-size:16px;font-weight:800"></td><td style="text-align:center;padding:8px">${Math.round((x.score||0)*100)}%</td><td style="text-align:center;padding:8px"><input id="v38u${i}" type="checkbox" checked style="width:22px;height:22px"></td></tr>`).join('')+'</table></div><button type="button" onclick="v38ConfirmarFotoLeite()" style="margin-top:14px;width:100%;background:#1f6b3a;color:#fff;border:0;border-radius:13px;padding:14px;font-size:16px;font-weight:900">✅ CONFIRMAR E SALVAR ENTRADAS</button>';
+}
+async function v38ConfirmarFotoLeite(){
+ const data=document.getElementById('v38FotoData')?.value,local=document.getElementById('v38FotoLocal')?.value||'';if(!data)return alert('Informe a data.');let n=0;
+ for(let i=0;i<V38_FOTO.linhas.length;i++){
+   if(!document.getElementById('v38u'+i)?.checked)continue;const id=document.getElementById('v38p'+i)?.value,q=Number(document.getElementById('v38q'+i)?.value);const p=(window.produtores||produtores||[]).find(x=>String(x.id)===String(id));if(!p||!(q>0))continue;
+   const l={id:crypto.randomUUID(),data,prodId:p.id,qtd:q,local:p.local||p.localidade||local,tanqueiro:p.tanqueiro||'',caminhao:p.caminhao||''};lancamentos.push(l);n++;
+   try{await v25Audit('LEITE_ENTRADA_REGISTRADA',{produtor:v38NomeProd(p),litros:q,data,local:l.local,origem:'Foto da folha'})}catch(e){}
+ }
+ if(!n)return alert('Nenhuma entrada válida foi selecionada.');save();v38FecharFotoLeite();alert(`✅ ${n} entrada(s) registrada(s). Confira a tela antes de seguir.`);V38_FOTO.linhas=[];
+}
+</script>
 </body></html>`);
   w.document.close();
 }
@@ -3517,12 +3593,11 @@ function v4Headers(){
   return h;
 }
 function v4IsAdmin(){
-  const u=V4.user || window.usuarioLogado || window.currentUser || {};
-  return String(u.role||u.perfil||'').toLowerCase()==='administrador' ||
-         String(u.username||u.usuario||'').toLowerCase()==='admin';
+  const u=V4.user || {};
+  return String(u.role||'').trim().toLowerCase()==='administrador';
 }
 function v4Permissoes(){
-  const u=V4.user || window.usuarioLogado || window.currentUser || {};
+  const u=V4.user || {};
   return Array.isArray(u.permissions) ? u.permissions.map(String) : [];
 }
 function v4TemPermissao(p){
@@ -3703,8 +3778,26 @@ window.fetch=async function(...args){
   }catch(e){}
   return resp;
 };
-try{V4.user=JSON.parse(localStorage.getItem('vale_user')||'null')}catch(e){}
-document.addEventListener('DOMContentLoaded',v4AplicarVisibilidade);
+V4.user=null;
+async function v38SincronizarUsuario(){
+  const t=v4GetToken();
+  if(!t){ V4.user=null; v4AplicarVisibilidade(); return false; }
+  try{
+    const r=await v4Fetch('/api/me',{headers:{Authorization:'Bearer '+t}});
+    const j=await r.json();
+    if(!r.ok||!j.ok) throw new Error(j.error||'Sessão inválida');
+    V4.token=t; V4.user=j.user||null;
+    localStorage.setItem('vale_user',JSON.stringify(V4.user||{}));
+    v4AplicarVisibilidade();
+    return true;
+  }catch(e){
+    V4.token=null;V4.user=null;
+    localStorage.removeItem('vale_token');sessionStorage.removeItem('vale_token');localStorage.removeItem('vale_user');
+    v4AplicarVisibilidade();
+    return false;
+  }
+}
+document.addEventListener('DOMContentLoaded',()=>{v4AplicarVisibilidade();v38SincronizarUsuario();});
 </script>
 
 <script>
@@ -3713,6 +3806,7 @@ window.mostrarSistema = function(){
   const tela = document.getElementById('loginScreen');
   if (tela) tela.style.display = 'none';
   try { if (typeof atualizarAdminUI === 'function') atualizarAdminUI(); } catch(e) {}
+  try { if (typeof v4AplicarVisibilidade === 'function') v4AplicarVisibilidade(); } catch(e) {}
 };
 window.mostrarLogin = window.mostrarLogin || function(){
   const tela = document.getElementById('loginScreen');
