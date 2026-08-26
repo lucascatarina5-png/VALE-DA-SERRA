@@ -4158,11 +4158,19 @@ function v38Dist(a,b){a=v38Norm(a);b=v38Norm(b);const m=a.length,n=b.length,d=Ar
 function v38Score(a,b){a=v38Norm(a);b=v38Norm(b);if(!a||!b)return 0;if(a.includes(b)||b.includes(a))return .96;return 1-v38Dist(a,b)/Math.max(a.length,b.length,1)}
 function v38LocProd(p){return String(p.local||p.localidade||p.locality||'')}
 function v38NomeProd(p){return String(p.nome||p.name||'')}
+function v38ListaProdutores(){
+  try{
+    if(typeof produtores!=='undefined'&&Array.isArray(produtores))return produtores;
+  }catch(e){}
+  const candidatos=[window.__produtores,window.listaProdutores,window.produtoresData];
+  for(const c of candidatos){if(Array.isArray(c))return c;}
+  return [];
+}
 function v38AbrirFotoLeite(){
   if(typeof v4TemPermissao==='function'&&!v4TemPermissao('entradas')) return alert('Você não possui permissão para importar entradas.');
   const m=document.getElementById('v38FotoLeiteModal'); if(!m)return; m.style.display='flex';
   const dt=document.getElementById('v38FotoData'); if(dt&&!dt.value)dt.value=(typeof isoHoje==='function'?isoHoje():new Date().toISOString().slice(0,10));
-  const locais=[...new Set((window.produtores||produtores||[]).map(v38LocProd).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const locais=[...new Set(v38ListaProdutores().map(v38LocProd).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   const sl=document.getElementById('v38FotoLocal'); if(sl)sl.innerHTML='<option value="">Todas as localidades</option>'+locais.map(x=>`<option>${v4Esc(x)}</option>`).join('');
 }
 function v38FecharFotoLeite(){const m=document.getElementById('v38FotoLeiteModal');if(m)m.style.display='none'}
@@ -4183,13 +4191,13 @@ async function v38LerFotoLeite(){
     const ret=await Tesseract.recognize(f,'por',{logger:m=>{if(m.status==='recognizing text')st.textContent='Lendo foto... '+Math.round((m.progress||0)*100)+'%';else if(m.status)st.textContent=m.status}});
     V38_FOTO.texto=ret.data?.text||'';
     const local=document.getElementById('v38FotoLocal')?.value||'';
-    let lista=(window.produtores||produtores||[]).filter(p=>!local||v38Norm(v38LocProd(p))===v38Norm(local)); if(!lista.length)lista=(window.produtores||produtores||[]);
+    let lista=v38ListaProdutores().filter(p=>!local||v38Norm(v38LocProd(p))===v38Norm(local)); if(!lista.length)lista=v38ListaProdutores(); if(!lista.length){st.textContent='Nenhum produtor cadastrado foi encontrado no sistema.';return}
     const linhas=V38_FOTO.texto.split(/\r?\n/).map(x=>v38ExtrairLinha(x,lista)).filter(Boolean);
     V38_FOTO.linhas=linhas; st.textContent=`Leitura concluída: ${linhas.length} linha(s) encontrada(s).`;
     v38RenderFotoLinhas();
   }catch(e){console.error(e);st.textContent='Falha na leitura: '+(e.message||e)}
 }
-function v38ProdOptions(sel,local){let lista=(window.produtores||produtores||[]).filter(p=>!local||v38Norm(v38LocProd(p))===v38Norm(local));return '<option value="">Confirmar produtor...</option>'+lista.map(p=>`<option value="${p.id}" ${String(p.id)===String(sel)?'selected':''}>${v4Esc(v38NomeProd(p))}</option>`).join('')}
+function v38ProdOptions(sel,local){let lista=v38ListaProdutores().filter(p=>!local||v38Norm(v38LocProd(p))===v38Norm(local));return '<option value="">Confirmar produtor...</option>'+lista.map(p=>`<option value="${p.id}" ${String(p.id)===String(sel)?'selected':''}>${v4Esc(v38NomeProd(p))}</option>`).join('')}
 function v38RenderFotoLinhas(){
  const box=document.getElementById('v38FotoResultados'),local=document.getElementById('v38FotoLocal')?.value||'';if(!box)return;
  if(!V38_FOTO.linhas.length){box.innerHTML='<div style="padding:14px;background:#fff4e5;border-radius:12px">Nenhuma linha com nome + quantidade foi reconhecida. Você pode tirar outra foto mais reta e iluminada.</div>';return}
@@ -4198,7 +4206,7 @@ function v38RenderFotoLinhas(){
 async function v38ConfirmarFotoLeite(){
  const data=document.getElementById('v38FotoData')?.value,local=document.getElementById('v38FotoLocal')?.value||'';if(!data)return alert('Informe a data.');let n=0;
  for(let i=0;i<V38_FOTO.linhas.length;i++){
-   if(!document.getElementById('v38u'+i)?.checked)continue;const id=document.getElementById('v38p'+i)?.value,q=Number(document.getElementById('v38q'+i)?.value);const p=(window.produtores||produtores||[]).find(x=>String(x.id)===String(id));if(!p||!(q>0))continue;
+   if(!document.getElementById('v38u'+i)?.checked)continue;const id=document.getElementById('v38p'+i)?.value,q=Number(document.getElementById('v38q'+i)?.value);const p=v38ListaProdutores().find(x=>String(x.id)===String(id));if(!p||!(q>0))continue;
    const l={id:crypto.randomUUID(),data,prodId:p.id,qtd:q,local:p.local||p.localidade||local,tanqueiro:p.tanqueiro||'',caminhao:p.caminhao||''};lancamentos.push(l);n++;
    try{await v25Audit('LEITE_ENTRADA_REGISTRADA',{produtor:v38NomeProd(p),litros:q,data,local:l.local,origem:'Foto da folha'})}catch(e){}
  }
