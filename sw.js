@@ -1,4 +1,4 @@
-const CACHE='vale-da-serra-pwa-v11';
+const CACHE='vale-da-serra-pwa-v52';
 const STATIC=['/','/index.html','/mobile.html','/manifest.webmanifest','/icon-192.png','/icon-512.png','/icon-maskable-192.png','/icon-maskable-512.png'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(STATIC)).then(()=>self.skipWaiting()));
@@ -13,8 +13,8 @@ self.addEventListener('fetch',event=>{
     event.respondWith(fetch(event.request).catch(()=>caches.match('/mobile.html')).then(r=>r||caches.match('/index.html')));
     return;
   }
-  event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request).then(response=>{
+  event.respondWith(fetch(event.request,{cache:'no-store'}).then(response=>{
     if(response&&response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));}
     return response;
-  })));
+  }).catch(()=>caches.match(event.request)));
 });
