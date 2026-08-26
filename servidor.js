@@ -17,6 +17,8 @@ const pool = new Pool({
 });
 
 app.use(express.json({ limit: '20mb' }));
+// V36: respostas da API nunca devem vir do cache do navegador/PWA.
+app.use('/api',(req,res,next)=>{res.set('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');res.set('Pragma','no-cache');res.set('Expires','0');next();});
 
 function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
   const hash = crypto.pbkdf2Sync(String(password), salt, 120000, 32, 'sha256').toString('hex');
