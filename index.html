@@ -1561,13 +1561,8 @@ function restaurarSecao(id){
 }
 
 function showSection(id,btn){
-  const adminAreas=['usuarios','auditoria','configuracoes','alertaswhats'];
-  if(adminAreas.includes(id) && typeof v4IsAdmin==='function' && !v4IsAdmin()){
-    alert('Acesso permitido somente ao administrador.');
-    id='painel'; btn=document.querySelector('.nav button');
-  }
-  if(btn && btn.dataset && btn.dataset.permission && typeof v4TemPermissao==='function' && !v4TemPermissao(btn.dataset.permission)){
-    alert('Você não possui permissão para acessar esta função.');
+  if(typeof v32SectionPermitida==='function' && !v32SectionPermitida(id)){
+    alert((typeof V32_ADMIN_SECTIONS!=='undefined' && V32_ADMIN_SECTIONS.has(String(id))) ? 'Acesso permitido somente ao administrador.' : 'Você não possui permissão para acessar esta função.');
     id='painel'; btn=document.querySelector('.nav button');
   }
   document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
@@ -3507,11 +3502,35 @@ function v4TemPermissao(p){
   if(v4IsAdmin()) return true;
   return v4Permissoes().includes(String(p));
 }
+
+const V32_SECTION_PERMISSIONS={
+  lancamentos:'entradas', editarrecebimentos:'edicao', produtores:'produtores', pesquisa:'produtores',
+  pagamentos:'pagamentos', debitos:'debitos', estoque:'estoque', loja:'loja', relatorios:'relatorios', backup:'backup'
+};
+const V32_ADMIN_SECTIONS=new Set(['usuarios','auditoria','configuracoes','alertaswhats']);
+function v32SectionPermitida(id){
+  if(V32_ADMIN_SECTIONS.has(String(id))) return v4IsAdmin();
+  const p=V32_SECTION_PERMISSIONS[String(id)];
+  return !p || v4TemPermissao(p);
+}
+function v32SectionFromButton(el){
+  const oc=el?.getAttribute?.('onclick')||'';
+  let m=oc.match(/(?:showSection|vdsMobileGo)\(['"]([^'"]+)['"]/);
+  if(m) return m[1];
+  if(oc.includes('abrirEdicaoRecebimentos')) return 'editarrecebimentos';
+  return '';
+}
 function v4AplicarVisibilidade(){
   const admin=v4IsAdmin();
   document.querySelectorAll('.admin-only-v4').forEach(x=>x.style.display=admin?'':'none');
   document.querySelectorAll('[data-permission]').forEach(x=>{
     x.style.display=v4TemPermissao(x.dataset.permission)?'':'none';
+  });
+  // V32: aplica as permissões também pelo destino real do botão. Isso evita que
+  // atalhos novos/mobile apareçam para usuários que não receberam a permissão.
+  document.querySelectorAll('.sidebar button,.nav button,.vds-m-card,.vds-m-nav').forEach(x=>{
+    const id=v32SectionFromButton(x); if(!id) return;
+    x.style.display=v32SectionPermitida(id)?'':'none';
   });
 
   // Proteção adicional: se um usuário comum estiver em uma área administrativa,
