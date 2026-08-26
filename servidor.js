@@ -552,11 +552,13 @@ app.post('/api/store/products',auth,hasPermission('loja'),async(req,res)=>{try{
   await audit(req.user,'LOJA_PRODUTO_CRIADO',{id,name:b.name,stock:Number(b.stock)||0}); res.json({ok:true,id});
 }catch(e){res.status(500).json({ok:false,error:e.message})}});
 app.put('/api/store/products/:id',auth,hasPermission('loja'),async(req,res)=>{try{
+ if(req.user.role!=='administrador') return res.status(403).json({ok:false,error:'Somente o administrador pode editar informações dos produtos'});
  const b=req.body||{}; await pool.query(`UPDATE app_store_products SET name=$2,category=$3,unit=$4,cost_price=$5,sale_price=$6,min_stock=$7,photo=COALESCE($8,photo),variant=$9,package_value=$10,package_unit=$11,updated_at=NOW() WHERE id=$1`,
  [req.params.id,b.name,b.category||'',b.unit||'un',Number(b.cost_price)||0,Number(b.sale_price)||0,Number(b.min_stock)||0,b.photo||null,b.variant||'',Number(b.package_value)||0,b.package_unit||'']);
  await audit(req.user,'LOJA_PRODUTO_EDITADO',{id:req.params.id}); res.json({ok:true});
 }catch(e){res.status(500).json({ok:false,error:e.message})}});
 app.delete('/api/store/products/:id',auth,hasPermission('loja'),async(req,res)=>{try{
+ if(req.user.role!=='administrador') return res.status(403).json({ok:false,error:'Somente o administrador pode excluir produtos'});
  const r=await pool.query(`UPDATE app_store_products SET active=FALSE,updated_at=NOW() WHERE id=$1 AND active=TRUE RETURNING id,name`,[req.params.id]);
  if(!r.rowCount) return res.status(404).json({ok:false,error:'Produto não encontrado'});
  await audit(req.user,'LOJA_PRODUTO_EXCLUIDO',{id:req.params.id,name:r.rows[0].name}); res.json({ok:true});
