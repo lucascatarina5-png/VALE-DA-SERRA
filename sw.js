@@ -1,4 +1,4 @@
-const CACHE='vale-da-serra-v57';
+const CACHE='vale-da-serra-v61';
 const STATIC=['/','/index.html','/mobile.html','/manifest.webmanifest','/icon-192.png','/icon-512.png','/icon-maskable-192.png','/icon-maskable-512.png'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(STATIC)).then(()=>self.skipWaiting()));

@@ -4542,5 +4542,18 @@ async function v38ConfirmarFotoLeite(){
   setTimeout(force,500);
 })();
 </script>
+
+<style id="v61-finalize-visible-fix">
+@media (min-width:801px){
+  #loja .pdv-sale-panel{padding-bottom:110px!important;}
+  #loja .pdv-finalize{position:fixed!important;right:18px!important;bottom:14px!important;z-index:12000!important;width:min(360px,calc(100vw - 28px))!important;height:76px!important;margin:0!important;border:0!important;border-radius:14px!important;background:linear-gradient(135deg,#0ca451,#078741)!important;color:#fff!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:4px!important;box-shadow:0 10px 26px rgba(8,145,69,.30)!important;padding:0!important;}
+  #loja .pdv-finalize strong{font-size:18px!important;line-height:1.15!important;}
+  #loja .pdv-finalize small{font-size:14px!important;color:#fff!important;}
+}
+@media (max-width:800px){
+  body.vds-mobile-mode #loja .loja-cart.open{padding-bottom:82px!important;}
+  body.vds-mobile-mode #loja .loja-cart.open .pdv-finalize{position:sticky!important;left:auto!important;right:auto!important;bottom:0!important;z-index:12001!important;width:calc(100% - 16px)!important;min-height:64px!important;margin:10px 8px 8px!important;display:flex!important;background:linear-gradient(135deg,#0ca451,#078741)!important;box-shadow:0 8px 20px rgba(8,145,69,.28)!important;}
+}
+</style>
 </body>
 </html>
