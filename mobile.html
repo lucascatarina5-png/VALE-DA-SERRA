@@ -2863,6 +2863,62 @@ function imprimirCupom(prodId,formato='80mm'){
 
 
 
+
+<style id="v64-banner-reference-fix">
+/* V64: banner restaurado exatamente a partir da referência do usuário */
+.hero{
+  position:relative!important;
+  min-height:0!important;
+  height:auto!important;
+  aspect-ratio:1910 / 368!important;
+  padding:0!important;
+  overflow:hidden!important;
+  background-image:url('banner-vale-da-serra.jpg')!important;
+  background-size:100% 100%!important;
+  background-position:center center!important;
+  background-repeat:no-repeat!important;
+  background-color:#fff!important;
+  background-blend-mode:normal!important;
+  filter:none!important;
+  opacity:1!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+.hero::before,.hero::after{display:none!important;content:none!important}
+.hero .brand-line,.hero .hero-side{display:none!important}
+.live-clock-panel{
+  position:absolute!important;
+  top:50%!important;
+  right:18px!important;
+  transform:translateY(-50%)!important;
+  z-index:40!important;
+  width:218px!important;
+  min-height:132px!important;
+  box-sizing:border-box!important;
+  padding:14px 16px!important;
+  background:rgba(255,255,255,.96)!important;
+  border:1px solid rgba(190,199,211,.95)!important;
+  border-radius:17px!important;
+  box-shadow:0 8px 22px rgba(15,42,77,.16)!important;
+  color:#10233f!important;
+}
+.live-clock-panel::before{display:none!important;content:none!important}
+.live-clock-row{display:flex!important;align-items:center!important;gap:10px!important;padding:5px 0!important;line-height:1.2!important}
+.live-clock-row .ic{width:24px!important;font-size:17px!important;text-align:center!important}
+.live-clock-row strong{font-size:15px!important;font-weight:800!important}
+@media(max-width:900px){
+  .hero{aspect-ratio:auto!important;min-height:170px!important;background-size:cover!important;background-position:center!important}
+  .live-clock-panel{right:10px!important;width:180px!important;min-height:112px!important;padding:10px 12px!important;border-radius:14px!important}
+  .live-clock-row{padding:3px 0!important;gap:8px!important}
+  .live-clock-row strong{font-size:13px!important}.live-clock-row .ic{font-size:15px!important;width:20px!important}
+}
+@media(max-width:560px){
+  .hero{min-height:150px!important;background-position:42% center!important}
+  .live-clock-panel{width:152px!important;right:7px!important;padding:8px 10px!important;min-height:100px!important}
+  .live-clock-row strong{font-size:12px!important}
+}
+</style>
+
 </body></html>`);
   w.document.close();
 }
@@ -3368,6 +3424,62 @@ function imprimirRelatorioA4(){
     <div class="foot">Relatório emitido em ${new Date().toLocaleString('pt-BR')} • Vale da Serra Laticínios</div>
     <div class="actions"><button onclick="window.print()">IMPRIMIR RELATÓRIO A4</button></div>
   
+
+<style id="v64-banner-reference-fix">
+/* V64: banner restaurado exatamente a partir da referência do usuário */
+.hero{
+  position:relative!important;
+  min-height:0!important;
+  height:auto!important;
+  aspect-ratio:1910 / 368!important;
+  padding:0!important;
+  overflow:hidden!important;
+  background-image:url('banner-vale-da-serra.jpg')!important;
+  background-size:100% 100%!important;
+  background-position:center center!important;
+  background-repeat:no-repeat!important;
+  background-color:#fff!important;
+  background-blend-mode:normal!important;
+  filter:none!important;
+  opacity:1!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+.hero::before,.hero::after{display:none!important;content:none!important}
+.hero .brand-line,.hero .hero-side{display:none!important}
+.live-clock-panel{
+  position:absolute!important;
+  top:50%!important;
+  right:18px!important;
+  transform:translateY(-50%)!important;
+  z-index:40!important;
+  width:218px!important;
+  min-height:132px!important;
+  box-sizing:border-box!important;
+  padding:14px 16px!important;
+  background:rgba(255,255,255,.96)!important;
+  border:1px solid rgba(190,199,211,.95)!important;
+  border-radius:17px!important;
+  box-shadow:0 8px 22px rgba(15,42,77,.16)!important;
+  color:#10233f!important;
+}
+.live-clock-panel::before{display:none!important;content:none!important}
+.live-clock-row{display:flex!important;align-items:center!important;gap:10px!important;padding:5px 0!important;line-height:1.2!important}
+.live-clock-row .ic{width:24px!important;font-size:17px!important;text-align:center!important}
+.live-clock-row strong{font-size:15px!important;font-weight:800!important}
+@media(max-width:900px){
+  .hero{aspect-ratio:auto!important;min-height:170px!important;background-size:cover!important;background-position:center!important}
+  .live-clock-panel{right:10px!important;width:180px!important;min-height:112px!important;padding:10px 12px!important;border-radius:14px!important}
+  .live-clock-row{padding:3px 0!important;gap:8px!important}
+  .live-clock-row strong{font-size:13px!important}.live-clock-row .ic{font-size:15px!important;width:20px!important}
+}
+@media(max-width:560px){
+  .hero{min-height:150px!important;background-position:42% center!important}
+  .live-clock-panel{width:152px!important;right:7px!important;padding:8px 10px!important;min-height:100px!important}
+  .live-clock-row strong{font-size:12px!important}
+}
+</style>
+
 </body></html>`);
   w.document.close();
 }
@@ -4300,7 +4412,63 @@ function lojaCupomHtml(){let r=LJ.lastReceipt;if(!r)return '';let fiado=(r.payme
 function lojaAbrirCupom(){let m=document.getElementById('ljReceiptModal'),p=document.getElementById('ljReceiptPreview');if(p)p.innerHTML=lojaCupomHtml();if(m)m.classList.add('on')}
 function lojaFecharCupom(){document.getElementById('ljReceiptModal')?.classList.remove('on')}
 function lojaImprimirCupom(tipo){if(!LJ.lastReceipt)return;let is80=tipo==='80mm',w=window.open('','_blank','width=900,height=800');if(!w)return alert('Permita pop-ups para imprimir o cupom.');w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Vale da Serra • Comprovante</title><style>@page{size:${is80?'80mm auto':'A4'};margin:${is80?'3mm':'12mm'}}*{box-sizing:border-box}body{margin:0 auto;padding:${is80?'2mm':'8mm'};max-width:${is80?'74mm':'190mm'};font-family:Arial,sans-serif;color:#17382d;background:#fff}.vds-receipt{border:${is80?'0':'1px solid #d9e2dc'};border-radius:${is80?'0':'18px'};overflow:hidden}.vds-r-head{display:flex;align-items:center;gap:${is80?'7px':'14px'};background:#123c2d;color:#fff;padding:${is80?'9px 5px':'20px'};border-bottom:4px solid #d7a91e}.vds-r-logo{width:${is80?'42px':'76px'};height:${is80?'42px':'76px'};object-fit:contain;border-radius:${is80?'8px':'14px'};background:#fff;padding:${is80?'2px':'4px'}}.vds-r-head b{font-size:${is80?'17px':'27px'};display:block;color:#f1c54a}.vds-r-head small{font-size:${is80?'7px':'11px'};letter-spacing:1px}.vds-r-meta{display:grid;grid-template-columns:${is80?'1fr':'1fr 1fr'};gap:8px;padding:${is80?'9px 4px':'18px'};background:#f7f3e8}.vds-r-meta span{display:block}.vds-r-meta small{display:block;color:#65766e;font-size:${is80?'8px':'10px'};font-weight:bold}.vds-r-meta b{font-size:${is80?'10px':'13px'}}.vds-r-title{font-weight:900;font-size:${is80?'10px':'12px'};padding:${is80?'8px 4px':'14px 18px'};color:#7b5c13}.vds-r-item{display:flex;justify-content:space-between;gap:8px;padding:${is80?'6px 4px':'10px 18px'};border-top:1px dashed #cbd5cf}.vds-r-item b{font-size:${is80?'10px':'13px'}}.vds-r-item small{display:block;color:#68776f;font-size:${is80?'9px':'11px'};margin-top:2px}.vds-r-item strong{font-size:${is80?'10px':'13px'}}.vds-r-total{display:flex;justify-content:space-between;align-items:center;background:#123c2d;color:#fff;padding:${is80?'10px 5px':'18px'};margin-top:8px}.vds-r-total b{font-size:${is80?'20px':'30px'};color:#f1c54a}.vds-r-credit{margin:${is80?'8px 3px':'14px'};padding:${is80?'8px':'12px'};background:#fff2c8;border:1px solid #e2bd47;border-radius:10px}.vds-r-credit b,.vds-r-credit span{display:block;font-size:${is80?'9px':'12px'}}.vds-r-sign{margin:${is80?'20px 4px 8px':'34px 20px 16px'};text-align:center}.vds-r-sign span{display:block;font-weight:900;font-size:${is80?'9px':'12px'}}.vds-r-signline{border-bottom:1px solid #17382d;height:${is80?'26px':'42px'};margin:0 auto 5px;max-width:${is80?'60mm':'120mm'}}.vds-r-sign small{font-size:${is80?'7px':'9px'};color:#65766e}.vds-r-foot{text-align:center;padding:${is80?'12px 4px':'18px'};font-size:${is80?'9px':'12px'}}.vds-r-foot b,.vds-r-foot small{display:block}</style>
-</head><body>${lojaCupomHtml()}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close()}
+</head><body>${lojaCupomHtml()}<script>window.onload=()=>window.print()<\/script>
+<style id="v64-banner-reference-fix">
+/* V64: banner restaurado exatamente a partir da referência do usuário */
+.hero{
+  position:relative!important;
+  min-height:0!important;
+  height:auto!important;
+  aspect-ratio:1910 / 368!important;
+  padding:0!important;
+  overflow:hidden!important;
+  background-image:url('banner-vale-da-serra.jpg')!important;
+  background-size:100% 100%!important;
+  background-position:center center!important;
+  background-repeat:no-repeat!important;
+  background-color:#fff!important;
+  background-blend-mode:normal!important;
+  filter:none!important;
+  opacity:1!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+.hero::before,.hero::after{display:none!important;content:none!important}
+.hero .brand-line,.hero .hero-side{display:none!important}
+.live-clock-panel{
+  position:absolute!important;
+  top:50%!important;
+  right:18px!important;
+  transform:translateY(-50%)!important;
+  z-index:40!important;
+  width:218px!important;
+  min-height:132px!important;
+  box-sizing:border-box!important;
+  padding:14px 16px!important;
+  background:rgba(255,255,255,.96)!important;
+  border:1px solid rgba(190,199,211,.95)!important;
+  border-radius:17px!important;
+  box-shadow:0 8px 22px rgba(15,42,77,.16)!important;
+  color:#10233f!important;
+}
+.live-clock-panel::before{display:none!important;content:none!important}
+.live-clock-row{display:flex!important;align-items:center!important;gap:10px!important;padding:5px 0!important;line-height:1.2!important}
+.live-clock-row .ic{width:24px!important;font-size:17px!important;text-align:center!important}
+.live-clock-row strong{font-size:15px!important;font-weight:800!important}
+@media(max-width:900px){
+  .hero{aspect-ratio:auto!important;min-height:170px!important;background-size:cover!important;background-position:center!important}
+  .live-clock-panel{right:10px!important;width:180px!important;min-height:112px!important;padding:10px 12px!important;border-radius:14px!important}
+  .live-clock-row{padding:3px 0!important;gap:8px!important}
+  .live-clock-row strong{font-size:13px!important}.live-clock-row .ic{font-size:15px!important;width:20px!important}
+}
+@media(max-width:560px){
+  .hero{min-height:150px!important;background-position:42% center!important}
+  .live-clock-panel{width:152px!important;right:7px!important;padding:8px 10px!important;min-height:100px!important}
+  .live-clock-row strong{font-size:12px!important}
+}
+</style>
+
+</body></html>`);w.document.close()}
 async function lojaCompartilharCupom(){let text=lojaCupomTexto();if(!text)return;try{if(navigator.share){await navigator.share({title:'Comprovante Vale da Serra',text});return}}catch(e){if(e?.name==='AbortError')return}window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank')}
 function lojaAbrirLotes(){let opts=LJ.products.map(p=>`<option value="${p.id}">${p.name} — ${lojaApresentacao(p)}</option>`).join('');lojaCashModal('🏷️ Lotes & Validades',`<p>Registre uma nova entrada com lote e validade. A quantidade será somada ao estoque.</p><select id="lotProduto">${opts}</select><input id="lotCodigo" placeholder="Código / número do lote"><label>Data de fabricação</label><input id="lotFab" type="date"><label>Data de validade</label><input id="lotVal" type="date"><input id="lotQtd" type="number" min="0.001" step="0.001" placeholder="Quantidade recebida"><button class="loja-finalizar" onclick="lojaSalvarLote()">Salvar lote e entrada</button><h3>Estoque por lote</h3><div id="lotLista">Carregando...</div>`);lojaCarregarLotes()}
 async function lojaCarregarLotes(){try{let j=await ljApi('/api/store/lots'),d=document.getElementById('lotLista');if(!d)return;let now=new Date();d.innerHTML=(j.lots||[]).map(x=>{let exp=x.expiry_date?new Date(x.expiry_date):null,days=exp?Math.ceil((exp-now)/86400000):null,tag=days===null?'':days<0?'🔴 VENCIDO':days<=7?'🟠 Vence em '+days+' dia(s)':days<=30?'🟡 Vence em '+days+' dias':'🟢 '+days+' dias';return `<div style="padding:10px;border-bottom:1px solid #e5e7eb"><b>${x.product_name}</b> • Lote ${x.lot_code||'-'}<br><small>Qtd: ${Number(x.quantity)} ${x.unit} • Validade: ${x.expiry_date?new Date(x.expiry_date).toLocaleDateString('pt-BR'):'Não informada'} • <b>${tag}</b></small></div>`}).join('')||'<p>Nenhum lote ativo.</p>'}catch(e){document.getElementById('lotLista').textContent=e.message}}
@@ -4345,7 +4513,63 @@ function lojaImprimirRelatorio(){let sales=LJ.sales||[],by={};sales.forEach(s=>b
 
 
 
-</head><body><div class="head"><img src="/logo-source.jpg"><div><h1>VALE DA SERRA LATICÍNIOS</h1><p>Relatório de Vendas do PDV</p><b>${titulo}</b></div></div><div class="kpis">${resumo}<div><b>Quantidade de vendas</b><strong>${sales.length}</strong></div><div class="total"><b>Faturamento</b><strong>${ljMoney(total)}</strong></div></div><table><thead><tr><th>Data/Hora</th><th>Cliente</th><th>Produtos</th><th>Pagamento</th><th>Total</th><th>Funcionário</th></tr></thead><tbody>${rows||'<tr><td colspan="6">Nenhuma venda no período.</td></tr>'}</tbody></table><div class="foot">Relatório gerado em ${new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} • Vale da Serra</div><script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);w.document.close()}
+</head><body><div class="head"><img src="/logo-source.jpg"><div><h1>VALE DA SERRA LATICÍNIOS</h1><p>Relatório de Vendas do PDV</p><b>${titulo}</b></div></div><div class="kpis">${resumo}<div><b>Quantidade de vendas</b><strong>${sales.length}</strong></div><div class="total"><b>Faturamento</b><strong>${ljMoney(total)}</strong></div></div><table><thead><tr><th>Data/Hora</th><th>Cliente</th><th>Produtos</th><th>Pagamento</th><th>Total</th><th>Funcionário</th></tr></thead><tbody>${rows||'<tr><td colspan="6">Nenhuma venda no período.</td></tr>'}</tbody></table><div class="foot">Relatório gerado em ${new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})} • Vale da Serra</div><script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script>
+<style id="v64-banner-reference-fix">
+/* V64: banner restaurado exatamente a partir da referência do usuário */
+.hero{
+  position:relative!important;
+  min-height:0!important;
+  height:auto!important;
+  aspect-ratio:1910 / 368!important;
+  padding:0!important;
+  overflow:hidden!important;
+  background-image:url('banner-vale-da-serra.jpg')!important;
+  background-size:100% 100%!important;
+  background-position:center center!important;
+  background-repeat:no-repeat!important;
+  background-color:#fff!important;
+  background-blend-mode:normal!important;
+  filter:none!important;
+  opacity:1!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+.hero::before,.hero::after{display:none!important;content:none!important}
+.hero .brand-line,.hero .hero-side{display:none!important}
+.live-clock-panel{
+  position:absolute!important;
+  top:50%!important;
+  right:18px!important;
+  transform:translateY(-50%)!important;
+  z-index:40!important;
+  width:218px!important;
+  min-height:132px!important;
+  box-sizing:border-box!important;
+  padding:14px 16px!important;
+  background:rgba(255,255,255,.96)!important;
+  border:1px solid rgba(190,199,211,.95)!important;
+  border-radius:17px!important;
+  box-shadow:0 8px 22px rgba(15,42,77,.16)!important;
+  color:#10233f!important;
+}
+.live-clock-panel::before{display:none!important;content:none!important}
+.live-clock-row{display:flex!important;align-items:center!important;gap:10px!important;padding:5px 0!important;line-height:1.2!important}
+.live-clock-row .ic{width:24px!important;font-size:17px!important;text-align:center!important}
+.live-clock-row strong{font-size:15px!important;font-weight:800!important}
+@media(max-width:900px){
+  .hero{aspect-ratio:auto!important;min-height:170px!important;background-size:cover!important;background-position:center!important}
+  .live-clock-panel{right:10px!important;width:180px!important;min-height:112px!important;padding:10px 12px!important;border-radius:14px!important}
+  .live-clock-row{padding:3px 0!important;gap:8px!important}
+  .live-clock-row strong{font-size:13px!important}.live-clock-row .ic{font-size:15px!important;width:20px!important}
+}
+@media(max-width:560px){
+  .hero{min-height:150px!important;background-position:42% center!important}
+  .live-clock-panel{width:152px!important;right:7px!important;padding:8px 10px!important;min-height:100px!important}
+  .live-clock-row strong{font-size:12px!important}
+}
+</style>
+
+</body></html>`);w.document.close()}
 function lojaAdminCorrigir(id){if(!v4IsAdmin())return alert('Somente administrador.');let s=LJ.sales.find(x=>x.id===id);if(!s)return;let produtos=LJ.products.map(p=>`<option value="${p.id}">${p.name} — ${lojaApresentacao(p)}</option>`).join('');let linhas=(s.items||[]).map(i=>`<div class="adm-sale-line" style="display:grid;grid-template-columns:1.5fr .55fr .7fr;gap:6px;margin:6px 0"><select class="adm-p">${produtos}</select><input class="adm-q" type="number" min="0.001" step="0.001" value="${Number(i.quantity)}"><input class="adm-v" type="number" min="0" step="0.01" value="${Number(i.unit_price)}"></div>`).join('');lojaCashModal('🔐 Corrigir Venda — Somente ADM',`<p style="color:#8a2b2b;font-weight:700">Toda correção ficará registrada na auditoria.</p><input id="admCliente" value="${String(s.customer_name||'').replace(/"/g,'&quot;')}" placeholder="Cliente"><select id="admPagamento"><option value="pix">PIX</option><option value="dinheiro">Dinheiro</option><option value="cartao">Cartão</option><option value="boleto">Boleto</option><option value="doacao">Doação</option></select><div><b>Produto • Quantidade • Valor unitário</b><div id="admItens">${linhas}</div><button onclick="lojaAdminAddLinha()">➕ Adicionar produto</button></div><textarea id="admMotivo" placeholder="Motivo obrigatório da correção" style="width:100%;margin-top:10px;padding:10px"></textarea><button class="loja-finalizar" onclick="lojaAdminSalvarCorrecao('${id}')">Salvar Correção</button>`);document.getElementById('admPagamento').value=(s.payment_method==='fiado'?'boleto':s.payment_method);(s.items||[]).forEach((i,k)=>{let el=document.querySelectorAll('.adm-p')[k];if(el)el.value=i.product_id||LJ.products.find(p=>p.name===i.product_name)?.id||''})}
 function lojaAdminAddLinha(){let p=LJ.products[0];if(!p)return;document.getElementById('admItens').insertAdjacentHTML('beforeend',`<div class="adm-sale-line" style="display:grid;grid-template-columns:1.5fr .55fr .7fr;gap:6px;margin:6px 0"><select class="adm-p">${LJ.products.map(x=>`<option value="${x.id}">${x.name} — ${lojaApresentacao(x)}</option>`).join('')}</select><input class="adm-q" type="number" min="0.001" step="0.001" value="1"><input class="adm-v" type="number" min="0" step="0.01" value="${Number(p.sale_price)}"></div>`)}
 async function lojaAdminSalvarCorrecao(id){let reason=document.getElementById('admMotivo').value.trim();if(!reason)return alert('Informe o motivo da correção.');let rows=[...document.querySelectorAll('.adm-sale-line')],items=rows.map(r=>({product_id:r.querySelector('.adm-p').value,quantity:Number(r.querySelector('.adm-q').value),unit_price:Number(r.querySelector('.adm-v').value)})).filter(x=>x.quantity>0);try{await ljApi('/api/store/sales/'+id+'/admin-correct',{method:'PUT',body:JSON.stringify({customer_name:document.getElementById('admCliente').value,payment_method:document.getElementById('admPagamento').value,reason,items})});lojaFecharModalCaixa();await lojaCarregar();alert('Venda corrigida. Alteração registrada na auditoria.')}catch(e){alert(e.message)}}
@@ -4669,5 +4893,61 @@ async function v38ConfirmarFotoLeite(){
   body.vds-mobile-mode #loja .loja-cart.open .pdv-finalize,body.vds-mobile-mode #pageLoja .loja-cart.open .pdv-finalize{position:static!important;width:calc(100% - 16px)!important;height:64px!important;min-height:64px!important;margin:8px!important;}
 }
 </style>
+
+<style id="v64-banner-reference-fix">
+/* V64: banner restaurado exatamente a partir da referência do usuário */
+.hero{
+  position:relative!important;
+  min-height:0!important;
+  height:auto!important;
+  aspect-ratio:1910 / 368!important;
+  padding:0!important;
+  overflow:hidden!important;
+  background-image:url('banner-vale-da-serra.jpg')!important;
+  background-size:100% 100%!important;
+  background-position:center center!important;
+  background-repeat:no-repeat!important;
+  background-color:#fff!important;
+  background-blend-mode:normal!important;
+  filter:none!important;
+  opacity:1!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+.hero::before,.hero::after{display:none!important;content:none!important}
+.hero .brand-line,.hero .hero-side{display:none!important}
+.live-clock-panel{
+  position:absolute!important;
+  top:50%!important;
+  right:18px!important;
+  transform:translateY(-50%)!important;
+  z-index:40!important;
+  width:218px!important;
+  min-height:132px!important;
+  box-sizing:border-box!important;
+  padding:14px 16px!important;
+  background:rgba(255,255,255,.96)!important;
+  border:1px solid rgba(190,199,211,.95)!important;
+  border-radius:17px!important;
+  box-shadow:0 8px 22px rgba(15,42,77,.16)!important;
+  color:#10233f!important;
+}
+.live-clock-panel::before{display:none!important;content:none!important}
+.live-clock-row{display:flex!important;align-items:center!important;gap:10px!important;padding:5px 0!important;line-height:1.2!important}
+.live-clock-row .ic{width:24px!important;font-size:17px!important;text-align:center!important}
+.live-clock-row strong{font-size:15px!important;font-weight:800!important}
+@media(max-width:900px){
+  .hero{aspect-ratio:auto!important;min-height:170px!important;background-size:cover!important;background-position:center!important}
+  .live-clock-panel{right:10px!important;width:180px!important;min-height:112px!important;padding:10px 12px!important;border-radius:14px!important}
+  .live-clock-row{padding:3px 0!important;gap:8px!important}
+  .live-clock-row strong{font-size:13px!important}.live-clock-row .ic{font-size:15px!important;width:20px!important}
+}
+@media(max-width:560px){
+  .hero{min-height:150px!important;background-position:42% center!important}
+  .live-clock-panel{width:152px!important;right:7px!important;padding:8px 10px!important;min-height:100px!important}
+  .live-clock-row strong{font-size:12px!important}
+}
+</style>
+
 </body>
 </html>
