@@ -4954,5 +4954,36 @@ async function v38ConfirmarFotoLeite(){
  .live-clock-panel{width:152px!important;right:7px!important;padding:8px 10px!important;min-height:100px!important}
 }
 </style>
+
+<script id="v73-state-sync-desktop">
+(function(){
+  'use strict';
+  const keys={produtores:'vds_produtores_v1',lancamentos:'vds_lancamentos_v1',pagamentos:'vds_pagamentos_v1',debitos:'vds_debitos_v1',pagamentosDebitos:'vds_debitos_pagamentos_v1'};
+  let busy=false,timer=null,reloading=false;
+  function localData(){const d={};for(const [k,key] of Object.entries(keys)){try{d[k]=JSON.parse(localStorage.getItem(key)||'[]')}catch(_){d[k]=[]}}return d}
+  function score(d){return Object.keys(keys).reduce((n,k)=>n+(Array.isArray(d&&d[k])?d[k].length:0),0)}
+  function writeLocal(d){for(const [k,key] of Object.entries(keys))if(Array.isArray(d&&d[k]))localStorage.setItem(key,JSON.stringify(d[k]))}
+  async function syncInitial(){
+    if(busy)return;busy=true;
+    try{
+      const r=await fetch('/api/state',{cache:'no-store'}),j=await r.json(),local=localData(),remote=(j&&j.data&&typeof j.data==='object')?j.data:null;
+      if(remote&&score(remote)>score(local)){
+        reloading=true;writeLocal(remote);location.reload();return;
+      }
+      if(score(local)>0&&(!remote||score(remote)===0)) await push(local);
+    }catch(e){console.warn('V73 sync inicial',e)}finally{busy=false}
+  }
+  async function push(d=localData()){
+    if(reloading||!score(d))return;
+    try{const t=localStorage.getItem('vale_token')||sessionStorage.getItem('vale_token')||'';const h={'Content-Type':'application/json'};if(t)h.Authorization='Bearer '+t;await fetch('/api/state',{method:'PUT',headers:h,body:JSON.stringify({data:d})})}catch(e){console.warn('V73 sync',e)}
+  }
+  function schedule(){clearTimeout(timer);timer=setTimeout(()=>push(),700)}
+  window.addEventListener('storage',e=>{if(Object.values(keys).includes(e.key))schedule()});
+  if(typeof window.save==='function'){const originalSave=window.save;window.save=function(){const r=originalSave.apply(this,arguments);schedule();return r}}
+  setInterval(()=>{if(document.visibilityState==='visible')schedule()},15000);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(syncInitial,1200),{once:true});else setTimeout(syncInitial,1200);
+})();
+</script>
+
 </body>
 </html>

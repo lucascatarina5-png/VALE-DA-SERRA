@@ -775,21 +775,23 @@ function isMobileRequest(req){
   if(String(req.query?.desktop||'')==='1') return false;
   if(String(req.query?.mobile||'')==='1') return true;
   const ua=String(req.headers['user-agent']||'');
-  return /Android|iPhone|iPad|iPod|Mobile|IEMobile|Opera Mini|webOS|BlackBerry/i.test(ua);
+  const ch=String(req.headers['sec-ch-ua-mobile']||'');
+  return ch.includes('?1') || /Android|iPhone|iPad|iPod|Mobile|IEMobile|Opera Mini|webOS|BlackBerry/i.test(ua);
 }
-app.get(['/','/index.html'],(req,res)=>{
-  res.set('Cache-Control','no-store');
-  res.sendFile(path.join(__dirname,isMobileRequest(req)?'mobile.html':'index.html'));
-});
-app.get('/mobile.html',(_req,res)=>{
-  res.set('Cache-Control','no-store');
-  res.sendFile(path.join(__dirname,'mobile.html'));
-});
-app.use(express.static(__dirname,{maxAge:'1h'}));
-app.get('*',(req,res)=>{
-  res.set('Cache-Control','no-store');
-  res.sendFile(path.join(__dirname,isMobileRequest(req)?'mobile.html':'index.html'));
-});
+function sendUi(req,res,forceMobile=null){
+  const mobile=forceMobile===null?isMobileRequest(req):forceMobile;
+  res.set('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma','no-cache');
+  res.set('Expires','0');
+  res.set('Vary','User-Agent, Sec-CH-UA-Mobile');
+  res.set('Accept-CH','Sec-CH-UA-Mobile');
+  res.sendFile(path.join(__dirname,mobile?'mobile.html':'index.html'));
+}
+app.get(['/','/index.html'],(req,res)=>sendUi(req,res));
+app.get(['/mobile','/mobile.html','/app','/app/'],(req,res)=>sendUi(req,res,true));
+app.get('/desktop.html',(req,res)=>sendUi(req,res,false));
+app.use(express.static(__dirname,{maxAge:'15m',setHeaders(res,filePath){if(/(?:index|mobile)\.html$/i.test(filePath))res.setHeader('Cache-Control','no-store');}}));
+app.get('*',(req,res)=>sendUi(req,res));
 
 initDb()
   .then(()=>app.listen(PORT,'0.0.0.0',()=>console.log(`Vale da Serra online na porta ${PORT}`)))
