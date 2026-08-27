@@ -1675,6 +1675,14 @@ td{font-size:12.5px}
     <select id="ljCategoriaFiltro" onchange="lojaRenderProdutos()"><option value="">Todas as categorias</option></select>
     <div class="pdv-view-switch"><button id="ljGradeBtn" type="button" class="active" onclick="lojaSetView('grid')" title="Grade">▦</button><button id="ljListaBtn" type="button" onclick="lojaSetView('list')" title="Lista">☷</button></div>
   </div>
+  <div class="pdv-ops-strip">
+    <button data-admin-product type="button" onclick="lojaAbrirCadastro()">＋ Novo produto</button>
+    <button type="button" onclick="lojaAbrirEstoque()">▣ Atualizar estoque</button>
+    <button type="button" onclick="lojaAbrirLotes()">🏷 Lotes e validades</button>
+    <button type="button" onclick="lojaAbrirClientes()">♙ Clientes / boletos</button>
+    <button type="button" onclick="lojaCarregar(true)">↻ Atualizar PDV</button>
+  </div>
+  <div id="ljCashStatus" class="cash-status closed"><div><b>🔒 Caixa fechado</b><div style="color:#667;font-size:13px">Abra o caixa para liberar as vendas.</div></div><div><button class="cash-open" onclick="lojaAbrirCaixa()">🔓 Abrir Caixa</button></div></div>
   <div class="loja-layout pdv-model-layout">
     <div class="pdv-catalog-wrap">
       <div id="ljGrid" class="loja-grid"></div>
@@ -1695,6 +1703,20 @@ td{font-size:12.5px}
       <div class="lj-pay-buttons"><button type="button" data-pay="dinheiro" onclick="lojaSelecionarPagamento('dinheiro',this)"><span>▣</span> Dinheiro</button><button type="button" data-pay="cartao" onclick="lojaSelecionarPagamento('cartao',this)"><span>▰</span> Cartão</button><button type="button" data-pay="pix" class="active" onclick="lojaSelecionarPagamento('pix',this)"><span>◆</span> PIX</button><button type="button" data-pay="boleto" onclick="lojaSelecionarPagamento('boleto',this)"><span>▥</span> Boleto</button><button type="button" data-pay="doacao" onclick="lojaSelecionarPagamento('doacao',this)">🎁 Doação</button></div>
       <button class="loja-finalizar pdv-finalize" onclick="lojaFinalizar()"><strong>✓ FINALIZAR VENDA</strong><small id="ljBtnTotal">R$ 0,00</small></button>
     </aside>
+  </div>
+  <div class="pdv-report-card">
+    <div class="pdv-report-head">
+      <div><small>RELATÓRIOS DO PDV</small><h2>Vendas e Doações</h2></div>
+      <div class="pdv-report-controls">
+        <select id="ljPeriodo" onchange="lojaPeriodoUI();lojaCarregarVendas()"><option value="1">Hoje</option><option value="date">Dia específico</option><option value="month">Mês específico</option><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option></select>
+        <input id="ljRelData" type="date" onchange="lojaCarregarVendas()">
+        <input id="ljRelMes" type="month" onchange="lojaCarregarVendas()">
+        <button type="button" onclick="lojaCarregarVendas()">↻ Atualizar</button>
+        <button type="button" onclick="lojaImprimirRelatorio()">🖨 Imprimir relatório</button>
+      </div>
+    </div>
+    <div id="ljResumo"></div>
+    <div id="ljHistorico" class="pdv-report-table"></div>
   </div>
 </section>
 <div id="ljCashModal" class="lj-modal"><div class="lj-box"><button class="lj-x" onclick="lojaFecharModalCaixa()">×</button><h2 id="ljCashModalTitle">💵 Caixa</h2><div id="ljCashModalBody"></div></div></div><div id="ljReceiptModal" class="lj-modal"><div class="lj-box" style="max-width:520px"><button class="lj-x" onclick="lojaFecharCupom()">×</button><h2>✅ Venda finalizada</h2><p style="color:#52605a">Escolha como deseja entregar o comprovante.</p><div id="ljReceiptPreview" style="background:#fff;border:1px dashed #9aa7a1;border-radius:12px;padding:14px;margin:12px 0;max-height:330px;overflow:auto"></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><button class="loja-finalizar" onclick="lojaImprimirCupom('80mm')">🧾 Imprimir 80mm</button><button class="loja-finalizar" onclick="lojaImprimirCupom('a4')">📄 Imprimir A4</button><button class="loja-finalizar" style="grid-column:1/-1;background:#1f8f55" onclick="lojaCompartilharCupom()">📲 Enviar / WhatsApp</button></div></div></div><div id="ljStockModal" class="lj-modal"><div class="lj-box"><button class="lj-x" onclick="lojaFecharEstoque()">×</button><h2>📦 Atualizar Estoque</h2><select id="ljStockProduto"></select><select id="ljStockModo" onchange="lojaStockModoUI()"><option value="add">➕ Entrada de estoque</option><option value="remove">➖ Retirada / perda</option><option value="set">🔢 Definir quantidade atual</option></select><input id="ljStockQtd" type="number" min="0" step="0.001" placeholder="Quantidade"><select id="ljStockMotivo"><option>Reposição</option><option>Contagem física</option><option>Perda / avaria</option><option>Vencimento</option><option>Correção</option><option>Outro</option></select><input id="ljStockNota" placeholder="Observação (opcional)"><div id="ljStockAtual" style="padding:10px;background:#f4f6f5;border-radius:10px;margin:6px 0"></div><button class="loja-finalizar" onclick="lojaSalvarEstoque()">Salvar ajuste</button><h3 style="margin-top:18px">Últimos ajustes</h3><div id="ljStockHistorico" style="max-height:220px;overflow:auto"></div></div></div><div id="ljModal" class="lj-modal"><div class="lj-box"><button class="lj-x" onclick="lojaFecharCadastro()">×</button><h2>📦 Cadastro de Produto</h2><input id="ljNome" placeholder="Nome do produto (ex.: Manteiga da Terra)"><input id="ljCategoria" placeholder="Categoria (Queijos, Manteigas...)"><div class="lj-row"><input id="ljVariante" placeholder="Apresentação (ex.: Pote / Peça)"><div class="lj-row"><input id="ljEmbalagemValor" type="number" step="0.001" placeholder="Tamanho"><select id="ljEmbalagemUnidade"><option value="ml">ml</option><option value="L">Litro</option><option value="g">g</option><option value="kg">Kg</option><option value="un">Unidade</option></select></div></div><small style="display:block;color:#667;margin:2px 0 7px">Ex.: Manteiga 500 ml e 1 L; Queijo 600 g e 4 Kg serão produtos/variações separados, cada um com preço e estoque próprios.</small><div class="lj-row"><select id="ljUnidade"><option value="un">Unidade</option><option value="kg">Kg</option><option value="pote">Pote</option><option value="peca">Peça</option></select><input id="ljEstoque" type="number" step="0.001" placeholder="Estoque inicial"></div><div class="lj-row"><input id="ljCusto" type="number" step="0.01" placeholder="Preço de custo"><input id="ljVenda" type="number" step="0.01" placeholder="Preço de venda"></div><input id="ljMin" type="number" step="0.001" placeholder="Estoque mínimo"><label class="lj-photo">📷 Foto do produto<input id="ljFoto" type="file" accept="image/*" capture="environment"></label><img id="ljPreview" class="lj-preview"><button class="loja-finalizar" onclick="lojaSalvarProduto()">Salvar Produto</button></div></div>
@@ -4141,7 +4163,7 @@ function estoqueResumo(){
 <style id="caixa-v20-css">.cash-status{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border-radius:16px;padding:14px 16px;margin:12px 0;box-shadow:0 3px 14px #0001}.cash-status.open{border-left:6px solid #18864b}.cash-status.closed{border-left:6px solid #b33}.cash-status button{border:0;border-radius:10px;padding:10px 14px;font-weight:800}.cash-open{background:#18864b;color:#fff}.cash-close{background:#9b2525;color:#fff}.cash-move{background:#e9b51c;color:#17251e}.cash-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}.cash-grid span{background:#f4f6f5;border-radius:10px;padding:9px;font-size:12px}.cash-grid b{display:block;font-size:16px;color:#123c2d}@media(max-width:760px){.cash-status{align-items:flex-start;flex-direction:column}.cash-grid{grid-template-columns:1fr 1fr;width:100%}.cash-status>div:last-child{display:flex;flex-wrap:wrap;gap:6px;width:100%}.cash-status button{flex:1}.loja-finalizar.cash-locked{background:#9ca3af!important;cursor:not-allowed}}
 </style>
 <script id="loja-v14-js">
-let LJ={products:[],cart:[],sales:[],customers:[],photo:null,cash:null}; const ljMoney=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+let LJ={products:[],cart:[],sales:[],customers:[],photo:null,cash:null}; window.LJ=LJ; const ljMoney=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 async function ljApi(url,opt={}){opt.headers={...(opt.headers||{}),...v4Headers()};if(!opt.method||String(opt.method).toUpperCase()==='GET')opt.cache='no-store';let r=await fetch(url,opt),j=await r.json();if(!r.ok||j.ok===false)throw new Error(j.error||'Erro');return j}
 async function lojaCarregar(force=false){
   if(LJ._pdvLoading&&!force)return;
@@ -4151,14 +4173,14 @@ async function lojaCarregar(force=false){
     document.querySelectorAll('[data-admin-product]').forEach(el=>el.style.display=v4IsAdmin()?'':'none');
     let cached=[];
     try{
-      const cache=JSON.parse(localStorage.getItem('vds_pdv_products_v58')||localStorage.getItem('vds_pdv_products_v46')||'null');
+      const cache=JSON.parse(localStorage.getItem('vds_pdv_products_v59')||localStorage.getItem('vds_pdv_products_v46')||'null');
       if(cache&&Array.isArray(cache.products)&&cache.products.length&&Date.now()-Number(cache.saved_at||0)<7*86400000) cached=cache.products;
     }catch(_){ }
     if(!LJ.products.length&&cached.length){LJ.products=cached;lojaRenderProdutos();}
     if(g&&!LJ.products.length)g.innerHTML='<div class="lj-grid-loading"><b>Carregando produtos…</b><span>Buscando seu estoque no servidor</span></div>';
     const extras=Promise.allSettled([lojaCarregarClientesBase(),lojaCarregarCaixa(),lojaCarregarVendas()]);
     let products=[],lastErr=null;
-    const urls=['/api/store/products?light=1&_v=58','/api/store/products?_v=58'];
+    const urls=['/api/store/products?light=1&_v=59','/api/store/products?_v=59'];
     for(const url of urls){
       try{
         const j=await ljApi(url);
@@ -4167,7 +4189,7 @@ async function lojaCarregar(force=false){
     }
     if(products.length){
       LJ.products=products;
-      try{localStorage.setItem('vds_pdv_products_v58',JSON.stringify({saved_at:Date.now(),products:LJ.products}))}catch(_){ }
+      try{localStorage.setItem('vds_pdv_products_v59',JSON.stringify({saved_at:Date.now(),products:LJ.products}))}catch(_){ }
     }else if(!LJ.products.length&&cached.length){
       LJ.products=cached;
     }else if(!LJ.products.length&&lastErr){
@@ -4451,6 +4473,24 @@ async function v38ConfirmarFotoLeite(){
 @media(max-width:1350px){#loja #ljGrid.loja-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;}#loja .pdv-model-layout{grid-template-columns:minmax(0,1fr) 340px!important;}}
 @media(max-width:1050px){#loja .pdv-model-layout{grid-template-columns:1fr!important;}#loja .pdv-sale-panel{position:relative!important;top:auto!important;max-height:none!important;}#loja #ljGrid.loja-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;}}
 @media(max-width:760px){#loja{padding:10px!important;}#loja .pdv-model-toolbar{grid-template-columns:1fr!important;gap:8px!important;position:relative!important;}#loja #ljGrid.loja-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;}#loja .lj-prod-media{height:130px!important;min-height:130px!important;}#loja .lj-prod-actions{grid-template-columns:1fr 1fr 38px!important;padding:8px!important;gap:5px!important;}#loja .pdv-stock-footer{grid-template-columns:1fr!important;gap:10px!important;}}
+
+/* V59 - restaura gestão/relatórios e mantém o PDV moderno */
+#loja .pdv-ops-strip{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 12px}
+#loja .pdv-ops-strip button{border:1px solid #dce5ef;background:#fff;color:#18334f;border-radius:10px;padding:9px 12px;font:700 12px system-ui,-apple-system,Segoe UI,Arial;cursor:pointer;box-shadow:0 1px 3px #00000008}
+#loja .pdv-ops-strip button:hover{background:#f6f9fd;border-color:#b9cce4}
+#loja #ljCashStatus{margin:0 0 12px!important;border:1px solid #e2e8f0!important;box-shadow:none!important}
+#loja .pdv-report-card{margin:18px 0 4px;background:#fff;border:1px solid #e1e7ef;border-radius:14px;padding:16px;box-shadow:0 2px 10px rgba(19,44,73,.05)}
+#loja .pdv-report-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px}
+#loja .pdv-report-head small{font-size:10px;font-weight:900;color:#66758a;letter-spacing:.08em}
+#loja .pdv-report-head h2{margin:2px 0 0;font-size:18px;color:#102747}
+#loja .pdv-report-controls{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+#loja .pdv-report-controls select,#loja .pdv-report-controls input,#loja .pdv-report-controls button{height:36px;border:1px solid #dce5ef;background:#fff;border-radius:9px;padding:0 10px;font:600 12px system-ui,-apple-system,Segoe UI,Arial;color:#18334f}
+#loja .pdv-report-controls button{cursor:pointer;font-weight:800}
+#loja .pdv-report-table{overflow:auto;max-height:420px}
+#loja .pdv-report-card .lj-summary{margin:10px 0 12px}
+#loja .pdv-report-card .lj-summary span{background:#f7f9fc;border:1px solid #e7edf5;color:#34465f}
+#loja .pdv-report-card .lj-table th{background:#102747;color:#fff;position:sticky;top:0}
+@media(max-width:760px){#loja .pdv-report-head{display:block}#loja .pdv-report-controls{justify-content:flex-start;margin-top:10px}#loja .pdv-ops-strip{display:grid;grid-template-columns:1fr 1fr}#loja .pdv-ops-strip button{width:100%}}
 </style>
 
 <script id="v57-pdv-final-js">
@@ -4461,7 +4501,7 @@ async function v38ConfirmarFotoLeite(){
   function unit(p){try{return typeof lojaUnidadeLabel==='function'?lojaUnidadeLabel(p.unit):(p.unit||'un')}catch(_){return p.unit||'un'}}
   function desc(p){try{return (typeof lojaApresentacao==='function'?lojaApresentacao(p):'')||unit(p)}catch(_){return unit(p)}}
   function sync(){
-    if(!window.LJ)return;
+    if(typeof LJ==='undefined')return;
     const sel=document.getElementById('ljCategoriaFiltro');
     if(sel){const cur=sel.value;const cats=[...new Set((LJ.products||[]).map(p=>String(p.category||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));sel.innerHTML='<option value="">Todas as categorias</option>'+cats.map(c=>'<option value="'+E(c)+'">'+E(c)+'</option>').join('');if(cats.includes(cur))sel.value=cur;}
     const a=document.getElementById('pdvTotalProdutos'),b=document.getElementById('pdvEstoqueTotal'),c=document.getElementById('pdvAtualizacao');
@@ -4470,11 +4510,11 @@ async function v38ConfirmarFotoLeite(){
     if(c)c.textContent=new Date().toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
   }
   window.lojaSetView=function(mode){const g=document.getElementById('ljGrid');if(!g)return;g.classList.toggle('pdv-list',mode==='list');document.getElementById('ljGradeBtn')?.classList.toggle('active',mode!=='list');document.getElementById('ljListaBtn')?.classList.toggle('active',mode==='list')};
-  window.lojaRemoverItem=function(id){if(!window.LJ)return;LJ.cart=LJ.cart.filter(x=>String(x.product_id)!==String(id));lojaRenderCart()};
+  window.lojaRemoverItem=function(id){if(typeof LJ==='undefined')return;LJ.cart=LJ.cart.filter(x=>String(x.product_id)!==String(id));lojaRenderCart()};
   window.lojaToggleMais=function(ev,btn){ev?.stopPropagation?.();document.querySelectorAll('#loja .lj-more-menu.open').forEach(x=>{if(x!==btn.nextElementSibling)x.classList.remove('open')});btn?.nextElementSibling?.classList.toggle('open')};
   window.lojaFecharMais=function(){document.querySelectorAll('#loja .lj-more-menu.open').forEach(x=>x.classList.remove('open'))};
   window.lojaRenderProdutos=function(){
-    if(!window.LJ)return;const g=document.getElementById('ljGrid');if(!g)return;
+    if(typeof LJ==='undefined')return;const g=document.getElementById('ljGrid');if(!g)return;
     const q=(document.getElementById('ljBusca')?.value||'').trim().toLowerCase(),cat=(document.getElementById('ljCategoriaFiltro')?.value||'').trim().toLowerCase();
     const rows=(LJ.products||[]).filter(p=>(!cat||String(p.category||'').trim().toLowerCase()===cat)&&[p.name,p.category,p.variant,p.code].some(v=>String(v||'').toLowerCase().includes(q)));
     g.innerHTML=rows.map(p=>{const stock=Number(p.stock||0),min=Number(p.min_stock||0),low=stock<=min,u=unit(p),d=desc(p),photo=p.photo||'',has=!!(photo||p.has_photo),id=E(p.id),name=E(p.name||'Produto');const media=photo?'<img src="'+photo+'" loading="lazy" decoding="async" alt="'+name+'">':has?'<div class="ph lj-photo-ph" data-photo-id="'+id+'" data-photo-alt="'+name+'">▧</div>':'<div class="ph">🧀</div>';const more=admin()?'<div class="lj-more-wrap"><button class="lj-more" type="button" title="Mais opções" aria-label="Mais opções" onclick="lojaToggleMais(event,this)"><svg class="lj-action-icon" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg><span>Mais</span></button><div class="lj-more-menu"><button type="button" onclick="lojaEditarProduto(\''+id+'\');lojaFecharMais()"><svg viewBox="0 0 24 24" fill="none"><path d="M4 20h4l11-11a2.8 2.8 0 0 0-4-4L4 16v4Z" stroke="currentColor" stroke-width="1.8"/><path d="m13.5 6.5 4 4" stroke="currentColor" stroke-width="1.8"/></svg>Editar</button><button type="button" class="danger" onclick="lojaExcluirProduto(\''+id+'\');lojaFecharMais()"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5" stroke="currentColor" stroke-width="1.8"/></svg>Excluir</button></div></div>':'';
@@ -4483,11 +4523,11 @@ async function v38ConfirmarFotoLeite(){
     sync();try{lojaCarregarFotosVisiveis?.()}catch(_){}
   };
   window.lojaRenderCart=function(){
-    if(!window.LJ)return;const d=document.getElementById('ljCarrinho'),donation=document.getElementById('ljPagamento')?.value==='doacao',base=LJ.cart.reduce((s,i)=>s+Number(i.price)*Number(i.quantity),0),normalFinal=window.lojaTotalFinalValor!=null&&Number.isFinite(Number(window.lojaTotalFinalValor))?Number(window.lojaTotalFinalValor):base,total=donation?0:normalFinal;
+    if(typeof LJ==='undefined')return;const d=document.getElementById('ljCarrinho'),donation=document.getElementById('ljPagamento')?.value==='doacao',base=LJ.cart.reduce((s,i)=>s+Number(i.price)*Number(i.quantity),0),normalFinal=window.lojaTotalFinalValor!=null&&Number.isFinite(Number(window.lojaTotalFinalValor))?Number(window.lojaTotalFinalValor):base,total=donation?0:normalFinal;
     if(d)d.innerHTML=LJ.cart.map(i=>{const p=(LJ.products||[]).find(x=>String(x.id)===String(i.product_id)),src=p?.photo||LJ.photoCache?.get?.(String(i.product_id))||'',has=!!(src||p?.has_photo),thumb=src?'<img src="'+src+'" alt="'+E(i.name||'Produto')+'">':has?'<div class="lj-cart-photo-ph" data-photo-id="'+E(i.product_id)+'" data-photo-alt="'+E(i.name||'Produto')+'">▧</div>':'🧀';const price=donation?'Doação':'R$ <input type="number" min="0" step="0.01" value="'+Number(i.price).toFixed(2)+'" onchange="lojaEditarPreco(\''+E(i.product_id)+'\',this.value)">';return '<div class="lj-item"><div class="lj-cart-thumb">'+thumb+'</div><div class="lj-item-info"><b class="lj-item-name">'+E(i.name||'Produto')+'</b><div class="lj-item-meta"><span class="lj-item-price">'+price+'</span><span class="lj-item-sub">'+(donation?'R$ 0,00':M(Number(i.price)*Number(i.quantity)))+'</span></div><div class="lj-item-controls"><button type="button" onclick="lojaQtd(\''+E(i.product_id)+'\',-1)">−</button><span class="lj-qtd">'+i.quantity+'</span><button type="button" onclick="lojaQtd(\''+E(i.product_id)+'\',1)">+</button></div></div><button class="lj-cart-remove" type="button" title="Remover" onclick="lojaRemoverItem(\''+E(i.product_id)+'\')"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5"/></svg></button></div>'}).join('')||'<p>Seu carrinho está vazio.<br><small>Toque em “Vender” ou “Doar” para adicionar um produto.</small></p>';
     const set=(id,val)=>{const x=document.getElementById(id);if(x)x.textContent=val};set('ljSubtotal',M(base));set('ljDescontoVisual',M(donation?0:Math.max(0,base-total)));set('ljTotal',M(total));set('ljCartCount',LJ.cart.reduce((s,i)=>s+Number(i.quantity),0));set('ljBtnTotal',M(total));const tf=document.getElementById('ljTotalFinal');if(tf&&document.activeElement!==tf)tf.value=total?Number(total).toFixed(2).replace('.',','):'';const box=document.getElementById('ljCartBox');if(box)box.classList.toggle('donation-mode',donation);
   };
-  function force(){try{if(window.LJ){lojaRenderProdutos();lojaRenderCart();sync()}}catch(e){console.error('V58 PDV',e)}}
+  function force(){try{if(typeof LJ!=='undefined'){lojaRenderProdutos();lojaRenderCart();sync()}}catch(e){console.error('V59 PDV',e)}}
   document.addEventListener('click',e=>{if(!e.target.closest?.('.lj-more-wrap'))lojaFecharMais()});
   document.addEventListener('DOMContentLoaded',()=>{setTimeout(force,100);setTimeout(()=>{try{lojaCarregar(true)}catch(_){}},350)});
   window.addEventListener('load',()=>{setTimeout(force,250);setTimeout(()=>{try{lojaCarregar(true)}catch(_){}},700)});
