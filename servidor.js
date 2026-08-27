@@ -771,12 +771,17 @@ app.get('/sw.js',(_req,res)=>{
   res.set('Service-Worker-Allowed','/');
   res.sendFile(path.join(__dirname,'sw.js'));
 });
-app.get(['/','/index.html'],(_req,res)=>{
-  res.set('Cache-Control','no-cache');
-  res.sendFile(path.join(__dirname,'index.html'));
+function isMobileRequest(req){
+  if(String(req.query?.desktop||'')==='1') return false;
+  const ua=String(req.headers['user-agent']||'');
+  return /Android|iPhone|iPad|iPod|Mobile|IEMobile|Opera Mini/i.test(ua);
+}
+app.get(['/','/index.html'],(req,res)=>{
+  res.set('Cache-Control','no-store');
+  res.sendFile(path.join(__dirname,isMobileRequest(req)?'mobile.html':'index.html'));
 });
 app.get('/mobile.html',(_req,res)=>{
-  res.set('Cache-Control','no-cache');
+  res.set('Cache-Control','no-store');
   res.sendFile(path.join(__dirname,'mobile.html'));
 });
 app.use(express.static(__dirname,{maxAge:'1h'}));
