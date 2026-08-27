@@ -1185,56 +1185,6 @@ body.vds-mobile-mode #loja .pdv-finalize{min-height:62px!important;margin-bottom
 @media(max-width:390px){body.vds-mobile-mode #loja #ljGrid.loja-grid{grid-template-columns:1fr!important;}body.vds-mobile-mode #loja .lj-prod-media{height:150px!important;min-height:150px!important;}}
 </style>
 
-<style id="v62-finalize-fix">
-/* V62: carrinho com rolagem interna e botão de finalizar sempre visível */
-#loja .pdv-sale-panel,
-#pageLoja .pdv-sale-panel,
-#loja .loja-cart,
-#pageLoja .loja-cart{
-  max-height:calc(100vh - 96px)!important;
-  overflow-y:auto!important;
-  overflow-x:hidden!important;
-  overscroll-behavior:contain;
-  scrollbar-gutter:stable;
-}
-#loja .pdv-finalize,
-#pageLoja .pdv-finalize,
-#loja .loja-finalizar[onclick="lojaFinalizar()"],
-#pageLoja .loja-finalizar[onclick="lojaFinalizar()"]{
-  position:sticky!important;
-  left:auto!important;
-  right:auto!important;
-  bottom:0!important;
-  z-index:12001!important;
-  width:calc(100% - 32px)!important;
-  margin:12px 16px 14px!important;
-  min-height:72px!important;
-  height:auto!important;
-  padding:12px 16px!important;
-  border-radius:14px!important;
-  background:linear-gradient(135deg,#0ca451,#078741)!important;
-  color:#fff!important;
-  box-shadow:0 -8px 18px rgba(255,255,255,.96),0 8px 22px rgba(8,145,69,.25)!important;
-}
-#loja .pdv-finalize strong,#pageLoja .pdv-finalize strong{font-size:18px!important;line-height:1.15!important}
-#loja .pdv-finalize small,#pageLoja .pdv-finalize small{font-size:14px!important;color:#fff!important}
-@media(max-width:800px){
-  body.vds-mobile-mode #loja .loja-cart.open,
-  body.vds-mobile-mode #pageLoja .loja-cart.open{
-    overflow-y:auto!important;
-    max-height:none!important;
-    padding-bottom:8px!important;
-  }
-  body.vds-mobile-mode #loja .loja-cart.open .pdv-finalize,
-  body.vds-mobile-mode #pageLoja .loja-cart.open .pdv-finalize{
-    position:sticky!important;
-    bottom:0!important;
-    width:calc(100% - 16px)!important;
-    margin:10px 8px 8px!important;
-    min-height:64px!important;
-  }
-}
-</style>
 </head>
 <body>
 
@@ -1805,12 +1755,14 @@ body.vds-mobile-mode #loja .pdv-finalize{min-height:62px!important;margin-bottom
     <aside class="loja-cart pdv-sale-panel" id="ljCartBox">
       <div id="ljMobileBar" onclick="lojaToggleCart(true)"><span id="ljMobileResumo">🛒 Carrinho vazio</span><button type="button">Abrir carrinho →</button></div>
       <div class="pdv-sale-head"><h2><span class="cart-ico">🛒</span> Venda atual <span id="ljCartCount" class="pdv-cart-count">0</span></h2><button type="button" class="pdv-empty" onclick="LJ.cart=[];lojaRenderCart()">Esvaziar 🗑</button><button type="button" onclick="lojaToggleCart(false)" class="lj-cart-close">×</button></div>
-      <div id="ljCarrinho" class="pdv-cart-items"></div>
-      <div class="lj-sale-summary pdv-summary"><div><span>Subtotal</span><b id="ljSubtotal">R$ 0,00</b></div><div><span>Desconto</span><b id="ljDescontoVisual" class="discount">R$ 0,00</b></div><div class="lj-total-row"><span>TOTAL</span><b id="ljTotal">R$ 0,00</b></div></div>
-      <details class="lj-adjust-details"><summary>Ajustar valor / desconto</summary><div class="lj-total-final-v42"><label for="ljTotalFinal">Novo total</label><div class="lj-total-final-wrap-v42"><span>R$</span><input id="ljTotalFinal" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" oninput="lojaAplicarTotalFinal(this.value)" onblur="lojaFormatarTotalFinal(this)"></div></div></details>
-      <div class="pdv-client-label">♙ <span>Cliente <small>(opcional)</small></span></div><div class="lj-client-wrap"><input id="ljCliente" list="ljClientesLista" placeholder="Selecionar cliente"></div><datalist id="ljClientesLista"></datalist>
-      <div class="lj-pay-title">Forma de pagamento</div><select id="ljPagamento" class="lj-pay-hidden"><option value="pix">PIX</option><option value="dinheiro">Dinheiro</option><option value="cartao">Cartão</option><option value="boleto">Boleto</option><option value="doacao">Doação</option></select>
-      <div class="lj-pay-buttons"><button type="button" data-pay="dinheiro" onclick="lojaSelecionarPagamento('dinheiro',this)"><span>▣</span> Dinheiro</button><button type="button" data-pay="cartao" onclick="lojaSelecionarPagamento('cartao',this)"><span>▰</span> Cartão</button><button type="button" data-pay="pix" class="active" onclick="lojaSelecionarPagamento('pix',this)"><span>◆</span> PIX</button><button type="button" data-pay="boleto" onclick="lojaSelecionarPagamento('boleto',this)"><span>▥</span> Boleto</button><button type="button" data-pay="doacao" onclick="lojaSelecionarPagamento('doacao',this)">🎁 Doação</button></div>
+      <div class="pdv-sale-scroll">
+        <div id="ljCarrinho" class="pdv-cart-items"></div>
+        <div class="lj-sale-summary pdv-summary"><div><span>Subtotal</span><b id="ljSubtotal">R$ 0,00</b></div><div><span>Desconto</span><b id="ljDescontoVisual" class="discount">R$ 0,00</b></div><div class="lj-total-row"><span>TOTAL</span><b id="ljTotal">R$ 0,00</b></div></div>
+        <details class="lj-adjust-details"><summary>Ajustar valor / desconto</summary><div class="lj-total-final-v42"><label for="ljTotalFinal">Novo total</label><div class="lj-total-final-wrap-v42"><span>R$</span><input id="ljTotalFinal" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" oninput="lojaAplicarTotalFinal(this.value)" onblur="lojaFormatarTotalFinal(this)"></div></div></details>
+        <div class="pdv-client-label">♙ <span>Cliente <small>(opcional)</small></span></div><div class="lj-client-wrap"><input id="ljCliente" list="ljClientesLista" placeholder="Selecionar cliente"></div><datalist id="ljClientesLista"></datalist>
+        <div class="lj-pay-title">Forma de pagamento</div><select id="ljPagamento" class="lj-pay-hidden"><option value="pix">PIX</option><option value="dinheiro">Dinheiro</option><option value="cartao">Cartão</option><option value="boleto">Boleto</option><option value="doacao">Doação</option></select>
+        <div class="lj-pay-buttons"><button type="button" data-pay="dinheiro" onclick="lojaSelecionarPagamento('dinheiro',this)"><span>▣</span> Dinheiro</button><button type="button" data-pay="cartao" onclick="lojaSelecionarPagamento('cartao',this)"><span>▰</span> Cartão</button><button type="button" data-pay="pix" class="active" onclick="lojaSelecionarPagamento('pix',this)"><span>◆</span> PIX</button><button type="button" data-pay="boleto" onclick="lojaSelecionarPagamento('boleto',this)"><span>▥</span> Boleto</button><button type="button" data-pay="doacao" onclick="lojaSelecionarPagamento('doacao',this)">🎁 Doação</button></div>
+      </div>
       <button class="loja-finalizar pdv-finalize" onclick="lojaFinalizar()"><strong>✓ FINALIZAR VENDA</strong><small id="ljBtnTotal">R$ 0,00</small></button>
     </aside>
   </div>
@@ -4662,16 +4614,59 @@ async function v38ConfirmarFotoLeite(){
 })();
 </script>
 
-<style id="v62-finalize-visible-fix">
-@media (min-width:801px){
-  #loja .pdv-sale-panel{padding-bottom:110px!important;}
-  #loja .pdv-finalize{position:fixed!important;right:18px!important;bottom:14px!important;z-index:12000!important;width:min(360px,calc(100vw - 28px))!important;height:76px!important;margin:0!important;border:0!important;border-radius:14px!important;background:linear-gradient(135deg,#0ca451,#078741)!important;color:#fff!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:4px!important;box-shadow:0 10px 26px rgba(8,145,69,.30)!important;padding:0!important;}
-  #loja .pdv-finalize strong{font-size:18px!important;line-height:1.15!important;}
-  #loja .pdv-finalize small{font-size:14px!important;color:#fff!important;}
+<style id="v63-visual-fix">
+/* V63: banner mais claro e rodapé do carrinho sem sobreposição */
+.hero{
+  filter:none!important;
+  opacity:1!important;
+  background-color:rgba(255,255,255,.20)!important;
+  background-blend-mode:screen!important;
 }
-@media (max-width:800px){
-  body.vds-mobile-mode #loja .loja-cart.open{padding-bottom:82px!important;}
-  body.vds-mobile-mode #loja .loja-cart.open .pdv-finalize{position:sticky!important;left:auto!important;right:auto!important;bottom:0!important;z-index:12001!important;width:calc(100% - 16px)!important;min-height:64px!important;margin:10px 8px 8px!important;display:flex!important;background:linear-gradient(135deg,#0ca451,#078741)!important;box-shadow:0 8px 20px rgba(8,145,69,.28)!important;}
+#loja .pdv-sale-panel,#pageLoja .pdv-sale-panel{
+  overflow:hidden!important;
+  display:flex!important;
+  flex-direction:column!important;
+  max-height:calc(100vh - 96px)!important;
+  padding-bottom:0!important;
+}
+#loja .pdv-sale-scroll,#pageLoja .pdv-sale-scroll{
+  min-height:0!important;
+  flex:1 1 auto!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain!important;
+}
+#loja .pdv-finalize,#pageLoja .pdv-finalize,
+#loja .loja-finalizar[onclick="lojaFinalizar()"],#pageLoja .loja-finalizar[onclick="lojaFinalizar()"]{
+  position:static!important;
+  inset:auto!important;
+  flex:0 0 auto!important;
+  width:calc(100% - 32px)!important;
+  min-height:72px!important;
+  height:72px!important;
+  margin:12px 16px 16px!important;
+  padding:10px 16px!important;
+  border-radius:12px!important;
+  background:linear-gradient(135deg,#0ca451,#078741)!important;
+  color:#fff!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:4px!important;
+  box-shadow:0 8px 20px rgba(8,145,69,.20)!important;
+  z-index:auto!important;
+}
+#loja .pdv-finalize strong,#pageLoja .pdv-finalize strong{font-size:18px!important;line-height:1.1!important;}
+#loja .pdv-finalize small,#pageLoja .pdv-finalize small{font-size:14px!important;color:#fff!important;line-height:1!important;}
+@media(max-width:1050px){
+  #loja .pdv-sale-panel,#pageLoja .pdv-sale-panel{max-height:none!important;}
+  #loja .pdv-sale-scroll,#pageLoja .pdv-sale-scroll{overflow:visible!important;}
+}
+@media(max-width:800px){
+  body.vds-mobile-mode #loja .loja-cart.open,body.vds-mobile-mode #pageLoja .loja-cart.open{overflow:hidden!important;padding-bottom:0!important;}
+  body.vds-mobile-mode #loja .loja-cart.open .pdv-sale-scroll,body.vds-mobile-mode #pageLoja .loja-cart.open .pdv-sale-scroll{overflow-y:auto!important;max-height:calc(100vh - 180px)!important;}
+  body.vds-mobile-mode #loja .loja-cart.open .pdv-finalize,body.vds-mobile-mode #pageLoja .loja-cart.open .pdv-finalize{position:static!important;width:calc(100% - 16px)!important;height:64px!important;min-height:64px!important;margin:8px!important;}
 }
 </style>
 </body>
