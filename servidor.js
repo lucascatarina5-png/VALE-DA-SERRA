@@ -542,26 +542,35 @@ app.post('/api/inventory/movements',auth,hasPermission('estoque'),async(req,res)
 
 // V14 - API Loja / PDV
 app.get('/api/store/products',auth,hasPermission('loja'),async(req,res)=>{try{
-  // V46: o PDV pode pedir a lista leve, sem transportar fotos grandes em Base64.
-  // Isso reduz bastante o tempo até os cards aparecerem, principalmente no Railway/celular.
+  // V58: lista leve com compatibilidade reforçada para bancos de versões anteriores.
   const light=String(req.query.light||'')==='1';
-  const sql=light
-    ? `SELECT id,name,category,unit,cost_price,sale_price,stock,min_stock,variant,package_value,package_unit,active,created_at,updated_at,(photo IS NOT NULL AND photo<>'') AS has_photo FROM app_store_products WHERE active=TRUE ORDER BY name`
-    : `SELECT * FROM app_store_products WHERE active=TRUE ORDER BY name`;
-  const r=await pool.query(sql);
+  const fields=light
+    ? `id,name,category,unit,cost_price,sale_price,stock,min_stock,variant,package_value,package_unit,active,created_at,updated_at,(photo IS NOT NULL AND photo<>'') AS has_photo`
+    : `*`;
+  let r=await pool.query(`SELECT ${fields} FROM app_store_products WHERE COALESCE(active,TRUE)=TRUE ORDER BY name`);
+  // Recuperação segura: se a tabela possui produtos mas nenhum está marcado como ativo,
+  // ainda os devolve ao PDV para não fazer o estoque do usuário "sumir" após atualização.
+  if(!r.rowCount){
+    const total=await pool.query(`SELECT COUNT(*)::int AS n FROM app_store_products`);
+    if(Number(total.rows[0]?.n||0)>0){
+      r=await pool.query(`SELECT ${fields} FROM app_store_products ORDER BY name`);
+      console.warn('V58: nenhum produto ativo; exibindo registros existentes para recuperação de compatibilidade.');
+    }
+  }
+  res.set('Cache-Control','no-store, no-cache, must-revalidate');
   res.json({ok:true,products:r.rows});
-}catch(e){res.status(500).json({ok:false,error:e.message})}});
+}catch(e){console.error('GET /api/store/products',e);res.status(500).json({ok:false,error:e.message})}});
 
 // V46: foto carregada somente quando o card entra na tela (lazy load real).
 app.get('/api/store/products/:id/photo',auth,hasPermission('loja'),async(req,res)=>{try{
-  const r=await pool.query(`SELECT photo,updated_at FROM app_store_products WHERE id=$1 AND active=TRUE LIMIT 1`,[req.params.id]);
+  const r=await pool.query(`SELECT photo,updated_at FROM app_store_products WHERE id=$1 AND (COALESCE(active,TRUE)=TRUE OR NOT EXISTS (SELECT 1 FROM app_store_products WHERE COALESCE(active,TRUE)=TRUE)) LIMIT 1`,[req.params.id]);
   if(!r.rowCount) return res.status(404).json({ok:false,error:'Produto não encontrado'});
   res.set('Cache-Control','private, max-age=3600');
   res.json({ok:true,photo:r.rows[0].photo||null,updated_at:r.rows[0].updated_at});
 }catch(e){res.status(500).json({ok:false,error:e.message})}});
 
 app.get('/api/store/products/:id',auth,hasPermission('loja'),async(req,res)=>{try{
-  const r=await pool.query(`SELECT * FROM app_store_products WHERE id=$1 AND active=TRUE LIMIT 1`,[req.params.id]);
+  const r=await pool.query(`SELECT * FROM app_store_products WHERE id=$1 AND (COALESCE(active,TRUE)=TRUE OR NOT EXISTS (SELECT 1 FROM app_store_products WHERE COALESCE(active,TRUE)=TRUE)) LIMIT 1`,[req.params.id]);
   if(!r.rowCount) return res.status(404).json({ok:false,error:'Produto não encontrado'});
   res.json({ok:true,product:r.rows[0]});
 }catch(e){res.status(500).json({ok:false,error:e.message})}});
