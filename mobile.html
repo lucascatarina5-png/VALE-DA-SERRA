@@ -5195,5 +5195,100 @@ body.v70-app-section .mobile-menu-btn,body.v70-app-section .mobile-drawer-overla
   window.v70OpenHome=openHome; window.v70Go=go; paintUser(); openHome();
 })();
 </script>
+
+<style id="v71-touch-fix-style">
+/* V71 — otimização de toque para Android/iPhone e WebView */
+html,body{touch-action:pan-y;overscroll-behavior-y:contain;-webkit-text-size-adjust:100%}
+#v70AppHome{touch-action:pan-y;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch}
+#v70AppHome button,.v70-backbar button,
+body.v70-app-section button,body.v70-app-section a,
+body.v70-app-section input,body.v70-app-section select,
+body.v70-app-section textarea{
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+.v70-tile,.v70-nav,.v70-backbar button{
+  user-select:none;-webkit-user-select:none;
+  cursor:pointer;
+}
+.v70-tile{min-height:164px;position:relative;transition:transform .09s ease,box-shadow .12s ease,background .12s ease;border-width:1px}
+.v70-tile.v71-pressed{transform:scale(.975);background:#f3fbf6;box-shadow:0 3px 10px rgba(37,69,55,.09)}
+.v70-nav{min-height:58px;justify-content:center;border-radius:14px;transition:background .1s ease,transform .08s ease}
+.v70-nav.v71-pressed{transform:scale(.96);background:#edf8f1}
+.v70-backbar button{min-height:48px;min-width:94px}
+/* Alvos de toque maiores nas telas internas */
+body.v70-app-section .btn,
+body.v70-app-section button,
+body.v70-app-section .nav button,
+body.v70-app-section [role="button"]{min-height:44px}
+body.v70-app-section input,body.v70-app-section select,body.v70-app-section textarea{font-size:16px!important}
+/* Evita camadas invisíveis antigas capturando o toque quando o app clássico está aberto */
+#v70AppHome:not([hidden]) ~ #v67MenuOverlay{pointer-events:none!important;opacity:0!important}
+@media(max-width:390px){.v70-grid{gap:11px;padding-left:12px;padding-right:12px}.v70-tile{min-height:150px;padding:14px 8px}.v70-ico{width:70px;height:70px;font-size:43px}.v70-bottom{left:7px;right:7px;bottom:7px}}
+</style>
+<script id="v71-touch-fix-script">
+(function(){
+  'use strict';
+  const MOVE_LIMIT=14, MAX_TAP_MS=900;
+  function fastTap(el, action){
+    if(!el || el.dataset.v71TouchBound==='1') return;
+    el.dataset.v71TouchBound='1';
+    let down=null, lastFast=0;
+    el.addEventListener('pointerdown',function(e){
+      if(e.pointerType==='mouse' && e.button!==0) return;
+      down={id:e.pointerId,x:e.clientX,y:e.clientY,t:Date.now(),moved:false};
+      el.classList.add('v71-pressed');
+      try{ el.setPointerCapture && el.setPointerCapture(e.pointerId); }catch(_){ }
+    },{passive:true});
+    el.addEventListener('pointermove',function(e){
+      if(!down || down.id!==e.pointerId) return;
+      if(Math.abs(e.clientX-down.x)>MOVE_LIMIT || Math.abs(e.clientY-down.y)>MOVE_LIMIT){
+        down.moved=true; el.classList.remove('v71-pressed');
+      }
+    },{passive:true});
+    function cancel(e){ if(!down || (e && down.id!==e.pointerId)) return; down=null; el.classList.remove('v71-pressed'); }
+    el.addEventListener('pointercancel',cancel,{passive:true});
+    el.addEventListener('pointerup',function(e){
+      if(!down || down.id!==e.pointerId) return;
+      const d=down; down=null; el.classList.remove('v71-pressed');
+      if(d.moved || Date.now()-d.t>MAX_TAP_MS) return;
+      if(e.pointerType==='touch' || e.pointerType==='pen'){
+        e.preventDefault(); e.stopPropagation();
+        lastFast=Date.now(); action(e);
+      }
+    },{passive:false});
+    el.addEventListener('click',function(e){
+      if(Date.now()-lastFast<650){ e.preventDefault(); e.stopPropagation(); return; }
+      action(e);
+    });
+  }
+  function safeGo(id){
+    try{
+      if(typeof window.v70Go==='function'){ window.v70Go(id); return; }
+      const home=document.getElementById('v70AppHome'); if(home) home.hidden=true;
+      document.body.classList.add('v70-app-section');
+      const bb=document.getElementById('v70Backbar'); if(bb) bb.style.display='block';
+      if(typeof window.showSection==='function') window.showSection(id,null);
+      else if(typeof showSection==='function') showSection(id,null);
+      const s=document.getElementById(id); if(s) setTimeout(()=>s.scrollIntoView({block:'start'}),0);
+    }catch(err){ console.error('V71 navegação mobile',err); }
+  }
+  function safeHome(){
+    if(typeof window.v70OpenHome==='function'){ window.v70OpenHome(); return; }
+    const home=document.getElementById('v70AppHome'); if(home) home.hidden=false;
+    const bb=document.getElementById('v70Backbar'); if(bb) bb.style.display='none';
+    document.body.classList.remove('v70-app-section');
+    window.scrollTo(0,0);
+  }
+  function init(){
+    document.querySelectorAll('#v70AppHome [data-v70-go]').forEach(el=>fastTap(el,()=>safeGo(el.dataset.v70Go)));
+    document.querySelectorAll('#v70AppHome [data-v70-home]').forEach(el=>fastTap(el,safeHome));
+    const back=document.getElementById('v70BackHome'); if(back) fastTap(back,safeHome);
+    // Desativa o duplo toque para zoom acidental nos botões do app, sem bloquear rolagem vertical.
+    document.querySelectorAll('#v70AppHome button,.v70-backbar button').forEach(el=>el.style.touchAction='manipulation');
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init,{once:true}); else init();
+})();
+</script>
 </body>
 </html>
