@@ -773,8 +773,9 @@ app.get('/sw.js',(_req,res)=>{
 });
 function isMobileRequest(req){
   if(String(req.query?.desktop||'')==='1') return false;
+  if(String(req.query?.mobile||'')==='1') return true;
   const ua=String(req.headers['user-agent']||'');
-  return /Android|iPhone|iPad|iPod|Mobile|IEMobile|Opera Mini/i.test(ua);
+  return /Android|iPhone|iPad|iPod|Mobile|IEMobile|Opera Mini|webOS|BlackBerry/i.test(ua);
 }
 app.get(['/','/index.html'],(req,res)=>{
   res.set('Cache-Control','no-store');
@@ -785,7 +786,10 @@ app.get('/mobile.html',(_req,res)=>{
   res.sendFile(path.join(__dirname,'mobile.html'));
 });
 app.use(express.static(__dirname,{maxAge:'1h'}));
-app.get('*',(_req,res)=>res.sendFile(path.join(__dirname,'index.html')));
+app.get('*',(req,res)=>{
+  res.set('Cache-Control','no-store');
+  res.sendFile(path.join(__dirname,isMobileRequest(req)?'mobile.html':'index.html'));
+});
 
 initDb()
   .then(()=>app.listen(PORT,'0.0.0.0',()=>console.log(`Vale da Serra online na porta ${PORT}`)))

@@ -1,4 +1,4 @@
-const CACHE='vale-da-serra-v71-app-mobile-classico';
+const CACHE='vale-da-serra-v72-mobile-isolado';
 const STATIC=['/','/index.html','/mobile.html','/manifest.webmanifest','/icon-192.png','/icon-512.png','/icon-maskable-192.png','/icon-maskable-512.png','/banner-vale-da-serra.jpg'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(STATIC)).then(()=>self.skipWaiting()));

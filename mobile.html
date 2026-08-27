@@ -5290,5 +5290,77 @@ body.v70-app-section input,body.v70-app-section select,body.v70-app-section text
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init,{once:true}); else init();
 })();
 </script>
+
+<style id="v72-mobile-isolation-style">
+/* V72 — isolamento definitivo: no celular nunca mistura o desktop com o app */
+html,body{width:100%!important;max-width:100%!important;overflow-x:hidden!important;background:#f7f4e9!important}
+#v67MobileTopbar,#v67MenuOverlay{display:none!important;pointer-events:none!important}
+/* Tela inicial do APP ocupa toda a viewport, sem limite de 520px */
+#v70AppHome{left:0!important;right:0!important;top:0!important;bottom:0!important;width:100%!important;max-width:none!important;transform:none!important;box-shadow:none!important;z-index:2147483000!important}
+.v70-bottom{left:10px!important;right:10px!important;width:auto!important;max-width:none!important;transform:none!important}
+/* Enquanto a tela inicial está aberta, o sistema desktop fica totalmente fora do layout */
+body:not(.v70-app-section) .app{display:none!important}
+body:not(.v70-app-section) .v70-backbar{display:none!important}
+/* Ao abrir uma função, usamos SOMENTE o conteúdo da função; sidebar/banner desktop não aparecem */
+body.v70-app-section{background:#f5f7f6!important;padding:0!important;margin:0!important}
+body.v70-app-section .app{display:block!important;width:100%!important;max-width:100%!important;margin:0!important;padding:0!important;grid-template-columns:1fr!important;background:#f5f7f6!important}
+body.v70-app-section .sidebar,
+body.v70-app-section .hero,
+body.v70-app-section .footer{display:none!important}
+body.v70-app-section .main{display:block!important;width:100%!important;max-width:100%!important;margin:0!important;padding:64px 0 18px!important;min-width:0!important;background:#f5f7f6!important}
+body.v70-app-section .content{display:block!important;width:100%!important;max-width:100%!important;margin:0!important;padding:10px!important;min-width:0!important;overflow:visible!important}
+body.v70-app-section .section{display:none!important;width:100%!important;max-width:100%!important;margin:0!important;min-width:0!important}
+body.v70-app-section .section.active{display:block!important}
+body.v70-app-section .v70-backbar{display:block!important;position:fixed!important;top:calc(8px + env(safe-area-inset-top,0px))!important;left:8px!important;right:8px!important;z-index:2147483001!important}
+body.v70-app-section .v70-backbar button{width:auto!important;min-height:46px!important;border-radius:14px!important;padding:10px 14px!important}
+/* Modais internos continuam acima da interface */
+body.v70-app-section .lj-modal{z-index:2147483002!important}
+@media(min-width:700px){
+ #v70AppHome{left:0!important;right:0!important;width:100%!important;max-width:none!important;transform:none!important}
+ .v70-bottom{left:10px!important;right:10px!important;width:auto!important;max-width:none!important;transform:none!important}
+}
+</style>
+<script id="v72-mobile-isolation-script">
+(function(){
+  'use strict';
+  function syncMode(){
+    var home=document.getElementById('v70AppHome');
+    var inSection=document.body.classList.contains('v70-app-section');
+    if(home && !inSection) home.hidden=false;
+    document.documentElement.setAttribute('data-vds-ui',inSection?'mobile-section':'mobile-home');
+  }
+  function hardHome(){
+    document.body.classList.remove('v70-app-section','v67-menu-open');
+    var home=document.getElementById('v70AppHome'); if(home) home.hidden=false;
+    var bb=document.getElementById('v70Backbar'); if(bb) bb.style.display='none';
+    window.scrollTo(0,0); syncMode();
+  }
+  function hardSection(id){
+    var home=document.getElementById('v70AppHome'); if(home) home.hidden=true;
+    document.body.classList.add('v70-app-section'); document.body.classList.remove('v67-menu-open');
+    var bb=document.getElementById('v70Backbar'); if(bb) bb.style.display='block';
+    try{
+      if(typeof window.showSection==='function') window.showSection(id,null);
+      else if(typeof showSection==='function') showSection(id,null);
+    }catch(e){ console.error('V72 section',e); }
+    requestAnimationFrame(function(){window.scrollTo(0,0);syncMode();});
+  }
+  function init(){
+    /* substitui as rotas anteriores para impedir que uma camada desktop reapareça */
+    window.v70OpenHome=hardHome;
+    window.v70Go=hardSection;
+    document.querySelectorAll('#v70AppHome [data-v70-go]').forEach(function(el){
+      el.onclick=function(e){e.preventDefault();e.stopPropagation();hardSection(el.dataset.v70Go)};
+    });
+    document.querySelectorAll('#v70AppHome [data-v70-home]').forEach(function(el){
+      el.onclick=function(e){e.preventDefault();e.stopPropagation();hardHome()};
+    });
+    var back=document.getElementById('v70BackHome'); if(back) back.onclick=function(e){e.preventDefault();e.stopPropagation();hardHome()};
+    hardHome();
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init,{once:true}); else init();
+})();
+</script>
+
 </body>
 </html>
