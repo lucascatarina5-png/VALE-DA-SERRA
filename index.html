@@ -2828,6 +2828,7 @@ function imprimirCupom(prodId,formato='80mm'){
 }
 </style>
 
+
 </body></html>`);
   w.document.close();
 }
@@ -3388,6 +3389,7 @@ function imprimirRelatorioA4(){
   .live-clock-row strong{font-size:12px!important}
 }
 </style>
+
 
 </body></html>`);
   w.document.close();
@@ -4364,6 +4366,7 @@ function lojaImprimirCupom(tipo){if(!LJ.lastReceipt)return;let is80=tipo==='80mm
 }
 </style>
 
+
 </body></html>`);w.document.close()}
 async function lojaCompartilharCupom(){let text=lojaCupomTexto();if(!text)return;try{if(navigator.share){await navigator.share({title:'Comprovante Vale da Serra',text});return}}catch(e){if(e?.name==='AbortError')return}window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank')}
 function lojaAbrirLotes(){let opts=LJ.products.map(p=>`<option value="${p.id}">${p.name} — ${lojaApresentacao(p)}</option>`).join('');lojaCashModal('🏷️ Lotes & Validades',`<p>Registre uma nova entrada com lote e validade. A quantidade será somada ao estoque.</p><select id="lotProduto">${opts}</select><input id="lotCodigo" placeholder="Código / número do lote"><label>Data de fabricação</label><input id="lotFab" type="date"><label>Data de validade</label><input id="lotVal" type="date"><input id="lotQtd" type="number" min="0.001" step="0.001" placeholder="Quantidade recebida"><button class="loja-finalizar" onclick="lojaSalvarLote()">Salvar lote e entrada</button><h3>Estoque por lote</h3><div id="lotLista">Carregando...</div>`);lojaCarregarLotes()}
@@ -4464,6 +4467,7 @@ function lojaImprimirRelatorio(){let sales=LJ.sales||[],by={};sales.forEach(s=>b
   .live-clock-row strong{font-size:12px!important}
 }
 </style>
+
 
 </body></html>`);w.document.close()}
 function lojaAdminCorrigir(id){if(!v4IsAdmin())return alert('Somente administrador.');let s=LJ.sales.find(x=>x.id===id);if(!s)return;let produtos=LJ.products.map(p=>`<option value="${p.id}">${p.name} — ${lojaApresentacao(p)}</option>`).join('');let linhas=(s.items||[]).map(i=>`<div class="adm-sale-line" style="display:grid;grid-template-columns:1.5fr .55fr .7fr;gap:6px;margin:6px 0"><select class="adm-p">${produtos}</select><input class="adm-q" type="number" min="0.001" step="0.001" value="${Number(i.quantity)}"><input class="adm-v" type="number" min="0" step="0.01" value="${Number(i.unit_price)}"></div>`).join('');lojaCashModal('🔐 Corrigir Venda — Somente ADM',`<p style="color:#8a2b2b;font-weight:700">Toda correção ficará registrada na auditoria.</p><input id="admCliente" value="${String(s.customer_name||'').replace(/"/g,'&quot;')}" placeholder="Cliente"><select id="admPagamento"><option value="pix">PIX</option><option value="dinheiro">Dinheiro</option><option value="cartao">Cartão</option><option value="boleto">Boleto</option><option value="doacao">Doação</option></select><div><b>Produto • Quantidade • Valor unitário</b><div id="admItens">${linhas}</div><button onclick="lojaAdminAddLinha()">➕ Adicionar produto</button></div><textarea id="admMotivo" placeholder="Motivo obrigatório da correção" style="width:100%;margin-top:10px;padding:10px"></textarea><button class="loja-finalizar" onclick="lojaAdminSalvarCorrecao('${id}')">Salvar Correção</button>`);document.getElementById('admPagamento').value=(s.payment_method==='fiado'?'boleto':s.payment_method);(s.items||[]).forEach((i,k)=>{let el=document.querySelectorAll('.adm-p')[k];if(el)el.value=i.product_id||LJ.products.find(p=>p.name===i.product_name)?.id||''})}
@@ -5024,5 +5028,24 @@ async function v38ConfirmarFotoLeite(){
 })();
 </script>
 
+
+<style id="v97-logo-clock-final-fix">
+@media (min-width:761px){
+  .sidebar .logo-wrap{margin:0 -18px 14px!important;padding:0!important;background:#05285d!important;overflow:hidden!important;}
+  .sidebar .logo-wrap img{display:block!important;width:100%!important;height:auto!important;max-height:none!important;object-fit:contain!important;object-position:center!important;padding:0!important;margin:0!important;background:#05285d!important;border:0!important;border-radius:0!important;box-shadow:none!important;}
+  .hero{position:relative!important;overflow:hidden!important;}
+  .hero .hero-side{display:none!important;}
+  .hero .live-clock-panel{display:block!important;position:absolute!important;left:auto!important;right:22px!important;top:50%!important;transform:translateY(-50%)!important;width:196px!important;min-width:196px!important;max-width:196px!important;height:auto!important;min-height:0!important;box-sizing:border-box!important;padding:13px 15px!important;margin:0!important;overflow:visible!important;z-index:9999!important;background:rgba(255,255,255,.97)!important;border:1px solid rgba(210,220,232,.95)!important;border-radius:17px!important;box-shadow:0 10px 26px rgba(7,38,75,.18)!important;color:#082d61!important;}
+  .hero .live-clock-panel:before,.hero .live-clock-panel:after{display:none!important;content:none!important;}
+  .hero .live-clock-row{display:grid!important;grid-template-columns:25px 1fr!important;align-items:center!important;column-gap:9px!important;padding:5px 0!important;margin:0!important;white-space:nowrap!important;}
+  .hero .live-clock-row .ic{display:block!important;width:25px!important;font-size:17px!important;text-align:center!important;line-height:1!important;}
+  .hero .live-clock-row strong{display:block!important;font-size:14px!important;line-height:1.25!important;color:#082d61!important;font-weight:900!important;overflow:visible!important;text-overflow:clip!important;}
+  .hero .live-clock-day{text-transform:capitalize!important;}
+}
+@media (min-width:761px) and (max-width:1100px){.hero .live-clock-panel{right:12px!important;width:176px!important;min-width:176px!important;max-width:176px!important;padding:10px 12px!important}.hero .live-clock-row strong{font-size:12px!important}}
+</style>
+<script id="v97-logo-clock-final-script">
+(function(){function applyV97(){var logo=document.querySelector('.sidebar .logo-wrap img');if(logo){logo.src='v97-sidebar-logo.png?v=97';logo.alt='Vale da Serra Laticínios';}var panel=document.querySelector('.hero .live-clock-panel');if(panel){panel.style.removeProperty('left');panel.style.removeProperty('margin-left');}if(typeof clock==='function')clock();}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',applyV97,{once:true});else applyV97();setTimeout(applyV97,300);})();
+</script>
 </body>
 </html>
