@@ -5361,7 +5361,7 @@ async function v104LerProdPDF(){let st=document.getElementById('v104ProdStatus')
 async function v104ConfirmProdPDF(){let criados=0,ignorados=0,atualizados=0;for(let i=0;i<V104.prodRows.length;i++){if(!document.getElementById('v104pu'+i)?.checked)continue;let codigo=document.getElementById('v104pcod'+i)?.value.trim(),nome=document.getElementById('v104pn'+i)?.value.trim(),rota=document.getElementById('v104pr'+i)?.value.trim(),cidade=document.getElementById('v104pci'+i)?.value.trim();if(!nome){ignorados++;continue}let existente=v104ProducerDuplicate(nome,codigo);if(existente){let changed=false;if(codigo&&!existente.codigo){existente.codigo=codigo;changed=true}if(rota&&!existente.rota){existente.rota=rota;changed=true}if(cidade&&!existente.cidade){existente.cidade=cidade;changed=true}if(changed)atualizados++;else ignorados++;continue}let p={id:crypto.randomUUID(),codigo,nome,rota,cidade,local:'',tanqueiro:'',whatsTanqueiro:'',caminhao:'',whatsapp:'',aliases:[]};produtores.push(p);criados++;try{await v25Audit('PRODUTOR_CRIADO',{codigo,nome,rota,cidade,localidade:'Aguardando relatório de entrada',origem:'Relação de Produtores PDF'})}catch(e){}}if(!criados&&!atualizados)return alert('Nenhum produtor novo foi cadastrado. Os selecionados já podem existir.');save();v104Fechar('v104ProdModal');alert(`✅ Relação processada com sucesso.\n${criados} produtor(es) novo(s) cadastrado(s).${atualizados?`\n${atualizados} cadastro(s) complementado(s) com código/rota/cidade.`:''}${ignorados?`\n${ignorados} registro(s) já estavam atualizados.`:''}\n\nA localidade rural será preenchida automaticamente quando aparecer no relatório de entrada de leite.`)}
 function v104ProducerPool(){let local=document.getElementById('v104EntradaLocal')?.value||'';let a=produtores||[];return local?a.filter(p=>v104Norm(p.local)===v104Norm(local)):a}
 function v104Similarity(a,b){if(typeof v38Score==='function')return v38Score(a,b);a=v104Norm(a);b=v104Norm(b);if(a===b)return 1;if(a.includes(b)||b.includes(a))return .93;let A=new Set(a.split(' ')),B=new Set(b.split(' ')),inter=[...A].filter(x=>B.has(x)).length;return inter/Math.max(A.size,B.size,1)}
-function v104FindProducer(name,pool,codigo){let cc=String(codigo||'').trim();if(cc){let exact=pool.find(p=>String(p.codigo||'').trim()===cc);if(exact)return {best:exact,score:1,by:'codigo'}}let best=null,score=0;for(let p of pool){let candidates=[p.nome,...(Array.isArray(p.aliases)?p.aliases:[])];for(let c of candidates){let sc=v104Similarity(name,c);if(sc>score){score=sc;best=p}}}return {best,score,by:'nome'}}
+function v104FindProducer(name,pool,codigo){pool=Array.isArray(pool)?pool:(Array.isArray(produtores)?produtores:[]);let cc=String(codigo||'').trim();if(cc){let exact=pool.find(p=>String(p.codigo||'').trim()===cc);if(exact)return {best:exact,score:1,by:'codigo'}}let best=null,score=0;for(let p of pool){let candidates=[p.nome,...(Array.isArray(p.aliases)?p.aliases:[])];for(let c of candidates){let sc=v104Similarity(name,c);if(sc>score){score=sc;best=p}}}return {best,score,by:'nome'}}
 function v105ExtractLocality(line){let m=String(line||'').match(/(?:LOCALIDADE|LOCAL|S[ÍI]TIO|FAZENDA)\s*[:\-]\s*([^|;]+?)(?=\s{2,}|\||;|$)/i);return m?m[1].trim():''}
 function v105ExtractCode(line){let m=String(line||'').match(/(?:C[ÓO]D(?:IGO)?\.?\s*[:#-]?\s*)?(\d+(?:-\d+)?)(?=\s+)/i);return m?m[1]:''}
 function v104ParseEntryRows(text){let pool=v104ProducerPool(),out=[],currentLocal='';let dateRx=/\b\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}\b/g;for(let raw of String(text||'').split(/\r?\n/)){let line=raw.replace(/\s+/g,' ').trim();if(!line)continue;let locHeader=line.match(/^(?:LOCALIDADE|LOCAL|S[ÍI]TIO|FAZENDA)\s*[:\-]\s*(.+)$/i);if(locHeader){currentLocal=locHeader[1].trim();continue}if(line.length<4||v104LooksHeader(line))continue;let nums=[...line.matchAll(/(?:^|\s)(\d{1,5}(?:[.,]\d{1,2})?)(?=\s|$|L\b|LT\b)/gi)].map(m=>({v:Number(m[1].replace(',','.')),raw:m[1]})).filter(x=>x.v>0&&x.v<10000);if(!nums.length)continue;let litros=nums[nums.length-1].v,codigo=v105ExtractCode(line),localidade=v105ExtractLocality(line)||currentLocal;let name=line.replace(dateRx,' ').replace(/(?:LOCALIDADE|LOCAL|S[ÍI]TIO|FAZENDA)\s*[:\-]\s*[^|;]+/gi,' ').replace(/^\s*\d+(?:-\d+)?\s+/,' ').replace(/\b\d{1,5}(?:[.,]\d{1,2})?\s*(?:L|LT|LITROS?)?\b/gi,' ').replace(/[|;:–—]+/g,' ').replace(/\s+/g,' ').trim();name=name.replace(/^(M|T|MANHA|MANHÃ|TARDE)\s+/i,'').trim();if(name.length<3&&!codigo)continue;let f=v104FindProducer(name,pool,codigo),score=f.score||0,status=score>=.86?'ok':score>=.62?'warn':'bad';out.push({raw:line,codigo,name,localidade,litros,prodId:f.best?.id||'',prodNome:f.best?.nome||'',score,status,matchBy:f.by||'nome'})}let uniq=[];for(let r of out){let key=(r.codigo||v104Norm(r.name))+'|'+r.litros+'|'+v104Norm(r.localidade);if(!uniq.some(x=>(x.codigo||v104Norm(x.name))+'|'+x.litros+'|'+v104Norm(x.localidade)===key))uniq.push(r)}return uniq}
@@ -5492,7 +5492,7 @@ async function v104ConfirmEntradaPDF(){
   function esc(s){return typeof v104Esc==='function'?v104Esc(s):String(s||'')}
   function allLocalidades(){
     const vals=[];
-    for(const p of (window.produtores||[])){
+    for(const p of (Array.isArray(produtores)?produtores:[])){
       if(p.local) vals.push(p.local);
       if(Array.isArray(p.localidadesConhecidas)) vals.push(...p.localidadesConhecidas);
     }
@@ -5503,7 +5503,7 @@ async function v104ConfirmEntradaPDF(){
     dl.innerHTML=allLocalidades().map(x=>`<option value="${esc(x)}"></option>`).join('');
   };
   // A localidade no topo agora é a localidade a ser aplicada, e não um filtro de produtores.
-  window.v104ProducerPool=function(){return (window.produtores||[])};
+  window.v104ProducerPool=function(){return (Array.isArray(produtores)?produtores:[])};
   const oldOpen=window.v104AbrirEntradaPDF;
   window.v104AbrirEntradaPDF=function(){
     if(typeof v104Perm==='function'&&!v104Perm('entradas'))return alert('Você não possui permissão para importar entradas.');
@@ -5665,6 +5665,23 @@ function v108AbrirEntradaPDF(ev){
     btn.onclick=null;
     btn.addEventListener('click',v108AbrirEntradaPDF);
   }
+})();
+</script>
+
+<script id="v109-pdf-pool-fix">
+/* V109 - corrige pool.find is not a function causado por window.produtores colidir com elemento HTML */
+(function(){
+  window.v104ProducerPool=function(){ return Array.isArray(produtores) ? produtores : []; };
+  window.v107AtualizarLocalidades=function(){
+    const dl=document.getElementById('v107LocalidadesList'); if(!dl)return;
+    const vals=[];
+    for(const p of (Array.isArray(produtores)?produtores:[])){
+      if(p.local) vals.push(p.local);
+      if(Array.isArray(p.localidadesConhecidas)) vals.push(...p.localidadesConhecidas);
+    }
+    const locs=[...new Set(vals.map(x=>String(x||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    dl.innerHTML=locs.map(x=>`<option value="${v104Esc(x)}"></option>`).join('');
+  };
 })();
 </script>
 </body>
