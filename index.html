@@ -5320,7 +5320,7 @@ const old=window.renderPainel;if(typeof old==='function')window.renderPainel=fun
   <div class="v104-fields">
    <label>Arquivo PDF<input id="v104EntradaFile" type="file" accept="application/pdf,.pdf"></label>
    <label>Data das entradas<input id="v104EntradaData" type="date"></label>
-   <label>Localidade / rota<select id="v104EntradaLocal"><option value="">Todas as localidades</option></select></label>
+   <label>Localidade das entradas<input id="v104EntradaLocal" list="v107LocalidadesList" placeholder="Digite ou selecione uma localidade" autocomplete="off"><datalist id="v107LocalidadesList"></datalist></label>
    <label>Critério<select id="v104EntradaMode"><option value="seguro">Seguro — confirmar nomes duvidosos</option><option value="automatico">Automático — aceitar correspondências altas</option></select></label>
   </div>
   <div class="v104-note">✅ O código do produtor é a identificação principal. Linhas <b>SIM</b> com volume maior que zero entram para conferência; linhas <b>NÃO / 0 L</b> são ignoradas automaticamente.<br><b>Localidade inteligente:</b> quando futuros relatórios informarem a localidade, ela será gravada no cadastro do produtor e reutilizada automaticamente nas próximas entradas.</div>
@@ -5485,5 +5485,142 @@ async function v104ConfirmEntradaPDF(){
 }
 </script>
 
+
+<script id="v107-recebimento-localidade-fix">
+/* V107 - correção definitiva do leitor do relatório real + localidade digitável/selecionável */
+(function(){
+  function esc(s){return typeof v104Esc==='function'?v104Esc(s):String(s||'')}
+  function allLocalidades(){
+    const vals=[];
+    for(const p of (window.produtores||[])){
+      if(p.local) vals.push(p.local);
+      if(Array.isArray(p.localidadesConhecidas)) vals.push(...p.localidadesConhecidas);
+    }
+    return [...new Set(vals.map(x=>String(x||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  }
+  window.v107AtualizarLocalidades=function(){
+    const dl=document.getElementById('v107LocalidadesList');if(!dl)return;
+    dl.innerHTML=allLocalidades().map(x=>`<option value="${esc(x)}"></option>`).join('');
+  };
+  // A localidade no topo agora é a localidade a ser aplicada, e não um filtro de produtores.
+  window.v104ProducerPool=function(){return (window.produtores||[])};
+  const oldOpen=window.v104AbrirEntradaPDF;
+  window.v104AbrirEntradaPDF=function(){
+    if(typeof v104Perm==='function'&&!v104Perm('entradas'))return alert('Você não possui permissão para importar entradas.');
+    const d=document.getElementById('v104EntradaData');if(d&&!d.value)d.value=typeof isoHoje==='function'?isoHoje():new Date().toISOString().slice(0,10);
+    v107AtualizarLocalidades();
+    const loc=document.getElementById('v104EntradaLocal');if(loc)loc.value='';
+    const st=document.getElementById('v104EntradaStatus');if(st)st.textContent='';
+    if(window.V104){V104.entradaRows=[];V104.entradaMeta={};V104.entradaText=''}
+    const results=document.getElementById('v104EntradaResults');if(results)results.innerHTML='';
+    const meta=document.getElementById('v106EntradaMeta');if(meta)meta.innerHTML='';
+    v104Open('v104EntradaModal');
+  };
+
+  // Reconstrói as linhas do PDF pelas coordenadas X/Y. O PDF real distribui as colunas em vários objetos de texto,
+  // portanto não podemos confiar na ordem original de textContent.items.
+  window.v104PdfText=async function(file,statusEl){
+    if(!file)throw new Error('Selecione um arquivo PDF.');
+    if(!v104PdfReady())throw new Error('O leitor de PDF não carregou. Verifique sua internet e tente novamente.');
+    const buf=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    const pages=[];let chars=0;
+    for(let n=1;n<=pdf.numPages;n++){
+      if(statusEl)statusEl.textContent=`Lendo página ${n} de ${pdf.numPages}...`;
+      const pg=await pdf.getPage(n),tc=await pg.getTextContent();
+      const items=(tc.items||[]).map(it=>({str:String(it.str||'').trim(),x:Number(it.transform?.[4]||0),y:Number(it.transform?.[5]||0)})).filter(it=>it.str);
+      items.sort((a,b)=>Math.abs(b.y-a.y)>2?b.y-a.y:a.x-b.x);
+      const rows=[];
+      for(const it of items){
+        let row=rows.find(r=>Math.abs(r.y-it.y)<=2.5);
+        if(!row){row={y:it.y,items:[]};rows.push(row)}
+        row.items.push(it);
+      }
+      rows.sort((a,b)=>b.y-a.y);
+      const lines=rows.map(r=>r.items.sort((a,b)=>a.x-b.x).map(i=>i.str).join(' ').replace(/\s+/g,' ').trim()).filter(Boolean);
+      const txt=lines.join('\n');pages.push(txt);chars+=txt.replace(/\s/g,'').length;
+    }
+    let text=pages.join('\n');
+    if(chars<40&&window.Tesseract){
+      const ocr=[];if(statusEl)statusEl.textContent='PDF escaneado detectado. Fazendo leitura visual...';
+      const pdf2=await pdfjsLib.getDocument({data:buf.slice(0)}).promise;
+      for(let n=1;n<=pdf2.numPages;n++){
+        if(statusEl)statusEl.textContent=`Lendo imagem da página ${n} de ${pdf2.numPages}...`;
+        const pg=await pdf2.getPage(n),vp=pg.getViewport({scale:1.7}),cv=document.createElement('canvas'),ctx=cv.getContext('2d');
+        cv.width=vp.width;cv.height=vp.height;await pg.render({canvasContext:ctx,viewport:vp}).promise;
+        const ret=await Tesseract.recognize(cv,'por');ocr.push(ret.data?.text||'');
+      }
+      text=ocr.join('\n');
+    }
+    return text;
+  };
+
+  function parseOne(hora,codigo,nome,coletado,volume){
+    return {hora:String(hora),codigo:String(codigo),name:String(nome||'').replace(/\s+/g,' ').trim(),coletado:v104Norm(coletado)==='SIM'?'SIM':'NÃO',litros:Number(String(volume).replace(',','.'))||0,raw:[hora,codigo,nome,coletado,volume].join(' ')};
+  }
+  function extractRows(text){
+    const direct=[];
+    for(const raw of String(text||'').split(/\r?\n/)){
+      const r=typeof v106ParseLinhaRecebimento==='function'?v106ParseLinhaRecebimento(raw):null;
+      if(r)direct.push(r);
+    }
+    if(direct.length)return direct;
+    // Fallback: captura o padrão da tabela mesmo quando o leitor do navegador juntou/quebrou as linhas.
+    let flat=String(text||'').replace(/\u00a0/g,' ').replace(/[\r\n\t]+/g,' ').replace(/\s+/g,' ').trim();
+    const start=flat.search(/(?:Hora\s+)?C[oó]digo\s+Nome do Produtor/i);if(start>=0)flat=flat.slice(start);
+    flat=flat.replace(/Soma Produtores\s*:[\s\S]*$/i,'');
+    const rx=/(\d{2}:\d{2})\s+(\d+(?:-\d+)?)\s+(.+?)\s+(SIM|N[AÃ]O|NAO)\s+(-?\d+(?:[.,]\d+)?)(?=\s+\d{2}:\d{2}\s+\d+(?:-\d+)?|$)/gi;
+    const out=[];let m;while((m=rx.exec(flat)))out.push(parseOne(m[1],m[2],m[3],m[4],m[5]));
+    return out;
+  }
+  window.v104ParseEntryRows=function(text){
+    const meta=v106MetaRecebimento(text);V104.entradaMeta=meta;
+    const pool=v104ProducerPool(),out=[],globalLocal=(document.getElementById('v104EntradaLocal')?.value||'').trim();
+    for(const r of extractRows(text)){
+      if(r.coletado!=='SIM'||!(r.litros>0))continue;
+      const f=v104FindProducer(r.name,pool,r.codigo),score=f.score||0,p=f.best||null;
+      const status=f.by==='codigo'?'ok':(score>=.86?'ok':score>=.62?'warn':'bad');
+      out.push({...r,localidade:globalLocal||meta.localidade||p?.local||'',prodId:p?.id||'',prodNome:p?.nome||'',score,status,matchBy:f.by||'nome',rota:meta.rota||'',tanqueiro:meta.responsavel||''});
+    }
+    const seen=new Set();return out.filter(r=>{const k=`${r.hora}|${r.codigo}|${r.litros}`;if(seen.has(k))return false;seen.add(k);return true});
+  };
+
+  window.v107AplicarLocalidade=function(force){
+    const val=(document.getElementById('v104EntradaLocal')?.value||'').trim();if(!val)return;
+    for(let i=0;i<(V104.entradaRows||[]).length;i++){const el=document.getElementById('v104el'+i);if(el&&(force||!el.value.trim()))el.value=val}
+  };
+
+  window.v104RenderEntryRows=function(){
+    v106RenderMeta();const box=document.getElementById('v104EntradaResults');if(!box)return;
+    if(!V104.entradaRows.length){box.innerHTML='<div class="v104-empty"><b>Nenhuma coleta foi montada.</b><br>Abra “Ver texto lido do PDF” para conferir a leitura. O leitor V107 procura o padrão Hora + Código + Produtor + SIM/NÃO + Volume.</div>';return}
+    const ok=V104.entradaRows.filter(x=>x.status==='ok').length,w=V104.entradaRows.filter(x=>x.status==='warn').length,b=V104.entradaRows.filter(x=>x.status==='bad').length,total=V104.entradaRows.reduce((s,x)=>s+Number(x.litros||0),0);
+    const locs=allLocalidades();
+    box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0"><div style="display:flex;gap:8px;flex-wrap:wrap"><span class="v104-badge v104-ok">✅ ${ok} encontrados</span><span class="v104-badge v104-warn">⚠️ ${w} conferir</span><span class="v104-badge v104-bad">❌ ${b} não localizados</span><span class="v104-badge" style="background:#e8f2ff;color:#0a54a6">🥛 ${total.toLocaleString('pt-BR')} L identificados</span></div><button type="button" class="v104-primary" style="padding:8px 12px" onclick="v107AplicarLocalidade(true)">📍 Aplicar localidade a todos</button></div>
+    <div class="v104-tablewrap"><table class="v104-table"><thead><tr><th>Usar</th><th>Hora</th><th>Código</th><th>Produtor do PDF</th><th>Produtor localizado</th><th>Localidade</th><th>Litros</th><th>Situação</th></tr></thead><tbody>${V104.entradaRows.map((r,i)=>`<tr><td><input id="v104eu${i}" type="checkbox" ${r.status==='bad'?'':'checked'}></td><td><b>${esc(r.hora)}</b></td><td><b>${esc(r.codigo)}</b></td><td><b>${esc(r.name)}</b></td><td><select id="v104ep${i}">${v104ProdOptions(r.prodId)}</select></td><td><input id="v104el${i}" list="v107LocalidadesList" value="${esc(r.localidade||'')}" placeholder="Digite ou selecione"></td><td><input id="v104eq${i}" type="number" min="0.01" step="0.01" value="${r.litros}"></td><td><span class="v104-badge v104-${r.status}">${r.matchBy==='codigo'?'Código encontrado':'Nome '+Math.round(r.score*100)+'%'}</span></td></tr>`).join('')}</tbody></table></div>
+    <div class="v104-note" style="margin-top:12px">📍 <b>Localidade:</b> você pode digitar uma nova ou selecionar uma já cadastrada. Ao confirmar, se o produtor ainda não tiver localidade, o sistema grava automaticamente no cadastro dele e passa a reutilizá-la nas próximas importações.</div>
+    <button class="v104-confirm" style="width:100%;margin-top:10px;font-size:15px" onclick="v104ConfirmEntradaPDF()">✅ Confirmar e registrar ${V104.entradaRows.length} entradas de leite</button>`;
+  };
+
+  window.v104LerEntradaPDF=async function(){
+    const st=document.getElementById('v104EntradaStatus');
+    try{
+      st.textContent='Lendo e organizando as linhas do relatório...';
+      const text=await v104PdfText(document.getElementById('v104EntradaFile')?.files?.[0],st);
+      V104.entradaText=text;document.getElementById('v104EntradaRaw').value=text;
+      const meta=v106MetaRecebimento(text);V104.entradaMeta=meta;if(meta.data){const d=document.getElementById('v104EntradaData');if(d)d.value=meta.data}
+      V104.entradaRows=v104ParseEntryRows(text);
+      const total=V104.entradaRows.reduce((s,r)=>s+Number(r.litros||0),0),conf=meta.totalDeclarado?(Math.abs(total-meta.totalDeclarado)<0.01?' ✅ Total confere':` ⚠️ PDF informa ${meta.totalDeclarado.toLocaleString('pt-BR')} L; linhas SIM identificadas somam ${total.toLocaleString('pt-BR')} L`):'';
+      st.textContent=`Leitura concluída: ${V104.entradaRows.length} entrada(s) com SIM e volume > 0 • ${total.toLocaleString('pt-BR')} L.${conf}`;
+      v104RenderEntryRows();
+    }catch(e){console.error(e);st.textContent='Erro: '+e.message}
+  };
+
+  const loc=document.getElementById('v104EntradaLocal');
+  if(loc){
+    loc.addEventListener('change',()=>v107AplicarLocalidade(true));
+    loc.addEventListener('blur',()=>v107AplicarLocalidade(true));
+  }
+})();
+</script>
 </body>
 </html>
