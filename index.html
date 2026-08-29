@@ -1399,6 +1399,17 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
         <div class="kpi"><div class="ico purple">📈</div><div><div class="label">LITROS NO MÊS</div><div class="value" id="kpiMes">0</div><small>litros</small></div></div>
       </div>
 
+      <div class="v103-summary" id="v103SummaryToday"></div>
+      <div class="v103-dashboard-grid">
+        <div class="card v103-chart-card">
+          <div class="v103-card-head"><h3>📈 PRODUÇÃO DE LEITE - ÚLTIMOS 30 DIAS</h3><div class="v103-range"><button onclick="v103SetRange(7)">7 dias</button><button class="active" onclick="v103SetRange(30)">30 dias</button></div></div>
+          <canvas id="v103MilkChart" height="210"></canvas>
+        </div>
+        <div class="card v103-finance-card">
+          <div class="v103-card-head"><h3>💰 RESUMO FINANCEIRO</h3></div>
+          <div id="v103Finance"></div>
+        </div>
+      </div>
       <div class="layout">
         <div>
           <div class="card">
@@ -5248,5 +5259,33 @@ const side=document.querySelector('.sidebar');if(side&&!side.querySelector('.v10
   setTimeout(apply,100);
 })();
 </script>
-</body>
+
+<style id="v103-dashboard-enhancements">
+@media(min-width:761px){
+.v103-summary{margin:14px 0;display:grid;grid-template-columns:repeat(5,1fr);background:#fff;border:1px solid #dbe5ef;border-radius:16px;box-shadow:0 5px 18px #123b6510;overflow:hidden}
+.v103-summary>div{padding:13px 15px;border-right:1px solid #e5edf5}.v103-summary>div:last-child{border-right:0}.v103-summary small{display:block;color:#64748b;font-weight:800;font-size:11px}.v103-summary strong{display:block;color:#082f63;font-size:21px;margin:3px 0}.v103-summary em{font-style:normal;font-size:11px;color:#168447;font-weight:800}
+.v103-dashboard-grid{display:grid;grid-template-columns:minmax(0,2.1fr) minmax(280px,.9fr);gap:16px;margin:16px 0}.v103-dashboard-grid .card{margin:0}.v103-card-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.v103-range{display:flex;gap:5px}.v103-range button{border:1px solid #cbd9e8;background:#fff;color:#0b5fc7;border-radius:9px;padding:7px 11px;font-weight:800}.v103-range button.active{background:#0b5fc7;color:#fff}.v103-chart-card canvas{width:100%;max-height:230px}.v103-fin-row{display:flex;justify-content:space-between;gap:12px;padding:11px 2px;border-bottom:1px solid #e7edf4;font-size:13px}.v103-fin-row:last-child{border-bottom:0}.v103-fin-row b{color:#163d69}.v103-fin-row strong{color:#0b5fc7}.v103-fin-row.total{margin-top:6px;padding:12px;background:#edf6ff;border-radius:10px;border:0}.v103-fin-note{font-size:11px;color:#64748b;margin-top:9px}
+}
+@media(max-width:1200px) and (min-width:761px){.v103-summary{grid-template-columns:repeat(3,1fr)}.v103-dashboard-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.v103-summary,.v103-dashboard-grid{display:none!important}}
+</style>
+\n<script id="v103-dashboard-enhancements-script">
+(function(){
+let range=30;
+function n(v){return Number(v||0)}
+function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function pct(a,b){if(!b)return a?'+100%':'0%';let x=(a-b)/b*100;return (x>=0?'+':'')+x.toFixed(1).replace('.',',')+'%'}
+function chart(days){
+ const c=document.getElementById('v103MilkChart'); if(!c||!window.lancamentos)return; const ctx=c.getContext('2d'),dpr=window.devicePixelRatio||1,w=c.clientWidth||700,h=210;c.width=w*dpr;c.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+ let arr=[],now=new Date();for(let i=days-1;i>=0;i--){let d=new Date(now);d.setDate(now.getDate()-i);let k=ymd(d),v=lancamentos.filter(x=>x.data===k).reduce((s,x)=>s+n(x.qtd),0);arr.push({d,v})}
+ let max=Math.max(1,...arr.map(x=>x.v))*1.15,pad={l:48,r:16,t:15,b:28},pw=w-pad.l-pad.r,ph=h-pad.t-pad.b;ctx.font='11px Arial';ctx.strokeStyle='#dce7f2';ctx.fillStyle='#66758a';ctx.lineWidth=1;
+ for(let i=0;i<=4;i++){let y=pad.t+ph*i/4;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(w-pad.r,y);ctx.stroke();ctx.fillText(Math.round(max*(1-i/4))+' L',3,y+4)}
+ let pts=arr.map((x,i)=>({x:pad.l+(arr.length===1?0:pw*i/(arr.length-1)),y:pad.t+ph-(x.v/max*ph),...x}));ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.strokeStyle='#0867d7';ctx.lineWidth=3;ctx.stroke();ctx.lineTo(pts[pts.length-1].x,pad.t+ph);ctx.lineTo(pts[0].x,pad.t+ph);ctx.closePath();ctx.fillStyle='rgba(8,103,215,.10)';ctx.fill();ctx.fillStyle='#0867d7';pts.forEach((p,i)=>{if(i%(days>10?5:1)===0||i===pts.length-1){ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();ctx.fillStyle='#66758a';ctx.fillText(p.d.slice(8,10)+'/'+p.d.slice(5,7),Math.max(2,p.x-14),h-8);ctx.fillStyle='#0867d7'}})
+}
+window.v103SetRange=function(d){range=d;document.querySelectorAll('.v103-range button').forEach(b=>b.classList.toggle('active',b.textContent.startsWith(String(d))));chart(d)};
+function update(){if(!window.lancamentos||!window.produtores)return;let h=typeof isoHoje==='function'?isoHoje():ymd(new Date()),dt=new Date(h+'T12:00:00'),prev=new Date(dt);prev.setDate(prev.getDate()-1);let ph=ymd(prev),today=lancamentos.filter(x=>x.data===h),yest=lancamentos.filter(x=>x.data===ph),lit=today.reduce((s,x)=>s+n(x.qtd),0),litY=yest.reduce((s,x)=>s+n(x.qtd),0),prod=new Set(today.map(x=>x.prodId)).size,avg=prod?lit/prod:0,last=today.slice().sort((a,b)=>String(b.id||'').localeCompare(String(a.id||'')))[0];let el=document.getElementById('v103SummaryToday');if(el)el.innerHTML=`<div><small>RESUMO DE HOJE</small><strong>${typeof fmt==='function'?fmt(lit):lit} L</strong><em>${pct(lit,litY)} vs. ontem</em></div><div><small>ENTRADAS HOJE</small><strong>${today.length}</strong><em>${pct(today.length,yest.length)} vs. ontem</em></div><div><small>PRODUTORES ENTREGARAM</small><strong>${prod}</strong><em>de ${produtores.length} cadastrados</em></div><div><small>MÉDIA POR PRODUTOR</small><strong>${typeof fmt==='function'?fmt(avg):avg.toFixed(1)} L</strong><em>produção média hoje</em></div><div><small>ÚLTIMA ENTRADA</small><strong>${last?(typeof fmt==='function'?fmt(last.qtd):last.qtd)+' L':'—'}</strong><em>${last?(prodById(last.prodId)?.nome||'Produtor'):'Sem entrada hoje'}</em></div>`;
+ let ym=h.slice(0,7),month=lancamentos.filter(x=>x.data.startsWith(ym)),ml=month.reduce((s,x)=>s+n(x.qtd),0),q1=typeof resumoQuinzena==='function'?resumoQuinzena(1):null,q2=typeof resumoQuinzena==='function'?resumoQuinzena(2):null,bruto=(q1?n(q1.valor):0)+(q2?n(q2.valor):0),deb=(q1?n(q1.deb):0)+(q2?n(q2.deb):0),liq=(q1?n(q1.liquido):0)+(q2?n(q2.liquido):0);let f=document.getElementById('v103Finance');if(f)f.innerHTML=`<div class="v103-fin-row"><b>🥛 Leite coletado no mês</b><strong>${typeof fmt==='function'?fmt(ml):ml} L</strong></div><div class="v103-fin-row"><b>💵 Valor bruto produtores</b><strong>${typeof moeda==='function'?moeda(bruto):bruto}</strong></div><div class="v103-fin-row"><b>🧾 Débitos/descontos</b><strong>${typeof moeda==='function'?moeda(deb):deb}</strong></div><div class="v103-fin-row total"><b>💰 Líquido previsto</b><strong>${typeof moeda==='function'?moeda(liq):liq}</strong></div><div class="v103-fin-note">Resumo calculado com os dados atuais do sistema.</div>`;chart(range)}
+const old=window.renderPainel;if(typeof old==='function')window.renderPainel=function(){let r=old.apply(this,arguments);setTimeout(update,0);return r};window.addEventListener('resize',()=>chart(range));setTimeout(update,700);
+})();
+</script>\n</body>
 </html>
