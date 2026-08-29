@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0b4fbd">
-<title>Vale da Serra • App V77</title>
+<title>Vale da Serra • App V80</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <style>
 :root{--green:#0d6a45;--green2:#07563a;--deep:#083f2d;--cream:#f6f3e8;--card:#fff;--ink:#104b38;--muted:#737c77;--line:#e2e8e4;--blue:#103d72;--yellow:#f3c326;--danger:#b42318;--shadow:0 10px 28px rgba(23,74,55,.08)}
@@ -189,4 +189,78 @@ body{background:linear-gradient(180deg,#f7f9fd 0%,#eef4fb 100%);color:#172b4d}
 .receipt-actions .print{background:#0b4fbd}.product.pdv-click:active{border-color:#2f80ed;box-shadow:0 0 0 3px rgba(47,128,237,.20)}
 #screen-pdvrel .row-value{color:#0b4fbd}.card,.row,.product,.report-mini{box-shadow:0 5px 18px rgba(12,55,120,.05)}
 .badge.ok{background:#e6f6ed;color:#08763a}.primary{background:linear-gradient(135deg,#0b4fbd,#1474df)}
+</style>
+<style id="v80-mobile-polish">
+/* V80 - acabamento mobile: nomes longos + espacamento do carrinho */
+#screen-produtores .row,
+#screen-historico .row{
+  display:grid;
+  grid-template-columns:48px minmax(0,1fr) auto;
+  gap:12px;
+  align-items:center;
+  width:100%;
+  min-width:0;
+}
+#screen-produtores .row-main,
+#screen-historico .row-main{
+  min-width:0;
+  overflow:hidden;
+}
+#screen-produtores .row-main b,
+#screen-historico .row-main b{
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  overflow-wrap:anywhere;
+  word-break:normal;
+  line-height:1.18;
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  line-clamp:2;
+}
+#screen-produtores .row-main small,
+#screen-historico .row-main small{
+  white-space:normal;
+  overflow-wrap:anywhere;
+  line-height:1.25;
+}
+#screen-produtores .badge{
+  align-self:start;
+  white-space:nowrap;
+  margin-top:2px;
+}
+#screen-historico .row-value{
+  white-space:nowrap;
+  font-size:14px;
+  max-width:74px;
+}
+#screen-pdv{
+  padding-bottom:calc(190px + env(safe-area-inset-bottom,0px));
+}
+#screen-pdv .cartbar{
+  bottom:calc(104px + env(safe-area-inset-bottom,0px))!important;
+  left:14px;
+  right:14px;
+}
+@media(max-width:420px){
+  #screen-produtores .row{
+    grid-template-columns:48px minmax(0,1fr);
+  }
+  #screen-produtores .badge{
+    grid-column:2;
+    justify-self:start;
+    margin-top:3px;
+  }
+  #screen-historico .row{
+    grid-template-columns:48px minmax(0,1fr);
+  }
+  #screen-historico .row-value{
+    grid-column:2;
+    justify-self:start;
+    max-width:none;
+    margin-top:2px;
+    font-size:13px;
+  }
+}
 </style>
