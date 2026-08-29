@@ -1473,7 +1473,7 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
         <div class="v38-photo-import" style="margin:0 0 16px;padding:14px;border:1px solid #d7e4d8;border-radius:16px;background:linear-gradient(135deg,#f7fbf5,#fffdf5)">
   <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap">
     <div><b style="color:#123d2a;font-size:16px">📸 Leitura Inteligente da Folha de Leite</b><div style="font-size:12px;color:#64748b;margin-top:3px">Tire uma foto da folha, confira os nomes e litros e só depois confirme as entradas.</div></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><button id="v38FotoLeiteBtn" type="button" onclick="v38AbrirFotoLeite()" style="background:#1f6b3a;color:#fff;border:0;border-radius:12px;padding:11px 16px;font-weight:800;cursor:pointer">📷 Importar por Foto</button><button id="v104PdfLeiteBtn" type="button" onclick="v104AbrirEntradaPDF()" style="background:#155acb;color:#fff;border:0;border-radius:12px;padding:11px 16px;font-weight:800;cursor:pointer">📄 Importar Relatório PDF</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button id="v38FotoLeiteBtn" type="button" onclick="v38AbrirFotoLeite()" style="background:#1f6b3a;color:#fff;border:0;border-radius:12px;padding:11px 16px;font-weight:800;cursor:pointer">📷 Importar por Foto</button><button id="v104PdfLeiteBtn" type="button" onclick="v108AbrirEntradaPDF(event)" style="background:#155acb;color:#fff;border:0;border-radius:12px;padding:11px 16px;font-weight:800;cursor:pointer">📄 Importar Relatório PDF</button></div>
   </div>
 </div>
 <form id="formLanc">
@@ -5619,6 +5619,51 @@ async function v104ConfirmEntradaPDF(){
   if(loc){
     loc.addEventListener('change',()=>v107AplicarLocalidade(true));
     loc.addEventListener('blur',()=>v107AplicarLocalidade(true));
+  }
+})();
+</script>
+
+<script id="v108-pdf-open-fix">
+/* V108 - abertura robusta do modal de importação PDF */
+function v108AbrirEntradaPDF(ev){
+  try{
+    if(ev&&typeof ev.preventDefault==='function') ev.preventDefault();
+    var modal=document.getElementById('v104EntradaModal');
+    if(!modal){alert('A janela de importação PDF não foi encontrada.');return false;}
+    // Permissão: só bloqueia quando a função de permissão existe e retorna false.
+    try{ if(typeof v104Perm==='function' && !v104Perm('entradas')){ alert('Você não possui permissão para importar entradas.'); return false; } }catch(_e){}
+    var d=document.getElementById('v104EntradaData');
+    if(d&&!d.value){
+      try{d.value=(typeof isoHoje==='function'?isoHoje():new Date().toISOString().slice(0,10));}catch(_e){d.value=new Date().toISOString().slice(0,10);}
+    }
+    var loc=document.getElementById('v104EntradaLocal'); if(loc) loc.value='';
+    var st=document.getElementById('v104EntradaStatus'); if(st) st.textContent='Selecione o PDF e clique em “Ler e distribuir”.';
+    var results=document.getElementById('v104EntradaResults'); if(results) results.innerHTML='';
+    var meta=document.getElementById('v106EntradaMeta'); if(meta) meta.innerHTML='';
+    try{ if(typeof V104!=='undefined'){V104.entradaRows=[];V104.entradaMeta={};V104.entradaText='';} }catch(_e){}
+    try{ if(typeof v107AtualizarLocalidades==='function') v107AtualizarLocalidades(); }catch(_e){}
+    modal.classList.add('on');
+    modal.style.display='flex';
+    modal.setAttribute('aria-hidden','false');
+    return false;
+  }catch(err){
+    console.error('V108 abrir PDF:',err);
+    alert('Não foi possível abrir a importação de PDF: '+(err&&err.message?err.message:String(err)));
+    return false;
+  }
+}
+// Fecha corretamente mesmo com display forçado pelo reparo V108.
+(function(){
+  var old=window.v104Fechar;
+  window.v104Fechar=function(id){
+    var el=document.getElementById(id);
+    if(el){el.classList.remove('on');el.style.display='';el.setAttribute('aria-hidden','true');}
+    else if(typeof old==='function') old(id);
+  };
+  var btn=document.getElementById('v104PdfLeiteBtn');
+  if(btn){
+    btn.onclick=null;
+    btn.addEventListener('click',v108AbrirEntradaPDF);
   }
 })();
 </script>
