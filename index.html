@@ -5303,11 +5303,11 @@ const old=window.renderPainel;if(typeof old==='function')window.renderPainel=fun
  <div class="v104-body">
   <div class="v104-fields">
    <label>Arquivo PDF<input id="v104ProdFile" type="file" accept="application/pdf,.pdf"></label>
-   <label>Localidade padrão<input id="v104ProdLocal" placeholder="Opcional"></label>
-   <label>Tanqueiro padrão<input id="v104ProdTanqueiro" placeholder="Opcional"></label>
-   <label>Caminhão padrão<input id="v104ProdCaminhao" placeholder="Opcional"></label>
+   <label>Formato identificado<input value="Relação de Produtores Vale da Serra" readonly></label>
+   <label>Localidade<input value="Será aprendida nas entradas de leite" readonly></label>
+   <label>Identificação<select id="v104ProdIdMode"><option value="codigo">Código do produtor + nome</option><option value="nome">Nome do produtor</option></select></label>
   </div>
-  <div class="v104-note">💡 Se o PDF tiver apenas os nomes, use os campos padrão acima. Se ele já tiver Localidade, Tanqueiro ou Caminhão em colunas, o sistema tentará aproveitar esses dados.</div>
+  <div class="v104-note">✅ Este importador foi ajustado para a sua <b>Relação de Produtores</b>. Ele cadastra <b>Código, Nome, Rota e Cidade/UF</b>. A <b>Localidade rural</b> fica vazia neste momento e será aprendida automaticamente quando aparecer nos relatórios de entrada de leite.</div>
   <div class="v104-actions"><button class="v104-primary" onclick="v104LerProdPDF()">🔎 Ler PDF</button><span id="v104ProdStatus" class="v104-status"></span></div>
   <div id="v104ProdResults"></div>
   <details class="v104-raw"><summary>Ver texto lido do PDF</summary><textarea id="v104ProdRaw" readonly></textarea></details>
@@ -5315,7 +5315,7 @@ const old=window.renderPainel;if(typeof old==='function')window.renderPainel=fun
 </div>
 
 <div id="v104EntradaModal" class="v104-modal">
- <div class="v104-box"><div class="v104-head"><div><h2>📄 Importar Relatório de Leite por PDF</h2><p>O sistema localiza os produtores cadastrados e prepara a distribuição dos litros para conferência.</p></div><button class="v104-x" onclick="v104Fechar('v104EntradaModal')">×</button></div>
+ <div class="v104-box"><div class="v104-head"><div><h2>📄 Importar Relatório de Leite por PDF</h2><p>Leitor ajustado ao modelo oficial “RELATÓRIO DE RECEBIMENTO - TANQUEIRO”: identifica Data, Rota, Responsável, Código, Produtor, Coletado e Volume.</p></div><button class="v104-x" onclick="v104Fechar('v104EntradaModal')">×</button></div>
  <div class="v104-body">
   <div class="v104-fields">
    <label>Arquivo PDF<input id="v104EntradaFile" type="file" accept="application/pdf,.pdf"></label>
@@ -5323,8 +5323,9 @@ const old=window.renderPainel;if(typeof old==='function')window.renderPainel=fun
    <label>Localidade / rota<select id="v104EntradaLocal"><option value="">Todas as localidades</option></select></label>
    <label>Critério<select id="v104EntradaMode"><option value="seguro">Seguro — confirmar nomes duvidosos</option><option value="automatico">Automático — aceitar correspondências altas</option></select></label>
   </div>
-  <div class="v104-note">✅ Verde = produtor localizado com alta confiança. ⚠️ Amarelo = confira o produtor. ❌ Vermelho = não localizado; selecione manualmente antes de importar.</div>
+  <div class="v104-note">✅ O código do produtor é a identificação principal. Linhas <b>SIM</b> com volume maior que zero entram para conferência; linhas <b>NÃO / 0 L</b> são ignoradas automaticamente.<br><b>Localidade inteligente:</b> quando futuros relatórios informarem a localidade, ela será gravada no cadastro do produtor e reutilizada automaticamente nas próximas entradas.</div>
   <div class="v104-actions"><button class="v104-primary" onclick="v104LerEntradaPDF()">🔎 Ler e distribuir</button><span id="v104EntradaStatus" class="v104-status"></span></div>
+  <div id="v106EntradaMeta"></div>
   <div id="v104EntradaResults"></div>
   <details class="v104-raw"><summary>Ver texto lido do PDF</summary><textarea id="v104EntradaRaw" readonly></textarea></details>
  </div></div>
@@ -5351,19 +5352,138 @@ async function v104PdfText(file,statusEl){
 }
 function v104LooksHeader(line){let n=v104Norm(line);return /PRODUTOR|NOME|LOCALIDADE|TANQUEIRO|CAMINHAO|LITROS|QUANTIDADE|TOTAL|RELATORIO|DATA/.test(n)&&n.split(' ').length<9}
 function v104CleanName(x){return String(x||'').replace(/^\s*\d+[.)-]?\s*/,'').replace(/\b\d{2}\/\d{2}\/\d{2,4}\b/g,'').replace(/\b\d+(?:[.,]\d+)?\s*(?:L|LT|LITROS?)\b/gi,'').replace(/[|;]+/g,' ').replace(/\s+/g,' ').trim()}
-function v104ProducerDuplicate(nome){let nn=v104Norm(nome);return produtores.find(p=>v104Norm(p.nome)===nn)}
-function v104ParseProducerRows(text){let dLocal=document.getElementById('v104ProdLocal')?.value.trim()||'',dTan=document.getElementById('v104ProdTanqueiro')?.value.trim()||'',dCam=document.getElementById('v104ProdCaminhao')?.value.trim()||'';let rows=[];for(let raw of String(text||'').split(/\r?\n/)){let line=raw.trim();if(!line||line.length<3||v104LooksHeader(line))continue;let parts=line.split(/\s{2,}|\t|\s*\|\s*|\s*;\s*/).map(x=>x.trim()).filter(Boolean);let nome='',local=dLocal,tanqueiro=dTan,caminhao=dCam;if(parts.length>=2){let useful=parts.filter(x=>!/^\d+$/.test(x));nome=v104CleanName(useful[0]||'');if(useful[1]&&!/\d+[.,]\d+/.test(useful[1]))local=useful[1];if(useful[2])tanqueiro=useful[2];if(useful[3])caminhao=useful[3]}else nome=v104CleanName(line);if(!nome||nome.length<4||!/[A-Za-zÀ-ÿ]{2,}\s+[A-Za-zÀ-ÿ]{2,}/.test(nome))continue;if(/^(VALE DA SERRA|LATICINIOS|PAGINA|RELATORIO|RESPONSAVEL)/i.test(nome))continue;let dup=v104ProducerDuplicate(nome);if(!rows.some(r=>v104Norm(r.nome)===v104Norm(nome)))rows.push({nome,local,tanqueiro,caminhao,whatsapp:'',dup:dup?.id||''})}return rows}
-function v104RenderProdRows(){let box=document.getElementById('v104ProdResults');if(!box)return;if(!V104.prodRows.length){box.innerHTML='<div class="v104-empty">Nenhum produtor foi identificado automaticamente. Verifique o texto lido ou tente outro PDF.</div>';return}box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin:8px 0"><b>${V104.prodRows.length} produtor(es) encontrado(s)</b><span class="v104-status">Você pode corrigir qualquer campo antes de cadastrar.</span></div><div class="v104-tablewrap"><table class="v104-table"><thead><tr><th>Usar</th><th>Produtor</th><th>Localidade</th><th>Tanqueiro</th><th>Caminhão</th><th>Situação</th></tr></thead><tbody>${V104.prodRows.map((r,i)=>`<tr><td><input id="v104pu${i}" type="checkbox" ${r.dup?'':'checked'}></td><td><input id="v104pn${i}" value="${v104Esc(r.nome)}"></td><td><input id="v104pl${i}" value="${v104Esc(r.local)}"></td><td><input id="v104pt${i}" value="${v104Esc(r.tanqueiro)}"></td><td><input id="v104pc${i}" value="${v104Esc(r.caminhao)}"></td><td>${r.dup?'<span class="v104-badge v104-warn">Já cadastrado</span>':'<span class="v104-badge v104-ok">Novo</span>'}</td></tr>`).join('')}</tbody></table></div><button class="v104-confirm" style="width:100%;margin-top:14px" onclick="v104ConfirmProdPDF()">✅ Confirmar e cadastrar produtores selecionados</button>`}
-async function v104LerProdPDF(){let st=document.getElementById('v104ProdStatus');try{st.textContent='Preparando PDF...';let text=await v104PdfText(document.getElementById('v104ProdFile')?.files?.[0],st);V104.prodText=text;document.getElementById('v104ProdRaw').value=text;V104.prodRows=v104ParseProducerRows(text);st.textContent=`Leitura concluída: ${V104.prodRows.length} possível(is) produtor(es).`;v104RenderProdRows()}catch(e){console.error(e);st.textContent='Erro: '+e.message}}
-async function v104ConfirmProdPDF(){let criados=0,ignorados=0;for(let i=0;i<V104.prodRows.length;i++){if(!document.getElementById('v104pu'+i)?.checked)continue;let nome=document.getElementById('v104pn'+i)?.value.trim(),local=document.getElementById('v104pl'+i)?.value.trim(),tanqueiro=document.getElementById('v104pt'+i)?.value.trim(),caminhao=document.getElementById('v104pc'+i)?.value.trim();if(!nome){ignorados++;continue}if(v104ProducerDuplicate(nome)){ignorados++;continue}let p={id:crypto.randomUUID(),nome,local,tanqueiro,whatsTanqueiro:'',caminhao,whatsapp:''};produtores.push(p);criados++;try{await v25Audit('PRODUTOR_CRIADO',{nome,local,tanqueiro,caminhao,origem:'Importação PDF em lote'})}catch(e){}}if(!criados)return alert('Nenhum produtor novo foi cadastrado. Os selecionados podem já existir.');save();v104Fechar('v104ProdModal');alert(`✅ ${criados} produtor(es) cadastrado(s) pelo PDF.${ignorados?`\n${ignorados} linha(s) ignorada(s) por duplicidade ou falta de nome.`:''}`)}
+function v104ProducerDuplicate(nome,codigo){let cc=String(codigo||'').trim();if(cc){let byCode=produtores.find(p=>String(p.codigo||'').trim()===cc);if(byCode)return byCode}let nn=v104Norm(nome);return produtores.find(p=>v104Norm(p.nome)===nn)}
+function v105MergeProducerLines(text){let src=String(text||'').split(/\r?\n/).map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean), recs=[],cur='';for(let line of src){if(/^(RELAT[ÓO]RIO DE PRODUTORES|VALE DA SERRA|EMITIDO EM|POR:|FILTROS|ROTA\(S\)|SITUA[CÇ][AÃ]O:|TIPO DE PRODUTOR|CAPTA[CÇ][AÃ]O:|CIDADE\s*-\s*UF:|C[ÓO]DIGO\s+NOME|P[ÁA]GINA\s+\d+)/i.test(line))continue;if(/^\d+(?:-\d+)?\s+/.test(line)){if(cur)recs.push(cur);cur=line}else if(cur){cur+=' '+line}}if(cur)recs.push(cur);return recs}
+function v105ParseRelationRecord(line){let m=String(line||'').match(/^(\d+(?:-\d+)?)\s+(.+?)\s+(\d+)\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ .'-]*?\s*-\s*[A-Z]{2})$/);if(!m)return null;let codigo=m[1].trim(),nome=m[2].replace(/\s+/g,' ').trim(),rota=m[3].trim(),cidade=m[4].replace(/\s+/g,' ').trim();if(!nome||nome.length<3)return null;return {codigo,nome,rota,cidade}}
+function v104ParseProducerRows(text){let rows=[];for(let rec of v105MergeProducerLines(text)){let r=v105ParseRelationRecord(rec);if(!r)continue;let dup=v104ProducerDuplicate(r.nome,r.codigo);if(!rows.some(x=>String(x.codigo)===String(r.codigo)))rows.push({...r,local:'',tanqueiro:'',caminhao:'',whatsapp:'',dup:dup?.id||''})}return rows}
+function v104RenderProdRows(){let box=document.getElementById('v104ProdResults');if(!box)return;if(!V104.prodRows.length){box.innerHTML='<div class="v104-empty">Nenhum produtor foi identificado. Este leitor espera o formato da Relação de Produtores da Vale da Serra.</div>';return}let novos=V104.prodRows.filter(r=>!r.dup).length,dups=V104.prodRows.length-novos;box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0"><b>${V104.prodRows.length} produtor(es) identificado(s) • ${novos} novo(s) • ${dups} já cadastrado(s)</b><span class="v104-status">Localidade rural será preenchida pelas futuras entradas de leite.</span></div><div class="v104-tablewrap"><table class="v104-table"><thead><tr><th>Usar</th><th>Código</th><th>Produtor</th><th>Rota</th><th>Cidade / UF</th><th>Localidade</th><th>Situação</th></tr></thead><tbody>${V104.prodRows.map((r,i)=>`<tr><td><input id="v104pu${i}" type="checkbox" ${r.dup?'':'checked'}></td><td><input id="v104pcod${i}" value="${v104Esc(r.codigo)}" readonly></td><td><input id="v104pn${i}" value="${v104Esc(r.nome)}"></td><td><input id="v104pr${i}" value="${v104Esc(r.rota)}"></td><td><input id="v104pci${i}" value="${v104Esc(r.cidade)}"></td><td><span class="v104-badge v104-warn">A aprender</span></td><td>${r.dup?'<span class="v104-badge v104-warn">Já cadastrado</span>':'<span class="v104-badge v104-ok">Novo</span>'}</td></tr>`).join('')}</tbody></table></div><button class="v104-confirm" style="width:100%;margin-top:14px" onclick="v104ConfirmProdPDF()">✅ Confirmar e cadastrar produtores selecionados</button>`}
+async function v104LerProdPDF(){let st=document.getElementById('v104ProdStatus');try{st.textContent='Preparando Relação de Produtores...';let text=await v104PdfText(document.getElementById('v104ProdFile')?.files?.[0],st);V104.prodText=text;document.getElementById('v104ProdRaw').value=text;V104.prodRows=v104ParseProducerRows(text);st.textContent=`Leitura concluída: ${V104.prodRows.length} produtor(es) identificados.`;v104RenderProdRows()}catch(e){console.error(e);st.textContent='Erro: '+e.message}}
+async function v104ConfirmProdPDF(){let criados=0,ignorados=0,atualizados=0;for(let i=0;i<V104.prodRows.length;i++){if(!document.getElementById('v104pu'+i)?.checked)continue;let codigo=document.getElementById('v104pcod'+i)?.value.trim(),nome=document.getElementById('v104pn'+i)?.value.trim(),rota=document.getElementById('v104pr'+i)?.value.trim(),cidade=document.getElementById('v104pci'+i)?.value.trim();if(!nome){ignorados++;continue}let existente=v104ProducerDuplicate(nome,codigo);if(existente){let changed=false;if(codigo&&!existente.codigo){existente.codigo=codigo;changed=true}if(rota&&!existente.rota){existente.rota=rota;changed=true}if(cidade&&!existente.cidade){existente.cidade=cidade;changed=true}if(changed)atualizados++;else ignorados++;continue}let p={id:crypto.randomUUID(),codigo,nome,rota,cidade,local:'',tanqueiro:'',whatsTanqueiro:'',caminhao:'',whatsapp:'',aliases:[]};produtores.push(p);criados++;try{await v25Audit('PRODUTOR_CRIADO',{codigo,nome,rota,cidade,localidade:'Aguardando relatório de entrada',origem:'Relação de Produtores PDF'})}catch(e){}}if(!criados&&!atualizados)return alert('Nenhum produtor novo foi cadastrado. Os selecionados já podem existir.');save();v104Fechar('v104ProdModal');alert(`✅ Relação processada com sucesso.\n${criados} produtor(es) novo(s) cadastrado(s).${atualizados?`\n${atualizados} cadastro(s) complementado(s) com código/rota/cidade.`:''}${ignorados?`\n${ignorados} registro(s) já estavam atualizados.`:''}\n\nA localidade rural será preenchida automaticamente quando aparecer no relatório de entrada de leite.`)}
 function v104ProducerPool(){let local=document.getElementById('v104EntradaLocal')?.value||'';let a=produtores||[];return local?a.filter(p=>v104Norm(p.local)===v104Norm(local)):a}
 function v104Similarity(a,b){if(typeof v38Score==='function')return v38Score(a,b);a=v104Norm(a);b=v104Norm(b);if(a===b)return 1;if(a.includes(b)||b.includes(a))return .93;let A=new Set(a.split(' ')),B=new Set(b.split(' ')),inter=[...A].filter(x=>B.has(x)).length;return inter/Math.max(A.size,B.size,1)}
-function v104FindProducer(name,pool){let best=null,score=0;for(let p of pool){let sc=v104Similarity(name,p.nome);if(sc>score){score=sc;best=p}}return {best,score}}
-function v104ParseEntryRows(text){let pool=v104ProducerPool(),out=[];let dateRx=/\b\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}\b/g;for(let raw of String(text||'').split(/\r?\n/)){let line=raw.trim();if(!line||line.length<4||v104LooksHeader(line))continue;let nums=[...line.matchAll(/(?:^|\s)(\d{1,5}(?:[.,]\d{1,2})?)(?=\s|$|L\b|LT\b)/gi)].map(m=>({v:Number(m[1].replace(',','.')),raw:m[1]})).filter(x=>x.v>0&&x.v<10000);if(!nums.length)continue;let litros=nums[nums.length-1].v;let name=line.replace(dateRx,' ').replace(/\b\d{1,5}(?:[.,]\d{1,2})?\s*(?:L|LT|LITROS?)?\b/gi,' ').replace(/[|;:–—-]+/g,' ').replace(/\s+/g,' ').trim();name=name.replace(/^(M|T|MANHA|TARDE)\s+/i,'').trim();if(name.length<3)continue;let f=v104FindProducer(name,pool);let score=f.score||0;let status=score>=.86?'ok':score>=.62?'warn':'bad';out.push({raw:line,name,litros,prodId:f.best?.id||'',prodNome:f.best?.nome||'',score,status})}let uniq=[];for(let r of out){let key=v104Norm(r.name)+'|'+r.litros;if(!uniq.some(x=>v104Norm(x.name)+'|'+x.litros===key))uniq.push(r)}return uniq}
+function v104FindProducer(name,pool,codigo){let cc=String(codigo||'').trim();if(cc){let exact=pool.find(p=>String(p.codigo||'').trim()===cc);if(exact)return {best:exact,score:1,by:'codigo'}}let best=null,score=0;for(let p of pool){let candidates=[p.nome,...(Array.isArray(p.aliases)?p.aliases:[])];for(let c of candidates){let sc=v104Similarity(name,c);if(sc>score){score=sc;best=p}}}return {best,score,by:'nome'}}
+function v105ExtractLocality(line){let m=String(line||'').match(/(?:LOCALIDADE|LOCAL|S[ÍI]TIO|FAZENDA)\s*[:\-]\s*([^|;]+?)(?=\s{2,}|\||;|$)/i);return m?m[1].trim():''}
+function v105ExtractCode(line){let m=String(line||'').match(/(?:C[ÓO]D(?:IGO)?\.?\s*[:#-]?\s*)?(\d+(?:-\d+)?)(?=\s+)/i);return m?m[1]:''}
+function v104ParseEntryRows(text){let pool=v104ProducerPool(),out=[],currentLocal='';let dateRx=/\b\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}\b/g;for(let raw of String(text||'').split(/\r?\n/)){let line=raw.replace(/\s+/g,' ').trim();if(!line)continue;let locHeader=line.match(/^(?:LOCALIDADE|LOCAL|S[ÍI]TIO|FAZENDA)\s*[:\-]\s*(.+)$/i);if(locHeader){currentLocal=locHeader[1].trim();continue}if(line.length<4||v104LooksHeader(line))continue;let nums=[...line.matchAll(/(?:^|\s)(\d{1,5}(?:[.,]\d{1,2})?)(?=\s|$|L\b|LT\b)/gi)].map(m=>({v:Number(m[1].replace(',','.')),raw:m[1]})).filter(x=>x.v>0&&x.v<10000);if(!nums.length)continue;let litros=nums[nums.length-1].v,codigo=v105ExtractCode(line),localidade=v105ExtractLocality(line)||currentLocal;let name=line.replace(dateRx,' ').replace(/(?:LOCALIDADE|LOCAL|S[ÍI]TIO|FAZENDA)\s*[:\-]\s*[^|;]+/gi,' ').replace(/^\s*\d+(?:-\d+)?\s+/,' ').replace(/\b\d{1,5}(?:[.,]\d{1,2})?\s*(?:L|LT|LITROS?)?\b/gi,' ').replace(/[|;:–—]+/g,' ').replace(/\s+/g,' ').trim();name=name.replace(/^(M|T|MANHA|MANHÃ|TARDE)\s+/i,'').trim();if(name.length<3&&!codigo)continue;let f=v104FindProducer(name,pool,codigo),score=f.score||0,status=score>=.86?'ok':score>=.62?'warn':'bad';out.push({raw:line,codigo,name,localidade,litros,prodId:f.best?.id||'',prodNome:f.best?.nome||'',score,status,matchBy:f.by||'nome'})}let uniq=[];for(let r of out){let key=(r.codigo||v104Norm(r.name))+'|'+r.litros+'|'+v104Norm(r.localidade);if(!uniq.some(x=>(x.codigo||v104Norm(x.name))+'|'+x.litros+'|'+v104Norm(x.localidade)===key))uniq.push(r)}return uniq}
 function v104ProdOptions(sel){return '<option value="">Selecione...</option>'+v104ProducerPool().slice().sort((a,b)=>a.nome.localeCompare(b.nome)).map(p=>`<option value="${p.id}" ${String(p.id)===String(sel)?'selected':''}>${v104Esc(p.nome)}</option>`).join('')}
-function v104RenderEntryRows(){let box=document.getElementById('v104EntradaResults');if(!box)return;if(!V104.entradaRows.length){box.innerHTML='<div class="v104-empty">Nenhuma linha com produtor + litros foi identificada. Confira o texto lido e o formato do relatório.</div>';return}let ok=V104.entradaRows.filter(x=>x.status==='ok').length,w=V104.entradaRows.filter(x=>x.status==='warn').length,b=V104.entradaRows.filter(x=>x.status==='bad').length;box.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0"><span class="v104-badge v104-ok">✅ ${ok} encontrados</span><span class="v104-badge v104-warn">⚠️ ${w} conferir</span><span class="v104-badge v104-bad">❌ ${b} não localizados</span></div><div class="v104-tablewrap"><table class="v104-table"><thead><tr><th>Usar</th><th>Lido no PDF</th><th>Produtor localizado</th><th>Litros</th><th>Confiança</th></tr></thead><tbody>${V104.entradaRows.map((r,i)=>`<tr><td><input id="v104eu${i}" type="checkbox" ${r.status==='bad'?'':'checked'}></td><td><b>${v104Esc(r.name)}</b><div style="font-size:10px;color:#94a3b8;margin-top:3px">${v104Esc(r.raw)}</div></td><td><select id="v104ep${i}">${v104ProdOptions(r.prodId)}</select></td><td><input id="v104eq${i}" type="number" min="0.01" step="0.01" value="${r.litros}"></td><td><span class="v104-badge v104-${r.status}">${Math.round(r.score*100)}%</span></td></tr>`).join('')}</tbody></table></div><button class="v104-confirm" style="width:100%;margin-top:14px" onclick="v104ConfirmEntradaPDF()">✅ Confirmar distribuição e registrar entradas</button>`}
+function v104RenderEntryRows(){let box=document.getElementById('v104EntradaResults');if(!box)return;if(!V104.entradaRows.length){box.innerHTML='<div class="v104-empty">Nenhuma linha com produtor + litros foi identificada. Quando você enviar o modelo real do relatório de entrada, o leitor será ajustado exatamente ao formato dele.</div>';return}let ok=V104.entradaRows.filter(x=>x.status==='ok').length,w=V104.entradaRows.filter(x=>x.status==='warn').length,b=V104.entradaRows.filter(x=>x.status==='bad').length;box.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0"><span class="v104-badge v104-ok">✅ ${ok} encontrados</span><span class="v104-badge v104-warn">⚠️ ${w} conferir</span><span class="v104-badge v104-bad">❌ ${b} não localizados</span></div><div class="v104-tablewrap"><table class="v104-table"><thead><tr><th>Usar</th><th>Código</th><th>Lido no PDF</th><th>Produtor localizado</th><th>Localidade lida</th><th>Litros</th><th>Confiança</th></tr></thead><tbody>${V104.entradaRows.map((r,i)=>`<tr><td><input id="v104eu${i}" type="checkbox" ${r.status==='bad'?'':'checked'}></td><td>${v104Esc(r.codigo||'—')}</td><td><b>${v104Esc(r.name||r.raw)}</b><div style="font-size:10px;color:#94a3b8;margin-top:3px">${v104Esc(r.raw)}</div></td><td><select id="v104ep${i}">${v104ProdOptions(r.prodId)}</select></td><td><input id="v104el${i}" value="${v104Esc(r.localidade||'')}" placeholder="Localidade"></td><td><input id="v104eq${i}" type="number" min="0.01" step="0.01" value="${r.litros}"></td><td><span class="v104-badge v104-${r.status}">${r.matchBy==='codigo'?'Código • ':''}${Math.round(r.score*100)}%</span></td></tr>`).join('')}</tbody></table></div><button class="v104-confirm" style="width:100%;margin-top:14px" onclick="v104ConfirmEntradaPDF()">✅ Confirmar, aprender localidades e registrar entradas</button>`}
 async function v104LerEntradaPDF(){let st=document.getElementById('v104EntradaStatus');try{st.textContent='Preparando PDF...';let text=await v104PdfText(document.getElementById('v104EntradaFile')?.files?.[0],st);V104.entradaText=text;document.getElementById('v104EntradaRaw').value=text;V104.entradaRows=v104ParseEntryRows(text);st.textContent=`Leitura concluída: ${V104.entradaRows.length} linha(s) com quantidade encontrada(s).`;v104RenderEntryRows()}catch(e){console.error(e);st.textContent='Erro: '+e.message}}
-async function v104ConfirmEntradaPDF(){let data=document.getElementById('v104EntradaData')?.value;if(!data)return alert('Informe a data das entradas.');let n=0,pend=0;for(let i=0;i<V104.entradaRows.length;i++){if(!document.getElementById('v104eu'+i)?.checked)continue;let pid=document.getElementById('v104ep'+i)?.value,q=Number(document.getElementById('v104eq'+i)?.value),p=produtores.find(x=>String(x.id)===String(pid));if(!p||!(q>0)){pend++;continue}let l={id:crypto.randomUUID(),data,prodId:p.id,qtd:q,local:p.local||'',tanqueiro:p.tanqueiro||'',caminhao:p.caminhao||'',origem:'PDF'};lancamentos.push(l);n++;try{await v25Audit('LEITE_ENTRADA_REGISTRADA',{produtor:p.nome,litros:q,data,local:l.local,origem:'Relatório PDF'})}catch(e){}}if(!n)return alert('Nenhuma entrada válida foi selecionada. Localize os produtores e confira os litros antes de confirmar.');save();v104Fechar('v104EntradaModal');alert(`✅ ${n} entrada(s) distribuída(s) e registrada(s) pelo PDF.${pend?`\n⚠️ ${pend} linha(s) não foram importadas porque faltou produtor ou quantidade válida.`:''}`)}
+async function v104ConfirmEntradaPDF(){let data=document.getElementById('v104EntradaData')?.value;if(!data)return alert('Informe a data das entradas.');let n=0,pend=0,aprendidas=0,conflitos=0;for(let i=0;i<V104.entradaRows.length;i++){if(!document.getElementById('v104eu'+i)?.checked)continue;let pid=document.getElementById('v104ep'+i)?.value,q=Number(document.getElementById('v104eq'+i)?.value),localLida=document.getElementById('v104el'+i)?.value.trim()||'',p=produtores.find(x=>String(x.id)===String(pid));if(!p||!(q>0)){pend++;continue}if(localLida){if(!p.local){p.local=localLida;aprendidas++;try{await v25Audit('PRODUTOR_LOCALIDADE_APRENDIDA',{produtor:p.nome,codigo:p.codigo||'',localidade:localLida,origem:'Relatório PDF de entrada'})}catch(e){}}else if(v104Norm(p.local)!==v104Norm(localLida)){conflitos++;if(!Array.isArray(p.localidadesConhecidas))p.localidadesConhecidas=[];if(!p.localidadesConhecidas.some(x=>v104Norm(x)===v104Norm(localLida)))p.localidadesConhecidas.push(localLida)}}let l={id:crypto.randomUUID(),data,prodId:p.id,qtd:q,local:localLida||p.local||'',tanqueiro:p.tanqueiro||'',caminhao:p.caminhao||'',origem:'PDF'};lancamentos.push(l);n++;try{await v25Audit('LEITE_ENTRADA_REGISTRADA',{codigo:p.codigo||'',produtor:p.nome,litros:q,data,local:l.local,origem:'Relatório PDF'})}catch(e){}}if(!n)return alert('Nenhuma entrada válida foi selecionada. Localize os produtores e confira os litros antes de confirmar.');save();v104Fechar('v104EntradaModal');alert(`✅ ${n} entrada(s) distribuída(s) e registrada(s) pelo PDF.${aprendidas?`\n📍 ${aprendidas} localidade(s) aprendida(s) e gravada(s) nos produtores.`:''}${conflitos?`\n⚠️ ${conflitos} localidade(s) diferente(s) foram guardadas como localidades conhecidas, sem apagar a principal.`:''}${pend?`\n⚠️ ${pend} linha(s) não foram importadas porque faltou produtor ou quantidade válida.`:''}`)}
 </script>
+
+<script id="v106-recebimento-tanqueiro-parser">
+/* V106 - Leitor dedicado ao modelo RELATÓRIO DE RECEBIMENTO - TANQUEIRO */
+function v106IsoBR(d){
+  const m=String(d||'').match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  return m?`${m[3]}-${m[2]}-${m[1]}`:'';
+}
+function v106MetaRecebimento(text){
+  const t=String(text||'').replace(/\u00a0/g,' ');
+  const get=(rx)=>{const m=t.match(rx);return m?String(m[1]).replace(/\s+/g,' ').trim():''};
+  const dataBR=get(/Data\s*:\s*(\d{2}\/\d{2}\/\d{4})/i);
+  return {
+    dataBR,
+    data:v106IsoBR(dataBR),
+    inicio:get(/Data\s*:\s*\d{2}\/\d{2}\/\d{4}\s*-\s*(\d{2}:\d{2})/i),
+    fim:get(/at[eé]\s*\d{2}\/\d{2}\/\d{4}\s*-\s*(\d{2}:\d{2})/i),
+    titularCodigo:get(/C[oó]digo do Titular do Tanque\s*:\s*([^\n]+)/i),
+    titularNome:get(/Nome do Titular do Tanque\s*:\s*([^\n]+)/i),
+    rota:get(/Rota\s*:\s*([^\n]+)/i),
+    responsavel:get(/Respons[aá]vel pelo Recebimento\s*:\s*([^\n]+)/i),
+    localidade:get(/(?:Localidade|Local|S[ií]tio|Fazenda)(?:\s+do\s+Recebimento)?\s*:\s*([^\n]+)/i),
+    totalDeclarado:Number((get(/Soma Produtores\s*:\s*([0-9.,]+)/i)||'0').replace(/\./g,'').replace(',','.'))||0
+  };
+}
+function v106ParseLinhaRecebimento(line){
+  const txt=String(line||'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+  // Modelo: 06:37 985 JOSE ALVES DE ARAUJO SIM 15
+  const m=txt.match(/^(\d{2}:\d{2})\s+(\d+(?:-\d+)?)\s+(.+?)\s+(SIM|N[AÃ]O)\s+(-?\d+(?:[.,]\d+)?)\s*$/i);
+  if(!m)return null;
+  return {hora:m[1],codigo:m[2],name:m[3].trim(),coletado:v104Norm(m[4])==='SIM'?'SIM':'NÃO',litros:Number(m[5].replace(',','.'))||0,raw:txt};
+}
+function v104ParseEntryRows(text){
+  const meta=v106MetaRecebimento(text); V104.entradaMeta=meta;
+  const pool=v104ProducerPool(), out=[];
+  let currentLocal=meta.localidade||'';
+  for(const raw of String(text||'').split(/\r?\n/)){
+    const clean=raw.replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+    if(!clean)continue;
+    const lh=clean.match(/^(?:LOCALIDADE|LOCAL|S[ÍI]TIO|FAZENDA)(?:\s+DO\s+RECEBIMENTO)?\s*[:\-]\s*(.+)$/i);
+    if(lh){currentLocal=lh[1].trim();continue;}
+    const r=v106ParseLinhaRecebimento(clean); if(!r)continue;
+    if(r.coletado!=='SIM'||!(r.litros>0))continue;
+    const f=v104FindProducer(r.name,pool,r.codigo), score=f.score||0;
+    const status=f.by==='codigo'?'ok':(score>=.86?'ok':score>=.62?'warn':'bad');
+    out.push({...r,localidade:currentLocal||'',prodId:f.best?.id||'',prodNome:f.best?.nome||'',score,status,matchBy:f.by||'nome',rota:meta.rota||'',tanqueiro:meta.responsavel||''});
+  }
+  // O código + horário + volume tornam cada linha única dentro do mesmo relatório.
+  const seen=new Set();
+  return out.filter(r=>{const k=`${r.hora}|${r.codigo}|${r.litros}`;if(seen.has(k))return false;seen.add(k);return true;});
+}
+function v106RenderMeta(){
+  const el=document.getElementById('v106EntradaMeta'); if(!el)return;
+  const m=V104.entradaMeta||{}; if(!m.dataBR&&!m.responsavel&&!m.rota){el.innerHTML='';return;}
+  el.innerHTML=`<div style="margin:12px 0;padding:14px 16px;border:1px solid #cfe0f5;border-radius:14px;background:#f8fbff;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;font-size:13px;color:#173b68">
+    <div><b>📅 Data</b><br>${v104Esc(m.dataBR||'—')} ${m.inicio?`• ${v104Esc(m.inicio)} a ${v104Esc(m.fim||'—')}`:''}</div>
+    <div><b>🛣️ Rota</b><br>${v104Esc(m.rota||'—')}</div>
+    <div><b>👤 Responsável</b><br>${v104Esc(m.responsavel||'—')}</div>
+    <div><b>🥛 Titular do tanque</b><br>${v104Esc((m.titularCodigo?m.titularCodigo+' • ':'')+(m.titularNome||'—'))}</div>
+    <div><b>📍 Localidade</b><br>${v104Esc(m.localidade||'Não informada neste PDF')}</div>
+    ${m.totalDeclarado?`<div><b>🧮 Total informado</b><br>${m.totalDeclarado.toLocaleString('pt-BR')} L</div>`:''}
+  </div>`;
+}
+function v104RenderEntryRows(){
+  v106RenderMeta();
+  const box=document.getElementById('v104EntradaResults');if(!box)return;
+  if(!V104.entradaRows.length){box.innerHTML='<div class="v104-empty">Nenhuma coleta com <b>SIM</b> e volume maior que zero foi identificada neste relatório.</div>';return;}
+  const ok=V104.entradaRows.filter(x=>x.status==='ok').length,w=V104.entradaRows.filter(x=>x.status==='warn').length,b=V104.entradaRows.filter(x=>x.status==='bad').length,total=V104.entradaRows.reduce((s,x)=>s+Number(x.litros||0),0);
+  box.innerHTML=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0"><span class="v104-badge v104-ok">✅ ${ok} por código/alta confiança</span><span class="v104-badge v104-warn">⚠️ ${w} conferir</span><span class="v104-badge v104-bad">❌ ${b} não localizados</span><span class="v104-badge" style="background:#e8f2ff;color:#0a54a6">🥛 ${total.toLocaleString('pt-BR')} L no PDF</span></div>
+  <div class="v104-tablewrap"><table class="v104-table"><thead><tr><th>Usar</th><th>Hora</th><th>Código</th><th>Produtor do PDF</th><th>Produtor localizado</th><th>Localidade</th><th>Litros</th><th>Confiança</th></tr></thead><tbody>${V104.entradaRows.map((r,i)=>`<tr><td><input id="v104eu${i}" type="checkbox" ${r.status==='bad'?'':'checked'}></td><td><b>${v104Esc(r.hora)}</b></td><td><b>${v104Esc(r.codigo||'—')}</b></td><td>${v104Esc(r.name)}</td><td><select id="v104ep${i}">${v104ProdOptions(r.prodId)}</select></td><td><input id="v104el${i}" value="${v104Esc(r.localidade||'')}" placeholder="Não informada"></td><td><input id="v104eq${i}" type="number" min="0.01" step="0.01" value="${r.litros}"></td><td><span class="v104-badge v104-${r.status}">${r.matchBy==='codigo'?'Código • ':''}${Math.round(r.score*100)}%</span></td></tr>`).join('')}</tbody></table></div>
+  <button class="v104-confirm" style="width:100%;margin-top:14px" onclick="v104ConfirmEntradaPDF()">✅ Confirmar e registrar ${V104.entradaRows.length} coletas</button>`;
+}
+async function v104LerEntradaPDF(){
+  const st=document.getElementById('v104EntradaStatus');
+  try{
+    st.textContent='Lendo Relatório de Recebimento - Tanqueiro...';
+    const text=await v104PdfText(document.getElementById('v104EntradaFile')?.files?.[0],st);
+    V104.entradaText=text;document.getElementById('v104EntradaRaw').value=text;
+    const meta=v106MetaRecebimento(text);V104.entradaMeta=meta;
+    if(meta.data){const d=document.getElementById('v104EntradaData');if(d)d.value=meta.data;}
+    V104.entradaRows=v104ParseEntryRows(text);
+    const total=V104.entradaRows.reduce((s,r)=>s+Number(r.litros||0),0);
+    const conf=meta.totalDeclarado?(Math.abs(total-meta.totalDeclarado)<0.01?' ✅ Total confere':` ⚠️ PDF informa ${meta.totalDeclarado.toLocaleString('pt-BR')} L; leitura somou ${total.toLocaleString('pt-BR')} L`):'';
+    st.textContent=`Leitura concluída: ${V104.entradaRows.length} coleta(s) • ${total.toLocaleString('pt-BR')} L. Linhas NÃO/0 L foram ignoradas.${conf}`;
+    v104RenderEntryRows();
+  }catch(e){console.error(e);st.textContent='Erro: '+e.message;}
+}
+async function v104ConfirmEntradaPDF(){
+  const meta=V104.entradaMeta||{};
+  const data=document.getElementById('v104EntradaData')?.value||meta.data;
+  if(!data)return alert('Não foi possível identificar a data do relatório. Informe a data antes de continuar.');
+  let n=0,pend=0,aprendidas=0,conflitos=0,duplicadas=0;
+  for(let i=0;i<V104.entradaRows.length;i++){
+    if(!document.getElementById('v104eu'+i)?.checked)continue;
+    const r=V104.entradaRows[i];
+    const pid=document.getElementById('v104ep'+i)?.value,q=Number(document.getElementById('v104eq'+i)?.value),localLida=(document.getElementById('v104el'+i)?.value||'').trim();
+    const p=produtores.find(x=>String(x.id)===String(pid));if(!p||!(q>0)){pend++;continue;}
+    if(meta.rota&&!p.rota)p.rota=meta.rota;
+    if(meta.responsavel&&!p.tanqueiro)p.tanqueiro=meta.responsavel;
+    if(localLida){
+      if(!p.local){p.local=localLida;aprendidas++;try{await v25Audit('PRODUTOR_LOCALIDADE_APRENDIDA',{produtor:p.nome,codigo:p.codigo||'',localidade:localLida,origem:'Relatório de Recebimento PDF'})}catch(e){}}
+      else if(v104Norm(p.local)!==v104Norm(localLida)){conflitos++;if(!Array.isArray(p.localidadesConhecidas))p.localidadesConhecidas=[];if(!p.localidadesConhecidas.some(x=>v104Norm(x)===v104Norm(localLida)))p.localidadesConhecidas.push(localLida);}
+    }
+    const importKey=['RECEB',data,meta.rota||'',r.hora||'',p.codigo||r.codigo||'',q].join('|');
+    if(lancamentos.some(x=>x.pdfImportKey===importKey)){duplicadas++;continue;}
+    const l={id:crypto.randomUUID(),data,prodId:p.id,qtd:q,local:localLida||p.local||'',tanqueiro:meta.responsavel||p.tanqueiro||'',caminhao:p.caminhao||'',origem:'PDF',hora:r.hora||'',rota:meta.rota||p.rota||'',pdfImportKey:importKey,pdfModelo:'RELATORIO_RECEBIMENTO_TANQUEIRO'};
+    lancamentos.push(l);n++;
+    try{await v25Audit('LEITE_ENTRADA_REGISTRADA',{codigo:p.codigo||r.codigo||'',produtor:p.nome,litros:q,data,hora:r.hora||'',rota:l.rota,tanqueiro:l.tanqueiro,local:l.local,origem:'Relatório de Recebimento PDF'})}catch(e){}
+  }
+  if(!n&&duplicadas)return alert(`Este relatório já foi importado. ${duplicadas} coleta(s) duplicada(s) foram bloqueadas.`);
+  if(!n)return alert('Nenhuma entrada válida foi selecionada. Confira os produtores antes de confirmar.');
+  save();v104Fechar('v104EntradaModal');
+  alert(`✅ Relatório importado com sucesso.\n${n} coleta(s) registradas.${meta.responsavel?`\n👤 Tanqueiro: ${meta.responsavel}`:''}${meta.rota?`\n🛣️ Rota: ${meta.rota}`:''}${aprendidas?`\n📍 ${aprendidas} localidade(s) aprendida(s).`:''}${conflitos?`\n⚠️ ${conflitos} localidade(s) alternativas guardadas.`:''}${duplicadas?`\n🛡️ ${duplicadas} duplicata(s) bloqueada(s).`:''}${pend?`\n⚠️ ${pend} linha(s) pendente(s) não importadas.`:''}`);
+}
+</script>
+
 </body>
 </html>
