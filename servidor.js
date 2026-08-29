@@ -708,6 +708,24 @@ app.post('/api/store/cash/close',auth,hasPermission('loja'),async(req,res)=>{con
 }catch(e){try{await c.query('ROLLBACK')}catch(_){}res.status(400).json({ok:false,error:e.message})}finally{c.release()}});
 app.get('/api/store/cash/history',auth,hasPermission('loja'),async(req,res)=>{try{const r=await pool.query(`SELECT * FROM app_store_cash_sessions ORDER BY opened_at DESC LIMIT 200`);res.json({ok:true,sessions:r.rows})}catch(e){res.status(500).json({ok:false,error:e.message})}});
 
+// V93 - Relatório detalhado de suprimentos e sangrias
+app.get('/api/store/cash/movements',auth,hasPermission('loja'),async(req,res)=>{try{
+ const start=String(req.query?.start||'').trim(), end=String(req.query?.end||'').trim(), type=String(req.query?.type||'').trim();
+ const where=[], vals=[];
+ if(start){vals.push(start);where.push(`m.created_at >= $${vals.length}::timestamptz`)}
+ if(end){vals.push(end);where.push(`m.created_at <= $${vals.length}::timestamptz`)}
+ if(type&&['suprimento','sangria'].includes(type)){vals.push(type);where.push(`m.movement_type = $${vals.length}`)}
+ const sql=`SELECT m.id,m.session_id,m.movement_type,m.amount,m.reason,m.note,m.user_id,m.username,m.created_at,
+                  s.opened_at AS session_opened_at,s.closed_at AS session_closed_at,s.status AS session_status,s.opened_by
+           FROM app_store_cash_movements m
+           LEFT JOIN app_store_cash_sessions s ON s.id=m.session_id
+           ${where.length?'WHERE '+where.join(' AND '):''}
+           ORDER BY m.created_at DESC LIMIT 1000`;
+ const r=await pool.query(sql,vals);
+ const totals=r.rows.reduce((a,x)=>{const v=Number(x.amount||0);if(x.movement_type==='suprimento')a.suprimentos+=v;else if(x.movement_type==='sangria')a.sangrias+=v;return a},{suprimentos:0,sangrias:0});
+ res.json({ok:true,movements:r.rows,totals:{...totals,saldo:totals.suprimentos-totals.sangrias,count:r.rowCount}});
+}catch(e){res.status(500).json({ok:false,error:e.message})}});
+
 app.post('/api/store/sales',auth,hasPermission('loja'),async(req,res)=>{
  const c=await pool.connect(); try{const {items,payment_method,customer_name,customer_id}=req.body||{}; const paymentStored=(String(payment_method||'').toLowerCase()==='boleto'?'fiado':String(payment_method||'').toLowerCase()); if(!Array.isArray(items)||!items.length) return res.status(400).json({ok:false,error:'Venda sem produtos'}); const sx=await c.query(`SELECT id FROM app_store_cash_sessions WHERE status='aberto' AND opened_by=$1 ORDER BY opened_at DESC LIMIT 1`,[req.user.username]); if(!sx.rowCount) return res.status(400).json({ok:false,error:'Abra o caixa antes de iniciar as vendas.'}); const cashSessionId=sx.rows[0].id;
   if(!['pix','dinheiro','cartao','fiado','doacao'].includes(paymentStored)) return res.status(400).json({ok:false,error:'Forma de pagamento inválida'});
