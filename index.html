@@ -1259,6 +1259,37 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
 .card{border-radius:17px!important;box-shadow:0 6px 18px rgba(15,42,77,.07)!important} .footer{background:#072e62!important}
 }
 </style>
+
+<style id="v101-sidebar-fullheight-fix">
+@media (min-width:761px){
+  :root{--v101-side:350px;}
+  html,body{min-height:100%;}
+  body{overflow-x:hidden!important;}
+  .app{display:block!important;min-height:100vh!important;min-height:100dvh!important;width:100%!important;}
+  .sidebar{
+    position:fixed!important;
+    top:0!important;left:0!important;bottom:0!important;
+    width:var(--v101-side)!important;min-width:var(--v101-side)!important;
+    height:100vh!important;height:100dvh!important;min-height:100vh!important;max-height:none!important;
+    box-sizing:border-box!important;
+    overflow-y:auto!important;overflow-x:hidden!important;
+    overscroll-behavior:contain!important;
+    z-index:500!important;
+    margin:0!important;
+  }
+  .main{
+    margin-left:var(--v101-side)!important;
+    width:calc(100% - var(--v101-side))!important;
+    min-height:100vh!important;min-height:100dvh!important;
+    box-sizing:border-box!important;
+    background:#f5f8fc!important;
+  }
+  .footer{width:100%!important;box-sizing:border-box!important;}
+}
+@media (min-width:761px) and (max-width:1250px){
+  :root{--v101-side:285px;}
+}
+</style>
 </head>
 <body>
 
