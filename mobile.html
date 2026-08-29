@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#0b4fbd">
-<title>Vale da Serra • App V80</title>
+<title>Vale da Serra • App V81</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <style>
 :root{--green:#0d6a45;--green2:#07563a;--deep:#083f2d;--cream:#f6f3e8;--card:#fff;--ink:#104b38;--muted:#737c77;--line:#e2e8e4;--blue:#103d72;--yellow:#f3c326;--danger:#b42318;--shadow:0 10px 28px rgba(23,74,55,.08)}
@@ -80,8 +80,8 @@ html,body{max-width:100%;overflow-x:hidden}
   <header class="app-top"><div class="brand"><span class="brand-cow">🐄</span><span>Vale da Serra</span></div><div class="username" id="homeUser">USUÁRIO</div></header>
   <div class="welcome"><h1 id="hello">Olá, USUÁRIO</h1><p>Escolha uma operação.</p></div>
   <main class="home-grid">
-   <button class="home-tile" data-go="estoque"><span class="tile-ico">📦</span><span>Estoque / Galpão</span></button>
-   <button class="home-tile" data-go="produtores"><span class="tile-ico">🧑‍🌾</span><span>Produtores</span></button>
+   <button class="home-tile" data-go="estoque"><span class="tile-ico tile-img"><img src="/icon-estoque-realista.png" alt="Galpão de estoque"></span><span>Estoque / Galpão</span></button>
+   <button class="home-tile" data-go="produtores"><span class="tile-ico tile-img"><img src="/icon-produtor-leite-realista.png" alt="Produtor de leite"></span><span>Produtores</span></button>
    <button class="home-tile" data-go="entrada"><span class="tile-ico">🥛</span><span>Entrada de Leite</span></button>
    <button class="home-tile" data-go="historico"><span class="tile-ico">🧾</span><span>Histórico</span></button>
    <button class="home-tile wide" data-go="pdv"><span class="tile-ico">🛒</span><span>Loja / PDV</span></button>
@@ -96,7 +96,7 @@ html,body{max-width:100%;overflow-x:hidden}
  <section class="screen" id="screen-pdv"><div class="screen-head"><button class="back" data-home>←</button><div class="screen-title">Loja / PDV</div><button class="icon-btn" id="openPdvReports" aria-label="Relatórios">📊</button><button class="icon-btn" id="reloadPdv">↻</button></div><input class="search" id="pdvSearch" placeholder="Buscar produto"><div id="cashStatus"></div><div id="pdvGrid" class="product-grid"></div><button id="cartBar" class="cartbar">🛒 Carrinho vazio</button></section>
 <section class="screen" id="screen-pdvrel"><div class="screen-head"><button class="back" id="backToPdv">←</button><div class="screen-title">Relatórios do PDV</div><button class="icon-btn" id="reloadPdvReports">↻</button></div><div class="reportbar"><input id="pdvReportDate" type="date"><button class="icon-btn" id="pdvReportToday">Hoje</button></div><div class="report-summary"><div class="report-mini"><small>Vendas</small><strong id="repSalesValue">R$ 0,00</strong></div><div class="report-mini"><small>Doações</small><strong id="repDonations">0</strong></div><div class="report-mini"><small>Operações</small><strong id="repCount">0</strong></div></div><div id="pdvReportList" class="list"></div></section>
  <section class="screen" id="screen-conta"><div class="screen-head"><button class="back" data-home>←</button><div class="screen-title">Conta</div></div><div class="card"><div class="avatar">👤</div><h2 id="accountName">Usuário</h2><p id="accountRole"></p><button class="primary" id="logoutBtn">Sair do aplicativo</button></div></section>
- <nav class="bottom-nav"><button class="nav-btn active" data-home><span class="ni">🏠</span><span>Início</span></button><button class="nav-btn" data-go="estoque"><span class="ni">📦</span><span>Estoque</span></button><button class="nav-btn" data-go="produtores"><span class="ni">🧑‍🌾</span><span>Produtores</span></button><button class="nav-btn" data-go="pdv"><span class="ni">🛒</span><span>PDV</span></button><button class="nav-btn" data-go="conta"><span class="ni">👤</span><span>Conta</span></button></nav>
+ <nav class="bottom-nav"><button class="nav-btn active" data-home><span class="ni">🏠</span><span>Início</span></button><button class="nav-btn" data-go="estoque"><span class="ni nav-img"><img src="/icon-estoque-realista.png" alt=""></span><span>Estoque</span></button><button class="nav-btn" data-go="produtores"><span class="ni nav-img"><img src="/icon-produtor-leite-realista.png" alt=""></span><span>Produtores</span></button><button class="nav-btn" data-go="pdv"><span class="ni">🛒</span><span>PDV</span></button><button class="nav-btn" data-go="conta"><span class="ni">👤</span><span>Conta</span></button></nav>
 </div>
 <div class="sheet" id="cartSheet"><div class="sheet-panel"><div class="sheet-top"><h2>Venda atual</h2><button class="close" id="closeCart">×</button></div><div id="cartItems"></div><div class="totalbox"><span>TOTAL</span><strong id="cartTotal">R$ 0,00</strong></div><div class="field"><label>Cliente (opcional)</label><input id="customerName" placeholder="Nome do cliente"></div><div class="section-label">Forma de pagamento</div><div class="paygrid"><button class="paybtn sel" data-pay="dinheiro">💵 Dinheiro</button><button class="paybtn" data-pay="cartao">💳 Cartão</button><button class="paybtn" data-pay="pix">◆ PIX</button><button class="paybtn" data-pay="boleto">▧ Boleto</button><button class="paybtn" data-pay="doacao">🎁 Doação</button></div><button class="finish" id="finishSale">✓ Finalizar Venda</button></div></div>
 <div class="receipt-sheet" id="saleReceipt"><div class="receipt-wrap"><div id="receiptPaper" class="receipt-paper"></div><div class="receipt-actions"><button class="done" id="closeReceipt">Fechar</button><button class="print" id="printReceipt">🖨️ Imprimir 80mm</button></div></div></div>
@@ -173,6 +173,36 @@ $$('[data-go]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));$$(
 boot();
 })();
 </script>
+
+<style id="v81-icons-login-polish">
+/* V81 - ícones realistas e login perfeitamente centralizado */
+.tile-ico.tile-img{overflow:hidden;background:#eef4ff;padding:4px}
+.tile-ico.tile-img img{width:100%;height:100%;object-fit:contain;display:block;border-radius:18px}
+.nav-btn .ni.nav-img{width:34px;height:30px;display:grid;place-items:center;overflow:hidden}
+.nav-btn .ni.nav-img img{width:100%;height:100%;object-fit:contain;display:block}
+#login{
+  width:100%;
+  min-height:100dvh;
+  padding:calc(24px + env(safe-area-inset-top,0px)) 22px calc(24px + env(safe-area-inset-bottom,0px));
+  display:grid;
+  place-items:center;
+  overflow-x:hidden;
+}
+#login .login-card{
+  width:min(100%,420px)!important;
+  max-width:420px!important;
+  margin:0 auto!important;
+  justify-self:center!important;
+  align-self:center!important;
+  transform:none!important;
+  padding:30px!important;
+}
+@media(max-width:420px){
+  #login{padding-left:20px;padding-right:20px}
+  #login .login-card{width:100%!important;border-radius:28px;padding:26px!important}
+  .login-logo{font-size:30px}
+}
+</style>
 </body></html><style id="v78-blue-premium-theme">
 :root{--green:#0b4fbd;--green2:#073b91;--deep:#062b68;--cream:#f4f7fc;--card:#fff;--ink:#102f66;--muted:#6b778a;--line:#dce5f2;--blue:#0b4fbd;--yellow:#f3c326;--shadow:0 10px 28px rgba(14,57,128,.09)}
 body{background:linear-gradient(180deg,#f7f9fd 0%,#eef4fb 100%);color:#172b4d}
