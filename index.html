@@ -1290,6 +1290,18 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
   :root{--v101-side:285px;}
 }
 </style>
+
+<style id="v102-caixa-permissoes-style">
+.v102-cash-report-btn{background:linear-gradient(135deg,#0d5fbd,#1478e6)!important;color:#fff!important;border-color:#0d5fbd!important;font-weight:800!important}
+.v102-report-filters{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;margin:12px 0}
+.v102-report-filters label{font-size:12px;font-weight:800;color:#334155}.v102-report-filters input,.v102-report-filters select{width:100%;box-sizing:border-box;margin-top:4px;padding:10px;border:1px solid #cbd5e1;border-radius:10px;background:#fff}
+.v102-report-presets{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px}.v102-report-presets button{padding:8px 12px;border:1px solid #bfd0e3;border-radius:10px;background:#fff;color:#0b5fc7;font-weight:800}.v102-report-presets button:hover{background:#eef6ff}
+.v102-report-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:12px 0}.v102-report-summary>div{border:1px solid #dbe5ef;border-radius:14px;padding:13px;background:#f8fbff}.v102-report-summary small{display:block;color:#64748b;font-weight:700}.v102-report-summary strong{display:block;margin-top:5px;font-size:22px}.v102-in strong{color:#14834c}.v102-out strong{color:#b93333}.v102-balance strong{color:#0b5fc7}
+.v102-report-table{width:100%;border-collapse:collapse;font-size:13px}.v102-report-table th,.v102-report-table td{padding:9px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top}.v102-report-table th{background:#f1f5f9;color:#123e67;position:sticky;top:0}.v102-report-table .money{text-align:right;font-weight:800;white-space:nowrap}.v102-report-table .in{color:#14834c}.v102-report-table .out{color:#b93333}
+.v102-report-actions{display:flex;gap:8px;justify-content:flex-end;margin:10px 0}.v102-report-actions button{padding:10px 14px;border-radius:10px;border:1px solid #bfd0e3;background:#fff;color:#0b5fc7;font-weight:800}.v102-report-actions .primary{background:#0b67d0;color:#fff;border-color:#0b67d0}
+.sidebar .nav button[hidden]{display:none!important}
+@media(max-width:900px){.v102-report-filters{grid-template-columns:1fr 1fr}.v102-report-summary{grid-template-columns:1fr}.v102-report-table{min-width:780px}}
+</style>
 </head>
 <body>
 
@@ -1846,6 +1858,7 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
     <button type="button" onclick="lojaAbrirLotes()">🏷 Lotes e validades</button>
     <button type="button" onclick="lojaAbrirClientes()">♙ Clientes / boletos</button>
     <button type="button" onclick="lojaCarregar(true)">↻ Atualizar PDV</button>
+    <button type="button" data-permission="loja" class="v102-cash-report-btn" onclick="lojaRelatorioSuprimentoSangria()">💵 Relatório Suprimento / Sangria</button>
   </div>
   <div id="ljCashStatus" class="cash-status closed"><div><b>🔒 Caixa fechado</b><div style="color:#667;font-size:13px">Abra o caixa para liberar as vendas.</div></div><div><button class="cash-open" onclick="lojaAbrirCaixa()">🔓 Abrir Caixa</button></div></div>
   <div class="loja-layout pdv-model-layout">
@@ -5118,6 +5131,56 @@ async function v38ConfirmarFotoLeite(){
 </script>
 
 
+
+<script id="v102-caixa-relatorio-script">
+(function(){
+  const money=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const ymd=d=>{const x=new Date(d),z=n=>String(n).padStart(2,'0');return x.getFullYear()+'-'+z(x.getMonth()+1)+'-'+z(x.getDate())};
+  function rangeIso(v,end){return v?(v+(end?'T23:59:59-03:00':'T00:00:00-03:00')):''}
+  window.v102CashRows=[];
+  window.lojaRelatorioSuprimentoSangria=function(){
+    if(typeof v4TemPermissao==='function'&&!v4TemPermissao('loja')) return alert('Você não possui permissão para acessar o PDV.');
+    const now=new Date(), first=new Date(now.getFullYear(),now.getMonth(),1);
+    lojaCashModal('💵 Relatório de Suprimentos e Sangrias',`
+      <div class="v102-report-presets"><button onclick="v102PresetCaixa('today')">Hoje</button><button onclick="v102PresetCaixa('week')">Semana</button><button onclick="v102PresetCaixa('month')">Mês</button><button onclick="v102PresetCaixa('all')">Tudo</button></div>
+      <div class="v102-report-filters">
+        <label>De<input id="v102CashStart" type="date" value="${ymd(first)}"></label>
+        <label>Até<input id="v102CashEnd" type="date" value="${ymd(now)}"></label>
+        <label>Tipo<select id="v102CashType"><option value="">Todos</option><option value="suprimento">Suprimentos</option><option value="sangria">Sangrias</option></select></label>
+        <label>Usuário<input id="v102CashUser" placeholder="Filtrar usuário"></label>
+      </div>
+      <div class="v102-report-actions"><button onclick="v102ImprimirCaixa()">🖨️ Imprimir</button><button class="primary" onclick="v102CarregarRelatorioCaixa()">🔎 Atualizar relatório</button></div>
+      <div class="v102-report-summary"><div class="v102-in"><small>Total de suprimentos</small><strong id="v102CashIn">R$ 0,00</strong></div><div class="v102-out"><small>Total de sangrias</small><strong id="v102CashOut">R$ 0,00</strong></div><div class="v102-balance"><small>Saldo das movimentações</small><strong id="v102CashBalance">R$ 0,00</strong><small id="v102CashCount">0 movimentações</small></div></div>
+      <div style="overflow:auto;max-height:52vh"><table class="v102-report-table"><thead><tr><th>Data/Hora</th><th>Tipo</th><th>Motivo</th><th>Observação</th><th>Usuário</th><th style="text-align:right">Valor</th></tr></thead><tbody id="v102CashBody"><tr><td colspan="6">Carregando...</td></tr></tbody></table></div>`);
+    setTimeout(v102CarregarRelatorioCaixa,40);
+  };
+  window.v102PresetCaixa=function(kind){
+    const s=document.getElementById('v102CashStart'),e=document.getElementById('v102CashEnd'); if(!s||!e)return;
+    const n=new Date(); let a=new Date(n),b=new Date(n);
+    if(kind==='week'){const day=(n.getDay()+6)%7;a.setDate(n.getDate()-day)}
+    else if(kind==='month'){a=new Date(n.getFullYear(),n.getMonth(),1)}
+    else if(kind==='all'){s.value='';e.value='';v102CarregarRelatorioCaixa();return}
+    s.value=ymd(a);e.value=ymd(b);v102CarregarRelatorioCaixa();
+  };
+  window.v102CarregarRelatorioCaixa=async function(){
+    const body=document.getElementById('v102CashBody');if(!body)return;body.innerHTML='<tr><td colspan="6">Carregando movimentações...</td></tr>';
+    try{
+      const s=document.getElementById('v102CashStart')?.value||'',e=document.getElementById('v102CashEnd')?.value||'',t=document.getElementById('v102CashType')?.value||'',u=(document.getElementById('v102CashUser')?.value||'').trim().toLowerCase();
+      const q=new URLSearchParams();if(s)q.set('start',rangeIso(s,false));if(e)q.set('end',rangeIso(e,true));if(t)q.set('type',t);
+      const j=await ljApi('/api/store/cash/movements?'+q.toString());let rows=j.movements||[];if(u)rows=rows.filter(x=>String(x.username||'').toLowerCase().includes(u));window.v102CashRows=rows;
+      let sin=0,sout=0;rows.forEach(x=>{let v=Number(x.amount||0);if(x.movement_type==='suprimento')sin+=v;else if(x.movement_type==='sangria')sout+=v});
+      document.getElementById('v102CashIn').textContent=money(sin);document.getElementById('v102CashOut').textContent=money(sout);document.getElementById('v102CashBalance').textContent=money(sin-sout);document.getElementById('v102CashCount').textContent=rows.length+' movimentação'+(rows.length===1?'':'ões');
+      body.innerHTML=rows.length?rows.map(x=>{const inc=x.movement_type==='suprimento',dt=new Date(x.created_at);return `<tr><td>${dt.toLocaleString('pt-BR')}</td><td>${inc?'➕ Suprimento':'➖ Sangria'}</td><td>${esc(x.reason||'—')}</td><td>${esc(x.note||'—')}</td><td>${esc(x.username||'—')}</td><td class="money ${inc?'in':'out'}">${inc?'+ ':'− '}${money(x.amount)}</td></tr>`}).join(''):'<tr><td colspan="6">Nenhuma movimentação encontrada no período.</td></tr>';
+    }catch(e){body.innerHTML='<tr><td colspan="6" style="color:#b91c1c">'+esc(e.message||e)+'</td></tr>'}
+  };
+  window.v102ImprimirCaixa=function(){
+    const rows=window.v102CashRows||[],s=document.getElementById('v102CashStart')?.value||'—',e=document.getElementById('v102CashEnd')?.value||'—';let sin=0,sout=0;rows.forEach(x=>{let v=Number(x.amount||0);x.movement_type==='suprimento'?sin+=v:sout+=v});
+    const trs=rows.map(x=>{const inc=x.movement_type==='suprimento';return `<tr><td>${new Date(x.created_at).toLocaleString('pt-BR')}</td><td>${inc?'Suprimento':'Sangria'}</td><td>${esc(x.reason||'')}</td><td>${esc(x.note||'')}</td><td>${esc(x.username||'')}</td><td>${inc?'+ ':'- '}${money(x.amount)}</td></tr>`}).join('');
+    const w=window.open('','_blank');if(!w)return alert('Não foi possível abrir a impressão.');w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Suprimentos e Sangrias</title><style>body{font-family:Arial;padding:24px;color:#17324d}h1{color:#0b4d8e}.sum{display:flex;gap:24px;font-weight:bold;margin:15px 0}table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}</style></head><body><h1>Vale da Serra — Suprimentos e Sangrias</h1><p>Período: ${s} a ${e}</p><div class="sum"><span>Suprimentos: ${money(sin)}</span><span>Sangrias: ${money(sout)}</span><span>Saldo: ${money(sin-sout)}</span></div><table><thead><tr><th>Data/Hora</th><th>Tipo</th><th>Motivo</th><th>Observação</th><th>Usuário</th><th>Valor</th></tr></thead><tbody>${trs||'<tr><td colspan="6">Sem movimentações</td></tr>'}</tbody></table></body></html>`);w.document.close();setTimeout(()=>w.print(),250);
+  };
+})();
+</script>
 <script id="v100-approved-nav-script">
 (function(){
 const icons={
@@ -5147,6 +5210,42 @@ b.innerHTML='<span class="v100-ico">'+(icons[k]||icons.relatorios)+'</span><span
 if(k==='sair')b.classList.add('v100-exit');
 });
 const side=document.querySelector('.sidebar');if(side&&!side.querySelector('.v100-admin')){const d=document.createElement('div');d.className='v100-admin';d.innerHTML='<div class="avatar">👨‍🌾</div><div><b>ADMINISTRADOR</b><small>Administrador do sistema</small><small class="online">● Online</small></div>';side.appendChild(d);}
+})();
+</script>
+
+<script id="v102-sidebar-permission-guard">
+(function(){
+  function sectionFor(b){
+    if(typeof v32SectionFromButton==='function') return v32SectionFromButton(b);
+    const o=b.getAttribute('onclick')||'';const m=o.match(/showSection\(['"]([^'"]+)['"]/);return m?m[1]:'';
+  }
+  function apply(){
+    const admin=typeof v4IsAdmin==='function'&&v4IsAdmin();
+    document.querySelectorAll('.sidebar .nav button').forEach(b=>{
+      const o=b.getAttribute('onclick')||'';
+      if(o.includes('sairSistema')){b.hidden=false;b.style.removeProperty('display');return}
+      const id=sectionFor(b),explicit=b.dataset.permission||'';
+      let ok=false;
+      if(admin) ok=true;
+      else if(id==='painel') ok=true;
+      else if(b.classList.contains('admin-only-v4')) ok=false;
+      else if(explicit&&typeof v4TemPermissao==='function') ok=v4TemPermissao(explicit);
+      else if(id&&typeof v32SectionPermitida==='function') ok=v32SectionPermitida(id);
+      b.hidden=!ok;
+      if(ok)b.style.removeProperty('display');else b.style.setProperty('display','none','important');
+    });
+    const card=document.querySelector('.v100-admin');
+    if(card){
+      const u=(window.V4&&V4.user)||{};const name=String(u.name||u.username||(admin?'Administrador':'Usuário'));const role=admin?'Administrador':String(u.role||'Usuário');
+      card.innerHTML='<div class="avatar">👤</div><div><b>'+name.replace(/[<>&]/g,'')+'</b><small>'+role.replace(/[<>&]/g,'')+'</small><small class="online">● Online</small></div>';
+    }
+  }
+  const prev=window.v4AplicarVisibilidade;
+  if(typeof prev==='function'){window.v4AplicarVisibilidade=function(){const r=prev.apply(this,arguments);setTimeout(apply,0);return r}}
+  document.addEventListener('DOMContentLoaded',()=>setTimeout(apply,30));
+  window.addEventListener('load',()=>setTimeout(apply,80));
+  const side=document.querySelector('.sidebar .nav');if(side)new MutationObserver(()=>setTimeout(apply,0)).observe(side,{childList:true,subtree:false});
+  setTimeout(apply,100);
 })();
 </script>
 </body>
