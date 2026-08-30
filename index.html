@@ -1706,28 +1706,36 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
 <section id="estoque" class="section">
   <div class="gal-head card">
     <div><h2>📦 Estoque / Almoxarifado do Galpão</h2><p>Controle completo de ração, soja, milho e outros materiais. Estoque sempre atualizado.</p></div>
-    <div class="gal-head-actions"><button onclick="galAbrirEntrada()">＋ Entrada de mercadoria</button><button onclick="galAba('historico')">▥ Relatórios</button><button onclick="galAba('ajustes')">⚙ Ajustes</button></div>
+    <div class="gal-head-actions"><button onclick="galAbrirEntrada()">＋ Entrada de mercadoria</button><button onclick="galAba('historico')">▥ Relatórios</button><button class="gal-admin-only" onclick="galAba('ajustes')">⚙ Ajustes</button></div>
   </div>
   <div id="estoqueResumo" class="gal-kpis"></div>
   <div class="gal-layout">
     <div class="gal-main">
-      <div class="gal-tabs"><button class="active" data-galtab="produtos" onclick="galAba('produtos')">Produtos</button><button data-galtab="entradas" onclick="galAba('entradas')">Entradas</button><button data-galtab="vendas" onclick="galAba('vendas')">Saídas / Vendas</button><button data-galtab="historico" onclick="galAba('historico')">Histórico</button><button data-galtab="ajustes" onclick="galAba('ajustes')">Ajustes</button><button data-galtab="perdas" onclick="galAba('perdas')">Perdas</button><button data-galtab="uso" onclick="galAba('uso')">Uso interno</button></div>
+      <div class="gal-tabs"><button class="active" data-galtab="produtos" onclick="galAba('produtos')">Produtos</button><button data-galtab="entradas" onclick="galAba('entradas')">Entradas</button><button data-galtab="vendas" onclick="galAba('vendas')">Saídas / Vendas</button><button data-galtab="historico" onclick="galAba('historico')">Histórico</button><button class="gal-admin-only" data-galtab="ajustes" onclick="galAba('ajustes')">Ajustes</button><button data-galtab="perdas" onclick="galAba('perdas')">Perdas</button><button data-galtab="uso" onclick="galAba('uso')">Uso interno</button></div>
       <div id="galProdutosView">
-        <div class="gal-toolbar"><h3>Produtos em estoque</h3><input id="galBusca" placeholder="🔎 Buscar produto..." oninput="galRenderCards()"><button class="gal-add" onclick="galAbrirCadastro()">＋ Produto</button></div>
+        <div class="gal-toolbar"><h3>Produtos em estoque</h3><input id="galBusca" placeholder="🔎 Buscar produto..." oninput="galRenderCards()"><button class="gal-add gal-admin-only" onclick="galAbrirCadastro()">＋ Produto</button></div>
         <div id="galProductCards" class="gal-products"></div>
         <div class="gal-tip">ⓘ Clique em <b>VENDER</b> para abrir o painel de venda do galpão ou registre uma entrada para repor o estoque.</div>
         <div id="galFinanceiro" class="gal-fin"></div>
       </div>
       <div id="galHistoricoView" style="display:none" class="card gal-inner"><div class="gal-toolbar"><h3 id="galHistTitulo">Histórico de movimentações</h3><input id="estFiltro" placeholder="Filtrar produto, usuário, produtor..." oninput="estoqueRenderMovimentos()"></div><div class="est-mobile-table" style="overflow:auto"><table class="gal-table"><thead><tr><th>Data/Hora</th><th>Tipo</th><th>Produto</th><th>Qtd.</th><th>Produtor/Destino</th><th>Usuário</th><th>Valor</th></tr></thead><tbody id="estTabelaMov"></tbody></table></div></div>
-      <div id="galAjustesView" style="display:none" class="card gal-inner">
+      <div id="galAjustesView" style="display:none" class="card gal-inner gal-admin-only">
         <h3>⚙ Cadastro e ajustes do estoque</h3>
-        <div class="est-mobile-form gal-form"><label class="est-field"><span>Nome do produto</span><input id="estProdNome" placeholder="Ex.: Ração Pronta"></label><label class="est-field"><span>Unidade</span><select id="estProdUn"><option>kg</option><option>saco</option><option>un</option><option>litro</option></select></label><label class="est-field"><span>Quantidade inicial</span><input id="estProdQtd" type="number" step="0.01" min="0"></label><label class="est-field"><span>Estoque mínimo</span><input id="estProdMin" type="number" step="0.01" min="0"></label><label class="est-field"><span>Preço de venda</span><input id="estProdPreco" type="number" step="0.01" min="0"></label></div><button class="gal-primary" onclick="estoqueCadastrarProduto()">＋ Cadastrar Produto</button>
+        <div class="est-mobile-form gal-form"><label class="est-field"><span>Nome do produto</span><input id="estProdNome" placeholder="Ex.: Ração Pronta"></label><label class="est-field"><span>Unidade</span><select id="estProdUn"><option>kg</option><option>saco</option><option>un</option><option>litro</option></select></label><label class="est-field"><span>Quantidade inicial</span><input id="estProdQtd" type="number" step="0.01" min="0"></label><label class="est-field"><span>Estoque mínimo</span><input id="estProdMin" type="number" step="0.01" min="0"></label><label class="est-field"><span>Preço de venda</span><input id="estProdPreco" type="number" step="0.01" min="0"></label></div><input id="estProdEditId" type="hidden"><div class="gal-admin-form-actions"><button id="estProdSalvarBtn" class="gal-primary" onclick="estoqueCadastrarProduto()">＋ Cadastrar Produto</button><button id="estProdCancelarBtn" class="gal-secondary" style="display:none" onclick="galCancelarEdicaoProduto()">Cancelar edição</button></div>
       </div>
     </div>
     <aside class="gal-sale" id="galSale"><div class="gal-sale-title"><h3>🛒 Venda do Galpão</h3><button onclick="galLimparVenda()">×</button></div><label>Produtor</label><select id="estMovProdutor"><option value="">Selecione o produtor</option></select><label>Produto</label><select id="estMovProd" onchange="galAtualizarVenda()"></select><div class="gal-two"><div><label>Unidade</label><select id="galVendaUn"><option value="kg">kg</option><option value="saco">Saco</option></select></div><div><label>Quantidade</label><input id="estMovQtd" type="number" step="0.01" min="0.01" value="1" oninput="galAtualizarVenda()"></div></div><div class="gal-price"><span>Preço de venda <b id="galPrecoTxt">R$ 0,00</b></span><span>Estoque disponível <b id="galSaldoTxt">0 kg</b></span></div><div class="gal-total"><b>TOTAL</b><strong id="galTotal">R$ 0,00</strong></div><label>Forma de pagamento</label><div class="gal-pay"><button data-pay="dinheiro" onclick="galPagamento('dinheiro')">💵 Dinheiro</button><button data-pay="pix" onclick="galPagamento('pix')">📱 PIX</button><button data-pay="leite" onclick="galPagamento('leite')">🥛 Descontar do leite</button></div><div id="galDebitoAviso" class="gal-debt" style="display:none">ⓘ Será criado um débito para este produtor e o valor será descontado no próximo pagamento do leite.</div><label>Observação (opcional)</label><input id="estMovDestino" placeholder="Ex.: Venda de ração para gado leiteiro..."><input id="estMovValor" type="hidden"><input id="estMovTipo" type="hidden" value="saida"><input id="estGerarDebito" type="checkbox" hidden><div id="estMsg" class="gal-msg"></div><button class="gal-final" onclick="galFinalizarVenda()">✓ FINALIZAR VENDA</button></aside>
   </div>
   <div class="gal-quick"><button onclick="galAbrirEntrada()">⬇ <b>Entrada rápida</b><small>Registrar entrada</small></button><button onclick="galFocarVenda()">➡ <b>Saída rápida</b><small>Registrar saída / venda</small></button><button onclick="galMovEspecial('uso')">♟ <b>Uso interno</b><small>Consumo interno</small></button><button onclick="galMovEspecial('ajuste')">✖ <b>Ajuste de estoque</b><small>Corrigir saldo</small></button><button onclick="galMovEspecial('perda')">🗑 <b>Perdas</b><small>Registrar perdas</small></button></div>
   <dialog id="galMovDialog" class="gal-dialog"><form method="dialog"><button class="gal-x">×</button></form><h3 id="galMovTitle">Entrada de mercadoria</h3><div class="gal-form"><label class="est-field"><span>Produto</span><select id="galMovProd"></select></label><label class="est-field"><span>Quantidade</span><input id="galMovQtd" type="number" step="0.01" min="0.01"></label><label class="est-field"><span>Valor unitário</span><input id="galMovValor" type="number" step="0.01" min="0"></label><label class="est-field"><span>Observação</span><input id="galMovObs"></label></div><button class="gal-primary" onclick="galSalvarMovEspecial()">Salvar movimentação</button></dialog>
+  <dialog id="galReceiptDialog" class="gal-dialog gal-receipt-dialog">
+    <form method="dialog"><button class="gal-x">×</button></form>
+    <div id="galReceiptPreview"></div>
+    <div class="gal-receipt-actions">
+      <button class="gal-primary" type="button" onclick="galImprimirCupom('80')">🧾 Imprimir Cupom 80mm</button>
+      <button class="gal-secondary" type="button" onclick="galImprimirCupom('a4')">📄 Imprimir Papel A4</button>
+    </div>
+  </dialog>
 </section>
 
 <section id="usuarios" class="section">
@@ -5678,5 +5686,98 @@ async function galSalvarMovEspecial(){const id=galMovProd.value,q=Number(galMovQ
 const _estoqueCarregarV110=estoqueCarregar;estoqueCarregar=async function(){await _estoqueCarregarV110();galRenderCards();galResumoNovo();galAtualizarVenda()};
 const _estoqueRenderMovimentosV110=estoqueRenderMovimentos;estoqueRenderMovimentos=function(){const b=document.getElementById('estTabelaMov');if(!b)return;const q=(document.getElementById('estFiltro')?.value||'').toLowerCase();let rows=EST.movimentos.filter(x=>JSON.stringify(x).toLowerCase().includes(q));if(GAL.tab==='entradas')rows=rows.filter(x=>x.type==='entrada');if(GAL.tab==='vendas')rows=rows.filter(x=>x.type==='saida'&&String(x.destination||'').startsWith('VENDA GALPÃO'));if(GAL.tab==='perdas')rows=rows.filter(x=>String(x.destination||'').startsWith('PERDA'));if(GAL.tab==='uso')rows=rows.filter(x=>String(x.destination||'').startsWith('USO INTERNO'));b.innerHTML=rows.map(x=>`<tr><td>${v4Data(x.created_at)}</td><td>${x.type==='entrada'?'⬆️ Entrada':'⬇️ Saída'}</td><td>${v4Esc(x.product_name)}</td><td>${fmt(x.quantity)} ${v4Esc(x.unit||'')}</td><td>${v4Esc(x.producer_name||x.destination||'-')}</td><td>${v4Esc(x.username||'-')}</td><td>${moeda(Number(x.quantity)*Number(x.unit_price||0))}</td></tr>`).join('')||'<tr><td colspan="7">Nenhuma movimentação.</td></tr>'};
 setTimeout(()=>{galPagamento('dinheiro');if(document.getElementById('estoque')?.classList.contains('active'))estoqueCarregar()},300);
-</script></body>
+</script>
+<style id="v111-galpao-admin-cupom">
+/* V111 - Galpão: hover amarelo, controles ADM, edição/exclusão e cupom 80mm/A4 */
+.gal-product{transition:border-color .16s ease,box-shadow .16s ease,transform .16s ease}
+@media (hover:hover) and (pointer:fine){
+  .gal-product:hover{border-color:#f5c400!important;box-shadow:0 0 0 3px rgba(245,196,0,.24),0 12px 28px rgba(15,47,92,.10);transform:translateY(-2px)}
+  .gal-final:hover{outline:4px solid #ffd21a;outline-offset:2px;box-shadow:0 0 0 6px rgba(255,210,26,.20)}
+}
+.gal-product-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.gal-product-actions button{min-height:38px;border-radius:10px;border:1px solid #d7e2f0;background:#fff;font-weight:800;cursor:pointer}
+.gal-product-actions .gal-edit{color:#1459c7}.gal-product-actions .gal-delete{color:#c62828;border-color:#ffcaca;background:#fff8f8}
+.gal-admin-form-actions,.gal-receipt-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.gal-secondary{border:1px solid #cbd8e8;background:#fff;color:#0b356b;border-radius:10px;padding:11px 16px;font-weight:800;cursor:pointer}
+.gal-receipt-dialog{width:min(650px,94vw)}
+.gal-receipt{font-family:Arial,sans-serif;color:#102a4d;background:#fff}
+.gal-receipt h2,.gal-receipt p{margin:0}.gal-receipt-head{text-align:center;border-bottom:1px dashed #8ca3bd;padding-bottom:12px}
+.gal-receipt-head h2{font-size:21px}.gal-receipt-meta{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:12px 0;font-size:14px}
+.gal-receipt-table{width:100%;border-collapse:collapse;font-size:14px}.gal-receipt-table th,.gal-receipt-table td{padding:8px 5px;border-bottom:1px solid #e6edf5;text-align:left}.gal-receipt-table td:last-child,.gal-receipt-table th:last-child{text-align:right}
+.gal-receipt-total{font-size:22px;font-weight:900;text-align:right;margin-top:12px}.gal-signature{margin-top:42px;text-align:center}.gal-signature-line{border-top:1px solid #1c3352;padding-top:7px;margin:0 auto;width:78%;font-size:13px}.gal-receipt-note{text-align:center;color:#64748b;font-size:12px;margin-top:16px}
+@media(max-width:700px){.gal-receipt-meta{grid-template-columns:1fr}.gal-product-actions{grid-template-columns:1fr}}
+</style>
+<script id="v111-galpao-admin-cupom-script">
+(function(){
+  const originalRender=galRenderCards;
+  function isAdm(){try{return typeof v4IsAdmin==='function'&&v4IsAdmin()}catch(e){return false}}
+  window.galAplicarAdmin=function(){
+    const adm=isAdm();
+    document.querySelectorAll('.gal-admin-only').forEach(el=>el.style.display=adm?'':'none');
+    if(!adm && GAL.tab==='ajustes') galAba('produtos');
+  };
+  galRenderCards=function(){
+    const d=document.getElementById('galProductCards');if(!d)return;
+    const q=(document.getElementById('galBusca')?.value||'').toLowerCase();
+    const a=EST.produtos.filter(x=>String(x.name||'').toLowerCase().includes(q));
+    const adm=isAdm();
+    d.innerHTML=a.map(x=>{const low=Number(x.balance)<=Number(x.min_stock);return `<article class="gal-product"><div class="gal-visual">${galIcon(x.name)}</div><h3>${v4Esc(x.name)}</h3><span class="gal-status ${low?'low':''}">${low?'Estoque baixo':'Normal'}</span><div class="gal-stock">${fmt(x.balance)} ${v4Esc(x.unit)}</div><small>Quantidade disponível</small><div class="gal-pricebox"><span><b>${moeda(x.unit_price)} / ${v4Esc(x.unit)}</b><br>Preço de venda</span><span><b>${moeda(Number(x.unit_price)*.75)} / ${v4Esc(x.unit)}</b><br>Custo estimado</span></div><button class="gal-sell" onclick="galVender('${x.id}')">🛒 VENDER</button>${adm?`<div class="gal-product-actions"><button class="gal-edit" onclick="galEditarProduto('${x.id}')">✏️ Editar</button><button class="gal-delete" onclick="galExcluirProduto('${x.id}')">🗑 Excluir</button></div>`:''}</article>`}).join('')||'<p style="padding:20px">Nenhum produto cadastrado.</p>';
+    galAplicarAdmin();
+  };
+  const oldAplicar=window.v4AplicarVisibilidade;
+  if(typeof oldAplicar==='function') window.v4AplicarVisibilidade=function(){const r=oldAplicar.apply(this,arguments);setTimeout(galAplicarAdmin,0);return r};
+  window.galEditarProduto=function(id){
+    if(!isAdm()){alert('Somente o Administrador pode editar produtos do estoque.');return}
+    const p=EST.produtos.find(x=>String(x.id)===String(id));if(!p)return;
+    galAba('ajustes');
+    estProdEditId.value=p.id;estProdNome.value=p.name||'';estProdUn.value=p.unit||'kg';estProdQtd.value='';estProdQtd.disabled=true;estProdMin.value=Number(p.min_stock||0);estProdPreco.value=Number(p.unit_price||0);
+    estProdSalvarBtn.textContent='💾 Salvar alterações';estProdCancelarBtn.style.display='inline-flex';estProdNome.focus();
+  };
+  window.galCancelarEdicaoProduto=function(){
+    estProdEditId.value='';estProdNome.value=estProdQtd.value=estProdMin.value=estProdPreco.value='';estProdQtd.disabled=false;estProdSalvarBtn.textContent='＋ Cadastrar Produto';estProdCancelarBtn.style.display='none';
+  };
+  estoqueCadastrarProduto=async function(){
+    if(!isAdm()){alert('Somente o Administrador pode cadastrar ou editar produtos.');return}
+    const id=estProdEditId?.value||'';const data={name:estProdNome.value.trim(),unit:estProdUn.value,initial_quantity:Number(estProdQtd.value||0),min_stock:Number(estProdMin.value||0),unit_price:Number(estProdPreco.value||0)};
+    if(!data.name){alert('Informe o nome do produto.');return}
+    try{
+      if(id) await estoqueAPI('/api/inventory/products/'+encodeURIComponent(id),{method:'PUT',body:JSON.stringify(data)});
+      else await estoqueAPI('/api/inventory/products',{method:'POST',body:JSON.stringify(data)});
+      galCancelarEdicaoProduto();await estoqueCarregar();galAba('produtos');
+    }catch(e){alert('❌ '+e.message)}
+  };
+  window.galExcluirProduto=async function(id){
+    if(!isAdm()){alert('Somente o Administrador pode excluir produtos.');return}
+    const p=EST.produtos.find(x=>String(x.id)===String(id));if(!p)return;
+    if(!confirm(`Excluir "${p.name}" do estoque? O histórico de movimentações será preservado.`))return;
+    try{await estoqueAPI('/api/inventory/products/'+encodeURIComponent(id),{method:'DELETE'});await estoqueCarregar()}catch(e){alert('❌ '+e.message)}
+  };
+  function receiptHtml(s){
+    const signature=s.producer_name?`<div class="gal-signature"><div class="gal-signature-line">Assinatura de ${v4Esc(s.producer_name)}</div></div>`:'';
+    return `<div class="gal-receipt"><div class="gal-receipt-head"><h2>VALE DA SERRA LATICÍNIOS</h2><p>Comprovante de venda do Galpão</p></div><div class="gal-receipt-meta"><span><b>Data:</b> ${v4Esc(s.date)}</span><span><b>Pagamento:</b> ${v4Esc(s.payment)}</span>${s.producer_name?`<span style="grid-column:1/-1"><b>Produtor:</b> ${v4Esc(s.producer_name)}</span>`:''}</div><table class="gal-receipt-table"><thead><tr><th>Produto</th><th>Qtd.</th><th>Unit.</th><th>Total</th></tr></thead><tbody><tr><td>${v4Esc(s.product)}</td><td>${fmt(s.quantity)} ${v4Esc(s.unit)}</td><td>${moeda(s.unit_price)}</td><td>${moeda(s.total)}</td></tr></tbody></table><div class="gal-receipt-total">TOTAL: ${moeda(s.total)}</div>${s.observation?`<p style="margin-top:10px"><b>Obs.:</b> ${v4Esc(s.observation)}</p>`:''}${signature}<div class="gal-receipt-note">Obrigado. Vale da Serra — valorizando o produtor rural.</div></div>`;
+  }
+  window.galAbrirCupom=function(s){GAL.lastSale=s;const p=document.getElementById('galReceiptPreview');if(p)p.innerHTML=receiptHtml(s);document.getElementById('galReceiptDialog')?.showModal()};
+  window.galImprimirCupom=function(tipo){
+    const s=GAL.lastSale;if(!s){alert('Nenhuma venda disponível para impressão.');return}
+    const is80=String(tipo)==='80';const w=window.open('','_blank','width=900,height=900');if(!w){alert('O navegador bloqueou a janela de impressão.');return}
+    const sign=s.producer_name?`<div class="sig"><div>Assinatura de ${v4Esc(s.producer_name)}</div></div>`:'';
+    const css=is80?`@page{size:80mm auto;margin:4mm}body{width:72mm;margin:0 auto;font:12px Arial;color:#000}.logo{font-size:18px}.row{display:flex;justify-content:space-between;gap:8px}.sep{border-top:1px dashed #000;margin:8px 0}.total{font-size:18px;font-weight:800;text-align:right}.sig{margin-top:36px;border-top:1px solid #000;text-align:center;padding-top:5px}`:`@page{size:A4;margin:16mm}body{font:14px Arial;color:#102a4d;max-width:760px;margin:auto}.logo{font-size:26px}.box{border:1px solid #ccd8e6;border-radius:12px;padding:20px}.row{display:flex;justify-content:space-between;gap:18px}.sep{border-top:1px solid #dbe5ef;margin:14px 0}.total{font-size:26px;font-weight:900;text-align:right}.sig{margin:70px auto 0;border-top:1px solid #26394f;width:65%;text-align:center;padding-top:7px}`;
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Comprovante Galpão</title><style>${css}</style></head><body><div class="box"><div style="text-align:center"><b class="logo">VALE DA SERRA LATICÍNIOS</b><div>Comprovante de venda do Galpão</div></div><div class="sep"></div><div><b>Data:</b> ${v4Esc(s.date)}</div>${s.producer_name?`<div><b>Produtor:</b> ${v4Esc(s.producer_name)}</div>`:''}<div><b>Pagamento:</b> ${v4Esc(s.payment)}</div><div class="sep"></div><div><b>${v4Esc(s.product)}</b></div><div class="row"><span>${fmt(s.quantity)} ${v4Esc(s.unit)} × ${moeda(s.unit_price)}</span><b>${moeda(s.total)}</b></div><div class="sep"></div><div class="total">TOTAL ${moeda(s.total)}</div>${s.observation?`<p><b>Obs.:</b> ${v4Esc(s.observation)}</p>`:''}${sign}</div><script>window.onload=()=>setTimeout(()=>window.print(),150)<\/script></body></html>`);w.document.close();
+  };
+  galFinalizarVenda=async function(){
+    const p=EST.produtos.find(x=>String(x.id)===String(estMovProd.value));const q=Number(estMovQtd.value||0),producer_id=estMovProdutor.value||null;
+    if(!p||q<=0){alert('Selecione o produto e informe a quantidade.');return}
+    if(GAL.pay==='leite'&&!producer_id){alert('Para descontar do leite, selecione o produtor.');return}
+    const produtorObj=producer_id?prodById(producer_id):null, producer_name=produtorObj?(produtorObj.nome||produtorObj.name||'Produtor'):null;const price=Number(p.unit_price||0),total=q*price,obs=estMovDestino.value.trim();
+    const sale={date:new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date()),product:p.name,quantity:q,unit:p.unit,unit_price:price,total,producer_id,producer_name,payment:GAL.pay==='leite'?'Descontar do leite':GAL.pay==='pix'?'PIX':'Dinheiro',observation:obs};
+    try{
+      await estoqueAPI('/api/inventory/movements',{method:'POST',body:JSON.stringify({product_id:p.id,type:'saida',quantity:q,unit_price:price,producer_id,producer_name,destination:`VENDA GALPÃO • ${GAL.pay.toUpperCase()}${obs?' • '+obs:''}`})});
+      if(GAL.pay==='leite'&&producer_id){debitos.push({id:'deb_gal_'+Date.now(),prodId:producer_id,data:isoHoje(),descricao:`Galpão: ${p.name} - ${fmt(q)} ${p.unit}`,valor:total});localStorage.setItem(KDEB,JSON.stringify(debitos));save()}
+      estMsg.textContent='✅ Venda registrada. Estoque atualizado automaticamente.';galLimparVenda();await estoqueCarregar();galAbrirCupom(sale);
+    }catch(e){estMsg.textContent='❌ '+e.message}
+  };
+  setTimeout(()=>{galAplicarAdmin();},350);
+})();
+</script>
+</body>
 </html>

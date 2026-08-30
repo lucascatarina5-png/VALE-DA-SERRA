@@ -484,7 +484,7 @@ app.get('/api/inventory/products',auth,hasPermission('estoque'),async(req,res)=>
   }catch(e){res.status(500).json({ok:false,error:e.message});}
 });
 
-app.post('/api/inventory/products',auth,hasPermission('estoque'),async(req,res)=>{
+app.post('/api/inventory/products',auth,hasPermission('estoque'),adminOnly,async(req,res)=>{
   const client=await pool.connect();
   try{
     const {name,unit='kg',min_stock=0,unit_price=0,initial_quantity=0}=req.body||{};
@@ -496,6 +496,27 @@ app.post('/api/inventory/products',auth,hasPermission('estoque'),async(req,res)=
     if(initial>0) await client.query(`INSERT INTO app_inventory_movements (product_id,type,quantity,unit_price,destination,user_id,username) VALUES($1,'entrada',$2,$3,$4,$5,$6)`,[id,initial,Number(unit_price)||0,'Estoque inicial no cadastro',req.user.user_id||null,req.user.username||null]);
     await client.query('COMMIT'); await audit(req.user,'ESTOQUE_PRODUTO_CRIADO',{id,name,initial_quantity:initial}); res.json({ok:true,id});
   }catch(e){try{await client.query('ROLLBACK')}catch(_){} res.status(500).json({ok:false,error:e.message});} finally{client.release();}
+});
+
+app.put('/api/inventory/products/:id',auth,hasPermission('estoque'),adminOnly,async(req,res)=>{
+  try{
+    const {name,unit='kg',min_stock=0,unit_price=0}=req.body||{};
+    if(!String(name||'').trim()) return res.status(400).json({ok:false,error:'Informe o produto'});
+    const r=await pool.query(`UPDATE app_inventory_products SET name=$2,unit=$3,min_stock=$4,unit_price=$5,updated_at=NOW() WHERE id=$1 AND active=TRUE RETURNING id,name`,
+      [req.params.id,String(name).trim(),unit,Number(min_stock)||0,Number(unit_price)||0]);
+    if(!r.rowCount) return res.status(404).json({ok:false,error:'Produto não encontrado'});
+    await audit(req.user,'ESTOQUE_PRODUTO_EDITADO',{id:req.params.id,name:String(name).trim()});
+    res.json({ok:true});
+  }catch(e){res.status(500).json({ok:false,error:e.message});}
+});
+
+app.delete('/api/inventory/products/:id',auth,hasPermission('estoque'),adminOnly,async(req,res)=>{
+  try{
+    const r=await pool.query(`UPDATE app_inventory_products SET active=FALSE,updated_at=NOW() WHERE id=$1 AND active=TRUE RETURNING id,name`,[req.params.id]);
+    if(!r.rowCount) return res.status(404).json({ok:false,error:'Produto não encontrado'});
+    await audit(req.user,'ESTOQUE_PRODUTO_EXCLUIDO',{id:req.params.id,name:r.rows[0].name});
+    res.json({ok:true});
+  }catch(e){res.status(500).json({ok:false,error:e.message});}
 });
 
 app.get('/api/inventory/movements',auth,hasPermission('estoque'),async(req,res)=>{
