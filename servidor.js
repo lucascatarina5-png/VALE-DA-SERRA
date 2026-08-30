@@ -533,6 +533,12 @@ app.post('/api/inventory/movements',auth,hasPermission('estoque'),async(req,res)
   const client=await pool.connect();
   try{
     const {product_id,type,quantity,unit_price=0,producer_id,producer_name,destination}=req.body||{};
+    const role=String(req.user?.role||'').trim().toLowerCase();
+    const isAdmin=role==='administrador';
+    const isGalpaoSale=type==='saida' && String(destination||'').toUpperCase().startsWith('VENDA GALPÃO');
+    if(!isAdmin && !isGalpaoSale){
+      return res.status(403).json({ok:false,error:'Somente o Administrador pode registrar entradas, perdas, ajustes ou uso interno do Galpão.'});
+    }
     const q=Number(quantity);
     if(!product_id || !['entrada','saida'].includes(type) || !(q>0))
       return res.status(400).json({ok:false,error:'Movimentação inválida'});
