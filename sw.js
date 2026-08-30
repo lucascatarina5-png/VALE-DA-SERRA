@@ -1,4 +1,4 @@
-const CACHE='vale-da-serra-v112-galpao-permissoes-mobile';
+const CACHE='vale-da-serra-v113-galpao-permissoes-mobile';
 const ASSETS=['/manifest.webmanifest','/icon-192.png','/icon-512.png','/icon-maskable-192.png','/icon-maskable-512.png','/mobile-hero-v82.png','/icon-estoque-realista.png','/icon-produtor-leite-realista.png'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
