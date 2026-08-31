@@ -862,7 +862,7 @@ app.get('/api/producers/:id/statement',auth,async(req,res)=>{
     const norm=x=>String(x||'').trim().toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     const milk=(Array.isArray(st.lancamentos)?st.lancamentos:[]).filter(x=>String(x.prodId)===producerId).sort((a,b)=>String(b.data||'').localeCompare(String(a.data||'')));
     const debits=(Array.isArray(st.debitos)?st.debitos:[]).filter(x=>String(x.prodId||x.produtorId||'')===producerId || (producerName&&norm(x.produtor||x.produtorNome||x.nomeProdutor)===norm(producerName)));
-    const sales=await pool.query(`SELECT s.id,s.created_at,s.business_date,s.total,s.payment_method,s.customer_name,s.customer_id,s.username,s.status,
+    const sales=await pool.query(`SELECT s.id,s.created_at,(s.created_at AT TIME ZONE 'America/Sao_Paulo')::date::text AS business_date,s.total,s.payment_method,s.customer_name,s.customer_id,s.username,s.status,
       COALESCE(json_agg(json_build_object('product_id',i.product_id,'product_name',i.product_name,'quantity',i.quantity,'unit_price',i.unit_price,'subtotal',i.subtotal)) FILTER (WHERE i.id IS NOT NULL),'[]') items
       FROM app_store_sales s LEFT JOIN app_store_sale_items i ON i.sale_id=s.id
       WHERE s.status<>'cancelada' AND (s.customer_id=$1 OR lower(trim(COALESCE(s.customer_name,'')))=lower(trim($2)))
