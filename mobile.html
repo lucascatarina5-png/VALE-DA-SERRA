@@ -314,7 +314,7 @@ $('#openCashReport').addEventListener('click',async()=>{await go('cashrel');if(!
 async function loadProducts(){try{$('#pdvGrid').innerHTML='<div class="loading">Carregando produtos...</div>';const j=await api('/api/store/products?light=1');products=j.products||[];renderPdv();loadVisiblePhotos()}catch(e){$('#pdvGrid').innerHTML='<div class="error">'+esc(e.message)+'</div>'}}
 async function loadInventory(){try{$('#stockList').innerHTML='<div class="loading">Carregando estoque do galpão...</div>';const j=await api('/api/inventory/products');inventoryProducts=j.products||[];renderStock()}catch(e){$('#stockList').innerHTML='<div class="error">'+esc(e.message)+'</div>';$('#stockCount').textContent='0';$('#stockItems').textContent='0'}}
 function galMobileIcon(name){name=String(name||'').toLowerCase();return name.includes('soja')?'🫘':name.includes('milho')?'🌽':(name.includes('ração')||name.includes('racao'))?'🌾':'📦'}
-function mobileGalpaoIsAdmin(){return String((user&&user.role)||'').trim().toLowerCase()==='administrador'}
+function mobileGalpaoIsAdmin(){return String((user&&user.role)||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')==='administrador'}
 function renderStock(){const q=$('#stockSearch').value.trim().toLowerCase(),arr=inventoryProducts.filter(p=>!q||String(p.name||'').toLowerCase().includes(q));$('#stockCount').textContent=inventoryProducts.length;$('#stockItems').textContent=num(inventoryProducts.reduce((s,p)=>s+Number(p.balance||0),0));$('#stockList').innerHTML=arr.length?arr.map(productCard).join(''):'<div class="empty">Nenhum produto no Galpão.</div>';const b=$('#galmNew');if(b)b.style.display=mobileGalpaoIsAdmin()?'':'none'}
 function productCard(p){const bal=Number(p.balance||0),min=Number(p.min_stock||0),low=bal<=min,admin=mobileGalpaoIsAdmin();return `<article class="product ${low?'galm-low':''}"><div class="product-photo">${galMobileIcon(p.name)}</div><div class="product-cat">Estoque / Galpão</div><div class="product-name">${esc(p.name)}</div><div class="price">${money(p.unit_price)} / ${esc(p.unit||'un')}</div><div class="stock" style="color:${low?'#c96b00':'#119447'}">● ${num(bal)} ${esc(p.unit||'un')} disponíveis${low?' • estoque baixo':''}</div><button type="button" class="galm-sell" data-v114-sell="${esc(p.id)}">🛒 VENDER</button>${admin?`<div class="galm-product-actions"><button type="button" class="galm-edit" data-v114-edit="${esc(p.id)}">✏️ Editar</button><button type="button" class="galm-delete" data-v114-del="${esc(p.id)}">🗑 Excluir</button></div>`:''}</article>`}
 function renderPdv(){const q=$('#pdvSearch').value.trim().toLowerCase(),arr=products.filter(p=>!q||String(p.name||'').toLowerCase().includes(q)||String(p.category||'').toLowerCase().includes(q));$('#pdvGrid').innerHTML=arr.length?arr.map(p=>`<article class="product pdv-click" data-sell-product="${esc(p.id)}" role="button" tabindex="0"><div class="product-photo" data-photo="${esc(p.id)}">🧀</div><div class="product-cat">${esc(p.category||'Produto')}</div><div class="product-name">${esc(p.name)}</div><div class="price">${money(p.sale_price)}</div><div class="stock">● ${num(p.stock)} ${esc(p.unit||'un')}</div><button class="sell" data-add="${esc(p.id)}">＋ Vender</button></article>`).join(''):'<div class="empty">Nenhum produto.</div>';$$('[data-add]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();addCart(b.dataset.add);$('#cartSheet').classList.add('open')}));$$('[data-sell-product]').forEach(card=>{card.addEventListener('click',e=>{if(e.target.closest('button'))return;addCart(card.dataset.sellProduct);$('#cartSheet').classList.add('open')});card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();addCart(card.dataset.sellProduct);$('#cartSheet').classList.add('open')}})});loadVisiblePhotos()}
@@ -448,7 +448,7 @@ boot();
     if(typeof user==='object'&&user)return user;
     try{return JSON.parse(localStorage.getItem('vale_user')||'{}')||{}}catch(_){return {}}
   }
-  function isAdmin(){return String(currentUser().role||'').trim().toLowerCase()==='administrador'}
+  function isAdmin(){return String(currentUser().role||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')==='administrador'}
   function producerName(id){
     const arr=(typeof state==='object'&&Array.isArray(state.produtores))?state.produtores:[];
     const p=arr.find(x=>String(x.id)===String(id));
@@ -505,22 +505,24 @@ boot();
   function setPay(pay){V114.pay=pay;$qa('[data-galm-pay]').forEach(b=>b.classList.toggle('sel',b.dataset.galmPay===pay))}
   function calcTotal(){const qty=Number($q('#galmSaleQty')?.value||0),price=Number(V114.product?.unit_price||0);const el=$q('#galmSaleTotal');if(el)el.textContent=money(qty*price)}
   async function finishSale(){
-    const p=V114.product, qty=Number($q('#galmSaleQty').value||0), producerId=$q('#galmSaleProducer').value||null;
+    const p=V114.product, qty=Number($q('#galmSaleQty')?.value||0), producerId=$q('#galmSaleProducer')?.value||null;
     if(!p||!(qty>0)){toast('Informe uma quantidade válida.',true);return}
     if(qty>Number(p.balance||0)){toast('Estoque insuficiente.',true);return}
     if(V114.pay==='leite'&&!producerId){toast('Selecione o produtor para descontar do leite.',true);return}
-    const pName=producerId?producerName(producerId):null, price=Number(p.unit_price||0), total=qty*price, obs=$q('#galmSaleObs').value.trim();
+    const btn=$q('#galmFinish'); if(btn){btn.disabled=true;btn.textContent='Registrando venda...'}
+    const pName=producerId?producerName(producerId):null, price=Number(p.unit_price||0), total=qty*price, obs=$q('#galmSaleObs')?.value.trim()||'';
     try{
-      await api('/api/inventory/movements',{method:'POST',body:JSON.stringify({product_id:p.id,type:'saida',quantity:qty,unit_price:price,producer_id:producerId,producer_name:pName,destination:'VENDA GALPÃO • '+V114.pay.toUpperCase()+(obs?' • '+obs:'')})});
+      const r=await api('/api/inventory/sale',{method:'POST',body:JSON.stringify({product_id:p.id,quantity:qty,unit_price:price,producer_id:producerId,producer_name:pName,payment_method:V114.pay,observation:obs})});
       if(V114.pay==='leite'&&producerId){
         state.debitos=Array.isArray(state.debitos)?state.debitos:[];
         state.debitos.push({id:'deb_galm_'+Date.now(),prodId:producerId,data:today(),descricao:'Galpão: '+p.name+' - '+num(qty)+' '+(p.unit||'un'),valor:total});
         await saveState();
       }
-      V114.lastSale={date:new Date().toLocaleString('pt-BR'),product:p.name,quantity:qty,unit:p.unit||'un',unit_price:price,total,producer_name:pName,payment:V114.pay==='leite'?'Descontar do leite':V114.pay==='pix'?'PIX':'Dinheiro',observation:obs};
-      $q('#galmSaleSheet').classList.remove('open');
+      const sale=r.sale||{};
+      V114.lastSale={date:new Date(sale.created_at||Date.now()).toLocaleString('pt-BR'),product:sale.product_name||p.name,quantity:Number(sale.quantity||qty),unit:sale.unit||p.unit||'un',unit_price:Number(sale.unit_price??price),total:Number(sale.total??total),producer_name:sale.producer_name||pName,payment:V114.pay==='leite'?'Descontar do leite':V114.pay==='pix'?'PIX':'Dinheiro',observation:sale.observation||obs};
+      $q('#galmSaleSheet')?.classList.remove('open');
       await loadInventory(); showReceipt(); toast('Venda do Galpão finalizada.');
-    }catch(e){toast(e.message||String(e),true)}
+    }catch(e){toast(e.message||String(e),true)}finally{if(btn){btn.disabled=false;btn.textContent='✓ Finalizar venda'}}
   }
   function receiptHtml(){
     const s=V114.lastSale;if(!s)return '';
@@ -550,12 +552,32 @@ boot();
   }
   async function deleteProduct(id){
     if(!isAdmin()){toast('Somente o Administrador pode excluir produtos.',true);return}
-    const p=inventory().find(x=>String(x.id)===String(id));if(!p||!confirm('Excluir '+p.name+' do estoque? O histórico será preservado.'))return;
-    try{await api('/api/inventory/products/'+encodeURIComponent(id),{method:'DELETE'});await loadInventory();toast('Produto excluído.')}catch(e){toast(e.message||String(e),true)}
+    const p=inventory().find(x=>String(x.id)===String(id));if(!p){toast('Produto não encontrado.',true);return}
+    if(!confirm('Excluir '+p.name+' do estoque? O histórico será preservado.'))return;
+    try{
+      await api('/api/inventory/products/'+encodeURIComponent(id)+'/delete',{method:'POST',body:JSON.stringify({})});
+      await loadInventory();
+      window.renderStock();
+      toast('Produto excluído do estoque.');
+    }catch(e){toast(e.message||String(e),true)}
   }
   async function openReport(){
-    const list=$q('#galmReportList'); if(list)list.innerHTML='<div class="loading">Carregando relatório...</div>'; $q('#galmReportSheet').classList.add('open');
-    try{const j=await api('/api/inventory/movements'),a=Array.isArray(j.movements)?j.movements:[];let inn=0,out=0;a.forEach(x=>{if(x.type==='entrada')inn+=Number(x.quantity||0);else out+=Number(x.quantity||0)});$q('#galmRepIn').textContent=num(inn);$q('#galmRepOut').textContent=num(out);list.innerHTML=a.length?a.slice(0,150).map(x=>'<div class="galm-report-row"><div>'+(x.type==='entrada'?'⬆️':'⬇️')+'</div><div><b>'+esc(x.product_name||'Produto')+'</b><small>'+new Date(x.created_at).toLocaleString('pt-BR')+' • '+esc(x.username||'')+'</small><small>'+esc(x.producer_name||x.destination||'')+'</small></div><strong class="'+(x.type==='entrada'?'in':'out')+'">'+(x.type==='entrada'?'+':'−')+' '+num(x.quantity)+' '+esc(x.unit||'')+'</strong></div>').join(''):'<div class="empty">Nenhuma movimentação.</div>'}catch(e){list.innerHTML='<div class="error">'+esc(e.message||String(e))+'</div>'}
+    const list=$q('#galmReportList');
+    if(list)list.innerHTML='<div class="loading">Carregando movimentações do Galpão...</div>';
+    $q('#galmReportSheet')?.classList.add('open');
+    try{
+      const j=await api('/api/inventory/report?ts='+Date.now());
+      const a=Array.isArray(j.movements)?j.movements:[];
+      const tot=j.totals||{};
+      if($q('#galmRepIn'))$q('#galmRepIn').textContent=num(Number(tot.entradas||0));
+      if($q('#galmRepOut'))$q('#galmRepOut').textContent=num(Number(tot.saidas||0));
+      if(list)list.innerHTML=a.length?a.slice(0,300).map(x=>{
+        const isIn=String(x.type)==='entrada';
+        const when=x.created_at?new Date(x.created_at).toLocaleString('pt-BR'):'Data não informada';
+        const detail=[x.producer_name,x.destination].filter(Boolean).join(' • ');
+        return '<div class="galm-report-row"><div>'+(isIn?'⬆️':'⬇️')+'</div><div><b>'+esc(x.product_name||'Produto')+'</b><small>'+esc(when)+(x.username?' • '+esc(x.username):'')+'</small>'+(detail?'<small>'+esc(detail)+'</small>':'')+'</div><strong class="'+(isIn?'in':'out')+'">'+(isIn?'+':'−')+' '+num(Number(x.quantity||0))+' '+esc(x.unit||'')+'</strong></div>';
+      }).join(''):'<div class="empty">Ainda não há movimentações registradas no Galpão.</div>';
+    }catch(e){if(list)list.innerHTML='<div class="error"><b>Não foi possível carregar o relatório.</b><br>'+esc(e.message||String(e))+'<br><button type="button" id="galmRetryReport" class="primary" style="margin-top:12px">Tentar novamente</button></div>';setTimeout(()=>{$q('#galmRetryReport')?.addEventListener('click',openReport)},0)}
   }
   // Reliable event delegation: works even after stock cards are re-rendered.
   document.addEventListener('click',function(e){
@@ -609,7 +631,7 @@ boot();
 </style>
 <script id="v115-mobile-galpao-sync">
 (function(){
-  function admin(){try{return String((user&&user.role)||'').trim().toLowerCase()==='administrador'}catch(_){return false}}
+  function admin(){try{return String((user&&user.role)||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')==='administrador'}catch(_){return false}}
   function sync(){
     var n=document.getElementById('galmNew');if(n)n.style.display=admin()?'':'none';
     document.querySelectorAll('#screen-estoque .galm-product-actions').forEach(function(x){x.style.display=admin()?'grid':'none'});
@@ -709,4 +731,9 @@ body{background:linear-gradient(180deg,#f7f9fd 0%,#eef4fb 100%);color:#172b4d}
     font-size:13px;
   }
 }
+</style>
+
+<style id="v116-mobile-galpao-fix">
+#galmFinish:disabled{opacity:.65;filter:grayscale(.15)}
+#galmReportList .error{padding:18px;border:1px solid #f0b7b7;background:#fff5f5;border-radius:14px;color:#8f2020}
 </style>

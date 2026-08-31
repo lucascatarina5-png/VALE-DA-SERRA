@@ -215,6 +215,19 @@ async function initDb() {
     username TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
+  // V116: garante as colunas do Galpão em bancos criados por versões antigas.
+  await pool.query(`ALTER TABLE app_inventory_products ADD COLUMN IF NOT EXISTS unit TEXT NOT NULL DEFAULT 'kg'`);
+  await pool.query(`ALTER TABLE app_inventory_products ADD COLUMN IF NOT EXISTS min_stock NUMERIC NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE app_inventory_products ADD COLUMN IF NOT EXISTS unit_price NUMERIC NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE app_inventory_products ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE`);
+  await pool.query(`ALTER TABLE app_inventory_products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
+  await pool.query(`ALTER TABLE app_inventory_movements ADD COLUMN IF NOT EXISTS unit_price NUMERIC NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE app_inventory_movements ADD COLUMN IF NOT EXISTS producer_id TEXT`);
+  await pool.query(`ALTER TABLE app_inventory_movements ADD COLUMN IF NOT EXISTS producer_name TEXT`);
+  await pool.query(`ALTER TABLE app_inventory_movements ADD COLUMN IF NOT EXISTS destination TEXT`);
+  await pool.query(`ALTER TABLE app_inventory_movements ADD COLUMN IF NOT EXISTS user_id TEXT`);
+  await pool.query(`ALTER TABLE app_inventory_movements ADD COLUMN IF NOT EXISTS username TEXT`);
+  await pool.query(`ALTER TABLE app_inventory_movements ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
 
 
   // V14 - Loja / PDV (migração aditiva: preserva todos os dados existentes)
@@ -323,14 +336,16 @@ async function optionalAuth(req,res,next){
   next();
 }
 
+function roleNorm(v){ return String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function isAdminUser(user){ return roleNorm(user?.role)==='administrador'; }
 function adminOnly(req,res,next){
-  if(req.user.role !== 'administrador')
+  if(!isAdminUser(req.user))
     return res.status(403).json({ok:false,error:'Somente administrador'});
   next();
 }
 function hasPermission(permission){
   return function(req,res,next){
-    if(req.user?.role === 'administrador') return next();
+    if(isAdminUser(req.user)) return next();
     const perms=Array.isArray(req.user?.permissions) ? req.user.permissions : [];
     if(!perms.includes(permission))
       return res.status(403).json({ok:false,error:'Sem permissão para esta função'});
@@ -479,7 +494,7 @@ app.get('/api/inventory/products',auth,hasPermission('estoque'),async(req,res)=>
       COALESCE(SUM(CASE WHEN m.type='entrada' THEN m.quantity ELSE -m.quantity END),0) AS balance
       FROM app_inventory_products p
       LEFT JOIN app_inventory_movements m ON m.product_id=p.id
-      WHERE p.active=TRUE GROUP BY p.id ORDER BY p.name`);
+      WHERE COALESCE(p.active,TRUE)=TRUE GROUP BY p.id ORDER BY p.name`);
     res.json({ok:true,products:r.rows});
   }catch(e){res.status(500).json({ok:false,error:e.message});}
 });
@@ -523,7 +538,7 @@ app.get('/api/inventory/movements',auth,hasPermission('estoque'),async(req,res)=
   try{
     const r=await pool.query(`SELECT m.*,p.name AS product_name,p.unit
       FROM app_inventory_movements m
-      JOIN app_inventory_products p ON p.id=m.product_id
+      LEFT JOIN app_inventory_products p ON p.id=m.product_id
       ORDER BY m.created_at DESC LIMIT 1000`);
     res.json({ok:true,movements:r.rows});
   }catch(e){res.status(500).json({ok:false,error:e.message});}
@@ -533,9 +548,9 @@ app.post('/api/inventory/movements',auth,hasPermission('estoque'),async(req,res)
   const client=await pool.connect();
   try{
     const {product_id,type,quantity,unit_price=0,producer_id,producer_name,destination}=req.body||{};
-    const role=String(req.user?.role||'').trim().toLowerCase();
-    const isAdmin=role==='administrador';
-    const isGalpaoSale=type==='saida' && String(destination||'').toUpperCase().startsWith('VENDA GALPÃO');
+    const isAdmin=isAdminUser(req.user);
+    const destNorm=String(destination||'').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const isGalpaoSale=type==='saida' && destNorm.startsWith('VENDA GALPAO');
     if(!isAdmin && !isGalpaoSale){
       return res.status(403).json({ok:false,error:'Somente o Administrador pode registrar entradas, perdas, ajustes ou uso interno do Galpão.'});
     }
@@ -566,6 +581,59 @@ app.post('/api/inventory/movements',auth,hasPermission('estoque'),async(req,res)
   }finally{client.release();}
 });
 
+
+
+// V116 - endpoints dedicados do Galpão mobile: venda e relatório confiáveis.
+app.post('/api/inventory/products/:id/delete',auth,hasPermission('estoque'),adminOnly,async(req,res)=>{
+  try{
+    const r=await pool.query(`UPDATE app_inventory_products SET active=FALSE,updated_at=NOW() WHERE id=$1 AND COALESCE(active,TRUE)=TRUE RETURNING id,name`,[req.params.id]);
+    if(!r.rowCount) return res.status(404).json({ok:false,error:'Produto não encontrado ou já excluído.'});
+    await audit(req.user,'ESTOQUE_PRODUTO_EXCLUIDO',{id:req.params.id,name:r.rows[0].name,origem:'mobile'});
+    res.json({ok:true,id:req.params.id});
+  }catch(e){console.error('POST /api/inventory/products/:id/delete',e);res.status(500).json({ok:false,error:e.message});}
+});
+
+app.get('/api/inventory/report',auth,hasPermission('estoque'),async(req,res)=>{
+  try{
+    const r=await pool.query(`SELECT m.id,m.product_id,m.type,m.quantity,m.unit_price,m.producer_id,m.producer_name,m.destination,m.user_id,m.username,m.created_at,
+      COALESCE(p.name,'Produto removido') AS product_name,COALESCE(p.unit,'') AS unit
+      FROM app_inventory_movements m
+      LEFT JOIN app_inventory_products p ON p.id=m.product_id
+      ORDER BY m.created_at DESC LIMIT 1000`);
+    let entradas=0,saidas=0,valorEntradas=0,valorSaidas=0;
+    for(const x of r.rows){const q=Number(x.quantity||0),v=q*Number(x.unit_price||0);if(x.type==='entrada'){entradas+=q;valorEntradas+=v}else{saidas+=q;valorSaidas+=v}}
+    res.set('Cache-Control','no-store, no-cache, must-revalidate');
+    res.json({ok:true,movements:r.rows,totals:{entradas,saidas,valor_entradas:valorEntradas,valor_saidas:valorSaidas}});
+  }catch(e){console.error('GET /api/inventory/report',e);res.status(500).json({ok:false,error:e.message});}
+});
+
+app.post('/api/inventory/sale',auth,hasPermission('estoque'),async(req,res)=>{
+  const client=await pool.connect();
+  try{
+    const b=req.body||{};
+    const productId=String(b.product_id||'').trim(), q=Number(b.quantity), producerId=b.producer_id||null, producerName=b.producer_name||null;
+    const payment=String(b.payment_method||'dinheiro').trim().toLowerCase();
+    if(!productId || !(q>0)) return res.status(400).json({ok:false,error:'Produto e quantidade são obrigatórios.'});
+    if(!['dinheiro','pix','leite'].includes(payment)) return res.status(400).json({ok:false,error:'Forma de pagamento inválida.'});
+    if(payment==='leite'&&!producerId) return res.status(400).json({ok:false,error:'Selecione o produtor para descontar do leite.'});
+    await client.query('BEGIN');
+    const pr=await client.query(`SELECT * FROM app_inventory_products WHERE id=$1 AND COALESCE(active,TRUE)=TRUE FOR UPDATE`,[productId]);
+    if(!pr.rowCount) throw new Error('Produto não encontrado no Galpão.');
+    const p=pr.rows[0];
+    const br=await client.query(`SELECT COALESCE(SUM(CASE WHEN type='entrada' THEN quantity ELSE -quantity END),0) AS balance FROM app_inventory_movements WHERE product_id=$1`,[productId]);
+    const balance=Number(br.rows[0]?.balance||0);
+    if(balance+1e-9<q) throw new Error(`Estoque insuficiente. Disponível: ${balance} ${p.unit||''}`);
+    const unitPrice=(b.unit_price!==undefined&&b.unit_price!==null&&b.unit_price!=='')?Number(b.unit_price):Number(p.unit_price||0);
+    const destination=`VENDA GALPÃO • ${payment.toUpperCase()}${String(b.observation||'').trim()?' • '+String(b.observation).trim():''}`;
+    const ins=await client.query(`INSERT INTO app_inventory_movements(product_id,type,quantity,unit_price,producer_id,producer_name,destination,user_id,username)
+      VALUES($1,'saida',$2,$3,$4,$5,$6,$7,$8) RETURNING id,created_at`,[p.id,q,unitPrice,producerId,producerName,destination,req.user.user_id||null,req.user.username||null]);
+    await client.query('COMMIT');
+    const total=q*unitPrice;
+    await audit(req.user,'ESTOQUE_VENDA_GALPAO',{movement_id:ins.rows[0].id,product_id:p.id,product_name:p.name,quantity:q,unit_price:unitPrice,total,payment_method:payment,producer_id:producerId,producer_name:producerName});
+    res.json({ok:true,sale:{id:ins.rows[0].id,created_at:ins.rows[0].created_at,product_id:p.id,product_name:p.name,unit:p.unit,quantity:q,unit_price:unitPrice,total,payment_method:payment,producer_id:producerId,producer_name:producerName,observation:String(b.observation||'').trim(),remaining:balance-q}});
+  }catch(e){try{await client.query('ROLLBACK')}catch(_){} console.error('POST /api/inventory/sale',e);res.status(500).json({ok:false,error:e.message});}
+  finally{client.release();}
+});
 
 // V14 - API Loja / PDV
 app.get('/api/store/products',auth,hasPermission('loja'),async(req,res)=>{try{
