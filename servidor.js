@@ -836,10 +836,22 @@ app.get('/api/store/cash/movements',auth,hasPermission('loja'),async(req,res)=>{
 }catch(e){res.status(500).json({ok:false,error:e.message})}});
 
 app.post('/api/store/sales',auth,hasPermission('loja'),async(req,res)=>{
- const c=await pool.connect(); try{const {items,payment_method,customer_name,customer_id}=req.body||{}; const paymentStored=(String(payment_method||'').toLowerCase()==='boleto'?'fiado':String(payment_method||'').toLowerCase()); if(!Array.isArray(items)||!items.length) return res.status(400).json({ok:false,error:'Venda sem produtos'}); const sx=await c.query(`SELECT id FROM app_store_cash_sessions WHERE status='aberto' AND opened_by=$1 ORDER BY opened_at DESC LIMIT 1`,[req.user.username]); if(!sx.rowCount) return res.status(400).json({ok:false,error:'Abra o caixa antes de iniciar as vendas.'}); const cashSessionId=sx.rows[0].id;
-  if(!['pix','dinheiro','cartao','fiado','doacao'].includes(paymentStored)) return res.status(400).json({ok:false,error:'Forma de pagamento inválida'});
+ const c=await pool.connect(); try{const {items,payment_method,customer_name,customer_id,producer_id,producer_name}=req.body||{}; const paymentStored=(String(payment_method||'').toLowerCase()==='boleto'?'fiado':String(payment_method||'').toLowerCase()); if(!Array.isArray(items)||!items.length) return res.status(400).json({ok:false,error:'Venda sem produtos'}); const sx=await c.query(`SELECT id FROM app_store_cash_sessions WHERE status='aberto' AND opened_by=$1 ORDER BY opened_at DESC LIMIT 1`,[req.user.username]); if(!sx.rowCount) return res.status(400).json({ok:false,error:'Abra o caixa antes de iniciar as vendas.'}); const cashSessionId=sx.rows[0].id;
+  if(!['pix','dinheiro','cartao','fiado','doacao','leite'].includes(paymentStored)) return res.status(400).json({ok:false,error:'Forma de pagamento inválida'});
   let customerName=String(customer_name||'').trim(), customerId=String(customer_id||'').trim()||null;
-  if(customerId){const cr=await c.query(`SELECT id,name FROM app_store_customers WHERE id=$1 AND active=TRUE`,[customerId]);if(cr.rowCount)customerName=cr.rows[0].name;else customerId=null;}
+  let producerId=String(producer_id||'').trim()||null, producerName=String(producer_name||'').trim();
+  if(paymentStored==='leite'){
+    if(!producerId) return res.status(400).json({ok:false,error:'Selecione o produtor para descontar do leite.'});
+    const stq=await c.query("SELECT data FROM app_state WHERE id='vale-da-serra'");
+    const st=stq.rows[0]?.data||{}, produtores=Array.isArray(st.produtores)?st.produtores:[];
+    const prod=produtores.find(x=>String(x.id)===producerId);
+    if(!prod) return res.status(400).json({ok:false,error:'Produtor não encontrado.'});
+    producerName=String(prod.nome||producerName||'Produtor').trim();
+    customerName=producerName; customerId=producerId;
+  } else if(customerId){
+    const cr=await c.query(`SELECT id,name FROM app_store_customers WHERE id=$1 AND active=TRUE`,[customerId]);
+    if(cr.rowCount)customerName=cr.rows[0].name;else customerId=null;
+  }
   if(paymentStored==='fiado' && !customerName) return res.status(400).json({ok:false,error:'Informe ou selecione o cliente para venda BOLETO.'});
   await c.query('BEGIN'); const id=crypto.randomUUID(); let total=0;
   const prepared=[]; for(const it of items){const q=Number(it.quantity); if(!(q>0)) throw new Error('Quantidade inválida');
@@ -849,7 +861,18 @@ app.post('/api/store/sales',auth,hasPermission('loja'),async(req,res)=>{
   for(const [p,q,sub,unitPrice] of prepared){await c.query(`UPDATE app_store_products SET stock=stock-$2,updated_at=NOW() WHERE id=$1`,[p.id,q]); await c.query(`INSERT INTO app_store_sale_items(sale_id,product_id,product_name,quantity,unit_price,cost_price,subtotal) VALUES($1,$2,$3,$4,$5,$6,$7)`,[id,p.id,p.name,q,unitPrice,p.cost_price,sub]);
    let rest=q;const lots=await c.query(`SELECT * FROM app_store_lots WHERE product_id=$1 AND quantity>0 ORDER BY expiry_date NULLS LAST,created_at FOR UPDATE`,[p.id]);for(const lot of lots.rows){if(rest<=0)break;const take=Math.min(rest,Number(lot.quantity));await c.query(`UPDATE app_store_lots SET quantity=quantity-$2,updated_at=NOW() WHERE id=$1`,[lot.id,take]);rest-=take;}}
   if(paymentStored==='fiado') await c.query(`INSERT INTO app_store_credit_accounts(id,sale_id,customer_id,customer_name,original_amount,created_by) VALUES($1,$2,$3,$4,$5,$6)`,[crypto.randomUUID(),id,customerId,customerName,total,req.user.username]);
-  await c.query('COMMIT'); await audit(req.user,paymentStored==='doacao'?'LOJA_DOACAO':'LOJA_VENDA',{id,total,payment_method:(paymentStored==='fiado'?'boleto':paymentStored),customer_name:customerName,customer_id:customerId}); res.json({ok:true,id,total,credit:paymentStored==='fiado'});
+  if(paymentStored==='leite' && producerId){
+    const stq=await c.query("SELECT data FROM app_state WHERE id='vale-da-serra' FOR UPDATE");
+    const state=(stq.rows[0]?.data && typeof stq.rows[0].data==='object')?stq.rows[0].data:{};
+    const debitos=Array.isArray(state.debitos)?state.debitos.slice():[];
+    const debId='deb_pdv_'+id;
+    const dateQ=await c.query("SELECT (NOW() AT TIME ZONE 'America/Sao_Paulo')::date::text AS hoje");
+    const desc='PDV: '+prepared.map(([p,q])=>`${p.name} - ${q}`).join(' • ');
+    if(!debitos.some(d=>String(d.id)===debId)) debitos.push({id:debId,prodId:String(producerId),data:dateQ.rows[0].hoje,descricao:desc,valor:total,origem:'pdv',saleId:id});
+    state.debitos=debitos;
+    await c.query(`INSERT INTO app_state(id,data,updated_at) VALUES('vale-da-serra',$1::jsonb,NOW()) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()`,[JSON.stringify(state)]);
+  }
+  await c.query('COMMIT'); await audit(req.user,paymentStored==='doacao'?'LOJA_DOACAO':'LOJA_VENDA',{id,total,payment_method:(paymentStored==='fiado'?'boleto':paymentStored),customer_name:customerName,customer_id:customerId,producer_id:producerId,producer_name:producerName}); res.json({ok:true,id,total,credit:paymentStored==='fiado',milk_debit:paymentStored==='leite',producer_id:producerId,producer_name:producerName});
  }catch(e){try{await c.query('ROLLBACK')}catch(_){} res.status(400).json({ok:false,error:e.message})}finally{c.release()}
 });
 app.get('/api/store/sales',auth,hasPermission('loja'),async(req,res)=>{try{
