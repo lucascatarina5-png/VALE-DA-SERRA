@@ -848,6 +848,37 @@ app.get('/api/store/sales',auth,hasPermission('loja'),async(req,res)=>{try{
  const r=await pool.query(`SELECT s.*,(s.created_at AT TIME ZONE 'America/Sao_Paulo')::date::text AS business_date,COALESCE(json_agg(json_build_object('product_id',i.product_id,'product_name',i.product_name,'quantity',i.quantity,'unit_price',i.unit_price,'subtotal',i.subtotal)) FILTER (WHERE i.id IS NOT NULL),'[]') items FROM app_store_sales s LEFT JOIN app_store_sale_items i ON i.sale_id=s.id WHERE ${where} ${includeCancelled?'':"AND s.status<>'cancelada'"} GROUP BY s.id ORDER BY s.created_at DESC`,params); res.json({ok:true,sales:r.rows,is_admin:req.user.role==='administrador'});
 }catch(e){res.status(500).json({ok:false,error:e.message})}});
 
+
+// V121 - Extrato completo do produtor para o aplicativo mobile.
+app.get('/api/producers/:id/statement',auth,async(req,res)=>{
+  try{
+    const producerId=String(req.params.id||'').trim();
+    const sr=await pool.query("SELECT data FROM app_state WHERE id='vale-da-serra'");
+    const st=sr.rows[0]?.data||{};
+    const producers=Array.isArray(st.produtores)?st.produtores:[];
+    const producer=producers.find(p=>String(p.id)===producerId);
+    if(!producer) return res.status(404).json({ok:false,error:'Produtor não encontrado.'});
+    const producerName=String(producer.nome||'').trim();
+    const norm=x=>String(x||'').trim().toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const milk=(Array.isArray(st.lancamentos)?st.lancamentos:[]).filter(x=>String(x.prodId)===producerId).sort((a,b)=>String(b.data||'').localeCompare(String(a.data||'')));
+    const debits=(Array.isArray(st.debitos)?st.debitos:[]).filter(x=>String(x.prodId||x.produtorId||'')===producerId || (producerName&&norm(x.produtor||x.produtorNome||x.nomeProdutor)===norm(producerName)));
+    const sales=await pool.query(`SELECT s.id,s.created_at,s.business_date,s.total,s.payment_method,s.customer_name,s.customer_id,s.username,s.status,
+      COALESCE(json_agg(json_build_object('product_id',i.product_id,'product_name',i.product_name,'quantity',i.quantity,'unit_price',i.unit_price,'subtotal',i.subtotal)) FILTER (WHERE i.id IS NOT NULL),'[]') items
+      FROM app_store_sales s LEFT JOIN app_store_sale_items i ON i.sale_id=s.id
+      WHERE s.status<>'cancelada' AND (s.customer_id=$1 OR lower(trim(COALESCE(s.customer_name,'')))=lower(trim($2)))
+      GROUP BY s.id ORDER BY s.created_at DESC LIMIT 1000`,[producerId,producerName]);
+    const inv=await pool.query(`SELECT m.id,m.created_at,m.product_id,COALESCE(p.name,'Produto excluído') product_name,COALESCE(p.unit,'un') unit,m.quantity,m.unit_price,m.destination,m.username,m.producer_id,m.producer_name
+      FROM app_inventory_movements m LEFT JOIN app_inventory_products p ON p.id=m.product_id
+      WHERE m.type='saida' AND (m.producer_id=$1 OR lower(trim(COALESCE(m.producer_name,'')))=lower(trim($2)))
+      ORDER BY m.created_at DESC LIMIT 1000`,[producerId,producerName]);
+    const totalMilk=milk.reduce((a,x)=>a+(Number(x.qtd)||0),0);
+    const pdvTotal=sales.rows.reduce((a,x)=>a+(Number(x.total)||0),0);
+    const galpaoTotal=inv.rows.reduce((a,x)=>a+(Number(x.quantity)||0)*(Number(x.unit_price)||0),0);
+    res.set('Cache-Control','no-store, no-cache, must-revalidate');
+    res.json({ok:true,producer,milk,pdv_sales:sales.rows,inventory:inv.rows,debits,totals:{milk_liters:totalMilk,pdv_value:pdvTotal,inventory_value:galpaoTotal,milk_entries:milk.length,pdv_sales:sales.rows.length,inventory_items:inv.rows.length}});
+  }catch(e){console.error('GET /api/producers/:id/statement',e);res.status(500).json({ok:false,error:e.message});}
+});
+
 // V21 - correção/cancelamento de vendas: exclusivo do administrador e sempre auditado
 app.put('/api/store/sales/:id/admin-correct',auth,adminOnly,async(req,res)=>{const c=await pool.connect();try{
  const b=req.body||{}, reason=String(b.reason||'').trim(); const paymentStored=(String(b.payment_method||'').toLowerCase()==='boleto'?'fiado':String(b.payment_method||'').toLowerCase()); if(!reason) throw new Error('Informe o motivo da correção.');
