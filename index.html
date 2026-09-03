@@ -1479,6 +1479,7 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
 <form id="formLanc">
           <div><label>Data</label><input type="date" id="lData" required></div>
           <div><label>Produtor</label><select id="lProd" required onchange="preencherProdutor()"></select></div>
+          <div><label>Turno</label><select id="lTurno"><option value="M">Manhã</option><option value="T">Tarde</option></select></div>
           <div><label>Quantidade recebida (litros)</label><input type="number" min="0" step="0.01" id="lQtd" required></div>
           <div><label>Localidade</label><input id="lLocal" readonly></div>
           <div><label>Tanqueiro</label><input id="lTanqueiro" readonly></div>
@@ -2232,7 +2233,7 @@ function excluirDebito(id){
   }
 }
 
-document.getElementById('formLanc').addEventListener('submit',e=>{e.preventDefault();let p=prodById(lProd.value);if(!p)return;let l={id:crypto.randomUUID(),data:lData.value,prodId:p.id,qtd:Number(lQtd.value),local:p.local,tanqueiro:p.tanqueiro,caminhao:p.caminhao};lancamentos.push(l);v25Audit('LEITE_ENTRADA_REGISTRADA',{produtor:p.nome,litros:l.qtd,data:l.data,local:l.local});e.target.reset();lData.value=isoHoje();save()});
+document.getElementById('formLanc').addEventListener('submit',e=>{e.preventDefault();let p=prodById(lProd.value);if(!p)return;let periodo=lTurno.value||'M',l={id:crypto.randomUUID(),data:lData.value,prodId:p.id,qtd:Number(lQtd.value),periodo,turno:periodo==='M'?'Manhã':'Tarde',situacaoPagamento:'Pendente',local:p.local,tanqueiro:p.tanqueiro,caminhao:p.caminhao};lancamentos.push(l);v25Audit('LEITE_ENTRADA_REGISTRADA',{produtor:p.nome,litros:l.qtd,data:l.data,turno:l.turno,local:l.local});e.target.reset();lData.value=isoHoje();save()});
 function excluirLanc(id){let l=lancamentos.find(x=>x.id===id),p=l?prodById(l.prodId):null;if(confirm('Excluir lançamento?')){lancamentos=lancamentos.filter(x=>x.id!==id);v25Audit('LEITE_ENTRADA_EXCLUIDA',{produtor:p?.nome||'',litros:l?.qtd||0,data:l?.data||''});save()}}
 function preencherProdutor(){let p=prodById(lProd.value);lLocal.value=p?.local||'';lTanqueiro.value=p?.tanqueiro||'';lCaminhao.value=p?.caminhao||'';lStatus.textContent=p?`Status: ${statusProd(p.id)} | Média últimos 10 dias: ${fmt(mediaUltimosDias(p.id))} L/dia`:'Selecione um produtor.'}
 
@@ -5803,5 +5804,6 @@ body:not(.v112-galpao-admin) #estoque .gal-quick{display:none!important}
   document.addEventListener('click',()=>setTimeout(apply,0),true);
 })();
 </script>
+<script src="v125-pagamento-corte.js"></script>
 </body>
 </html>

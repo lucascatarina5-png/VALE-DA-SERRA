@@ -913,8 +913,22 @@ app.get('/api/producers/:id/statement',auth,async(req,res)=>{
     const todayR=await pool.query("SELECT (NOW() AT TIME ZONE 'America/Sao_Paulo')::date::text AS hoje");
     const hoje=todayR.rows[0].hoje, ym=hoje.slice(0,7), day=Number(hoje.slice(8,10)), q=day<=15?1:2;
     const ini=ym+(q===1?'-01':'-16'), fim=ym+(q===1?'-15':'-31'), valorLitro=2.30;
-    const milkQ=milk.filter(x=>String(x.data||'')>=ini&&String(x.data||'')<=fim);
+    const pagamentos=Array.isArray(st.pagamentos)?st.pagamentos:[];
+    const pagamento=pagamentos.find(x=>String(x.prodId)===producerId&&String(x.mes)===ym&&String(x.quinzena)===String(q))||null;
+    const fixedRange=pg=>({ini:String(pg.mes||'')+(String(pg.quinzena)==='1'?'-01':'-16'),fim:String(pg.mes||'')+(String(pg.quinzena)==='1'?'-15':'-31')});
+    const milkPaid=x=>pagamentos.some(pg=>{
+      if(Array.isArray(pg.entryIds)) return pg.entryIds.some(id=>String(id)===String(x.id));
+      if(String(pg.prodId)!==producerId||!['1','2'].includes(String(pg.quinzena))) return false;
+      const r=fixedRange(pg),d=String(x.data||'');return d>=r.ini&&d<=r.fim;
+    });
+    milk.forEach(x=>x.situacaoPagamento=milkPaid(x)?'Liquidada':'Pendente');
+    // A nova quinzena recebe todas as entradas ainda pendentes, inclusive as de meses
+    // anteriores. Entradas futuras nunca são antecipadas para o pagamento atual.
+    const paidIds=new Set(Array.isArray(pagamento?.entryIds)?pagamento.entryIds.map(String):[]);
+    const milkQ=paidIds.size?milk.filter(x=>paidIds.has(String(x.id))):milk.filter(x=>!milkPaid(x)&&String(x.data||'')<=hoje);
     const litrosQ=milkQ.reduce((a,x)=>a+Number(x.qtd||0),0), brutoQ=litrosQ*valorLitro;
+    const litrosSaldoAnterior=milkQ.filter(x=>String(x.data||'')<ini).reduce((a,x)=>a+Number(x.qtd||0),0);
+    const litrosPeriodoAtual=litrosQ-litrosSaldoAnterior;
     // Débitos manuais da quinzena. Débitos do Galpão são calculados pelas movimentações para
     // incluir também vendas antigas e evitar duplicidade com deb_gal_* já sincronizados.
     const manualDebits=allDebits.filter(d=>String(d.data||'')>=ini&&String(d.data||'')<=fim && !String(d.id||'').startsWith('deb_gal_') && !/^galp[aã]o:/i.test(String(d.descricao||'')));
@@ -927,8 +941,6 @@ app.get('/api/producers/:id/statement',auth,async(req,res)=>{
     const creditQ=credit.rows.filter(x=>String(x.business_date||'')>=ini&&String(x.business_date||'')<=fim && Number(x.original_amount||0)-Number(x.paid_amount||0)>0);
     const pdvFiadoTotal=creditQ.reduce((a,x)=>a+Math.max(0,Number(x.original_amount||0)-Number(x.paid_amount||0)),0);
     const descontos=manualTotal+galpaoTotalQ+pdvFiadoTotal, liquido=Math.max(0,brutoQ-descontos);
-    const pagamentos=Array.isArray(st.pagamentos)?st.pagamentos:[];
-    const pagamento=pagamentos.find(x=>String(x.prodId)===producerId&&String(x.mes)===ym&&String(x.quinzena)===String(q))||null;
     const totalMilk=milk.reduce((a,x)=>a+(Number(x.qtd)||0),0);
     const pdvTotal=sales.rows.reduce((a,x)=>a+(Number(x.total)||0),0);
     const galpaoTotal=inv.rows.reduce((a,x)=>a+(Number(x.quantity)||0)*(Number(x.unit_price)||0),0);
@@ -938,7 +950,7 @@ app.get('/api/producers/:id/statement',auth,async(req,res)=>{
       ...creditQ.map(x=>({tipo:'PDV / Fiado',data:x.business_date,descricao:'Compra no PDV a descontar',valor:Math.max(0,Number(x.original_amount||0)-Number(x.paid_amount||0))}))
     ].sort((a,b)=>String(b.data||'').localeCompare(String(a.data||'')));
     res.set('Cache-Control','no-store, no-cache, must-revalidate');
-    res.json({ok:true,producer,milk,pdv_sales:sales.rows,inventory:inv.rows,debits:allDebits,totals:{milk_liters:totalMilk,pdv_value:pdvTotal,inventory_value:galpaoTotal,milk_entries:milk.length,pdv_sales:sales.rows.length,inventory_items:inv.rows.length},quinzena:{numero:q,mes:ym,inicio:ini,fim,valor_litro:valorLitro,litros:litrosQ,valor_bruto:brutoQ,descontos,valor_liquido:liquido,manual_debits:manualTotal,galpao_debits:galpaoTotalQ,pdv_debits:pdvFiadoTotal,deductions:deductionItems,pago:!!pagamento,pagamento}});
+    res.json({ok:true,producer,milk,pdv_sales:sales.rows,inventory:inv.rows,debits:allDebits,totals:{milk_liters:totalMilk,pdv_value:pdvTotal,inventory_value:galpaoTotal,milk_entries:milk.length,pdv_sales:sales.rows.length,inventory_items:inv.rows.length},quinzena:{numero:q,mes:ym,inicio:milkQ.length?milkQ.reduce((a,x)=>String(x.data||'')<a?String(x.data||''):a,String(milkQ[0].data||ini)):ini,fim,valor_litro:valorLitro,litros:litrosQ,litros_saldo_anterior:litrosSaldoAnterior,litros_periodo_atual:litrosPeriodoAtual,valor_bruto:brutoQ,descontos,valor_liquido:liquido,manual_debits:manualTotal,galpao_debits:galpaoTotalQ,pdv_debits:pdvFiadoTotal,deductions:deductionItems,pago:!!pagamento,pagamento}});
   }catch(e){console.error('GET /api/producers/:id/statement',e);res.status(500).json({ok:false,error:e.message});}
 });
 
