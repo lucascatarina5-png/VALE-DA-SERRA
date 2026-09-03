@@ -2642,9 +2642,11 @@ function normalizarWhats(n){
 }
 function textoComprovante(prodId){
   let ym=pgMes.value||isoHoje().slice(0,7),q=pgQuinzena.value,per=periodoPagamento(),p=prodById(prodId);
-  let arr=entradasProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
-  let debArr=debitosProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
-  let litros=arr.reduce((s,x)=>s+Number(x.qtd),0),bruto=litros*VALOR_LITRO,totalDeb=debArr.reduce((s,x)=>s+saldoDebito(x.id),0),liquido=Math.max(0,bruto-totalDeb),pg=pagamentoDo(prodId,ym,q);
+  let pg=pagamentoDo(prodId,ym,q),entryIds=new Set(Array.isArray(pg?.entryIds)?pg.entryIds.map(String):[]),debitIds=new Set(Array.isArray(pg?.debitIds)?pg.debitIds.map(String):[]);
+  let arr=entryIds.size?entradasProd(prodId).filter(x=>entryIds.has(String(x.id))):entradasProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
+  let debArr=debitIds.size?debitosProd(prodId).filter(x=>debitIds.has(String(x.id))):debitosProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
+  if(pg?.corteData){per={ini:arr.length?arr.reduce((a,x)=>x.data<a?x.data:a,arr[0].data):per.ini,fim:pg.corteData}}
+  let litros=pg?Number(pg.litros||0):arr.reduce((s,x)=>s+Number(x.qtd),0),bruto=pg?Number(pg.valorBruto||0):litros*VALOR_LITRO,totalDeb=pg?Number(pg.totalDebitos||0):debArr.reduce((s,x)=>s+saldoDebito(x.id),0),liquido=pg?Number(pg.valorPago||0):Math.max(0,bruto-totalDeb);
   let debTxt=debArr.length?debArr.map(x=>`• ${brDate(x.data)} - ${x.descricao}: ${moeda(x.valor)}`).join('\n'):'Sem débitos nesta quinzena.';
   return `VALE DA SERRA LATICÍNIOS
 Comprovante de Pagamento - ${q}ª Quinzena
@@ -2664,9 +2666,11 @@ Status: ${pg?'PAGO':'PENDENTE'}${pg?`\nData do pagamento: ${brDate(pg.dataPagame
 }
 async function gerarComprovantePNG(prodId){
   let ym=pgMes.value||isoHoje().slice(0,7),q=pgQuinzena.value,per=periodoPagamento(),p=prodById(prodId);
-  let arr=entradasProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
-  let debArr=debitosProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
-  let litros=arr.reduce((s,x)=>s+Number(x.qtd),0),bruto=litros*VALOR_LITRO,totalDeb=debArr.reduce((s,x)=>s+saldoDebito(x.id),0),liquido=Math.max(0,bruto-totalDeb),pg=pagamentoDo(prodId,ym,q);
+  let pg=pagamentoDo(prodId,ym,q),entryIds=new Set(Array.isArray(pg?.entryIds)?pg.entryIds.map(String):[]),debitIds=new Set(Array.isArray(pg?.debitIds)?pg.debitIds.map(String):[]);
+  let arr=entryIds.size?entradasProd(prodId).filter(x=>entryIds.has(String(x.id))):entradasProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
+  let debArr=debitIds.size?debitosProd(prodId).filter(x=>debitIds.has(String(x.id))):debitosProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
+  if(pg?.corteData){per={ini:arr.length?arr.reduce((a,x)=>x.data<a?x.data:a,arr[0].data):per.ini,fim:pg.corteData}}
+  let litros=pg?Number(pg.litros||0):arr.reduce((s,x)=>s+Number(x.qtd),0),bruto=pg?Number(pg.valorBruto||0):litros*VALOR_LITRO,totalDeb=pg?Number(pg.totalDebitos||0):debArr.reduce((s,x)=>s+saldoDebito(x.id),0),liquido=pg?Number(pg.valorPago||0):Math.max(0,bruto-totalDeb);
 
   const width=1080, pad=60, rowH=36;
   const debExtra=Math.max(1,debArr.length)*rowH;
@@ -2870,10 +2874,11 @@ function abrirWhatsAppWeb(prodId){
 function imprimirCupom(prodId,formato='80mm'){
   let ym=pgMes.value||isoHoje().slice(0,7),q=pgQuinzena.value;
   if(q==='mes'){alert('Selecione uma quinzena.');return}
-  let p=prodById(prodId),per=periodoPagamento();
-  let arr=entradasProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
-  let debArr=debitosProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
-  let litros=arr.reduce((s,x)=>s+Number(x.qtd),0),bruto=litros*VALOR_LITRO,totalDeb=debArr.reduce((s,x)=>s+saldoDebito(x.id),0),liquido=Math.max(0,bruto-totalDeb),pg=pagamentoDo(prodId,ym,q);
+  let p=prodById(prodId),per=periodoPagamento(),pg=pagamentoDo(prodId,ym,q),entryIds=new Set(Array.isArray(pg?.entryIds)?pg.entryIds.map(String):[]),debitIds=new Set(Array.isArray(pg?.debitIds)?pg.debitIds.map(String):[]);
+  let arr=entryIds.size?entradasProd(prodId).filter(x=>entryIds.has(String(x.id))):entradasProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
+  let debArr=debitIds.size?debitosProd(prodId).filter(x=>debitIds.has(String(x.id))):debitosProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
+  if(pg?.corteData){per={ini:arr.length?arr.reduce((a,x)=>x.data<a?x.data:a,arr[0].data):per.ini,fim:pg.corteData}}
+  let litros=pg?Number(pg.litros||0):arr.reduce((s,x)=>s+Number(x.qtd),0),bruto=pg?Number(pg.valorBruto||0):litros*VALOR_LITRO,totalDeb=pg?Number(pg.totalDebitos||0):debArr.reduce((s,x)=>s+saldoDebito(x.id),0),liquido=pg?Number(pg.valorPago||0):Math.max(0,bruto-totalDeb);
   let logo=(document.querySelector('.hero-logo')||document.querySelector('.logo-wrap img'))?.src||'';
   let w=window.open('','','width=900,height=900');if(!w)return;
 
@@ -5804,7 +5809,7 @@ body:not(.v112-galpao-admin) #estoque .gal-quick{display:none!important}
   document.addEventListener('click',()=>setTimeout(apply,0),true);
 })();
 </script>
-<script src="v125-pagamento-corte.js?v=128"></script>
+<script src="v125-pagamento-corte.js?v=129"></script>
 <script id="v126-open-section">window.addEventListener('load',()=>{if(location.hash==='#pagamentos')setTimeout(()=>{if(typeof go==='function')go('pagamentos')},250)});</script>
 </body>
 </html>
