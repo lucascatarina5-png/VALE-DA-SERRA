@@ -404,7 +404,7 @@ boot();
 <div class="g118-modal" id="g118Edit"><div class="g118-panel"><div class="g118-head"><h3 id="g118EditTitle">Produto</h3><button data-close="g118Edit">✕</button></div><form id="g118EditForm"><input type="hidden" id="g118EditId"><label>Produto</label><input id="g118Name" required><label>Unidade de controle</label><select id="g118Unit"><option value="kg">kg</option><option value="un">un</option><option value="saco">saco</option><option value="litro">litro</option></select><label>Preço de custo</label><input id="g118Cost" type="number" step="0.01" min="0"><label>Preço de venda</label><input id="g118Price" type="number" step="0.01" min="0"><label>Peso por saco/unidade (kg)</label><input id="g118Weight" type="number" step="0.01" min="0" placeholder="Ex.: 30"><label>Estoque mínimo</label><input id="g118Min" type="number" step="0.01"><label>Quantidade inicial (novo cadastro)</label><input id="g118Initial" type="number" step="0.01"><button class="g118-finish" type="submit">Salvar</button></form></div></div>
 <div class="g118-modal" id="g118Report"><div class="g118-panel"><div class="g118-head"><h3>📊 Relatório do Galpão</h3><button id="g118ReportReload">↻</button><button data-close="g118Report">✕</button></div><div class="metric-grid"><div class="metric"><small>Entradas</small><strong id="g118In">0</strong></div><div class="metric"><small>Saídas</small><strong id="g118Out">0</strong></div></div><div id="g118ReportList"></div></div></div>
 <div class="g118-modal" id="g118Receipt"><div class="g118-panel"><div class="g118-head"><h3>🧾 Venda concluída</h3><button data-close="g118Receipt">✕</button></div><div class="g118-paper" id="g118Paper"></div><div class="g118-receipt-actions"><button id="g118Print">🖨️ Cupom 80mm</button><button id="g118Whats">💬 WhatsApp</button></div></div></div>
-<script src="/galpao-mobile-v120.js?v=133"></script>
+<script src="/galpao-mobile-v120.js?v=134"></script>
 <style id="v78-blue-premium-theme">
 :root{--green:#0b4fbd;--green2:#073b91;--deep:#062b68;--cream:#f4f7fc;--card:#fff;--ink:#102f66;--muted:#6b778a;--line:#dce5f2;--blue:#0b4fbd;--yellow:#f3c326;--shadow:0 10px 28px rgba(14,57,128,.09)}
 body{background:linear-gradient(180deg,#f7f9fd 0%,#eef4fb 100%);color:#172b4d}
@@ -552,9 +552,9 @@ body{background:linear-gradient(180deg,#f7f9fd 0%,#eef4fb 100%);color:#172b4d}
  const grid=document.querySelector('.home-grid');if(!grid)return;
  const b=document.createElement('button');b.className='home-tile';
  b.innerHTML='<span class="tile-ico">💰</span><span class="tile-title">Pagamentos</span><small>Corte por localidade<br>manhã e tarde</small>';
- b.addEventListener('click',()=>{location.href='/desktop.html?v=133#pagamentos'});
+ b.addEventListener('click',()=>{location.href='/desktop.html?v=134#pagamentos'});
  grid.appendChild(b);
 })();
 </script>
-<script src="/v133-galpao-inteligente.js?v=133"></script>
+<script src="/v133-galpao-inteligente.js?v=134"></script>
 </body></html>

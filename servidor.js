@@ -267,6 +267,12 @@ async function initDb() {
   await pool.query(`ALTER TABLE app_inventory_orders ADD COLUMN IF NOT EXISTS separated_by TEXT`);
   await pool.query(`ALTER TABLE app_inventory_orders ADD COLUMN IF NOT EXISTS separated_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE app_inventory_orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
+  // V134: histórico do botão de WhatsApp. O registro confirma apenas que a conversa
+  // foi aberta; entrega e leitura dependem da futura integração com a API oficial.
+  await pool.query(`ALTER TABLE app_inventory_orders ADD COLUMN IF NOT EXISTS whatsapp_last_status TEXT`);
+  await pool.query(`ALTER TABLE app_inventory_orders ADD COLUMN IF NOT EXISTS whatsapp_last_opened_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE app_inventory_orders ADD COLUMN IF NOT EXISTS whatsapp_last_opened_by TEXT`);
+  await pool.query(`ALTER TABLE app_inventory_orders ADD COLUMN IF NOT EXISTS whatsapp_open_count INTEGER NOT NULL DEFAULT 0`);
   await pool.query(`CREATE TABLE IF NOT EXISTS app_inventory_order_releases (
     id TEXT PRIMARY KEY,
     order_id TEXT NOT NULL,
@@ -787,6 +793,18 @@ app.get('/api/inventory/orders/:id/releases',auth,hasPermission('estoque'),async
     WHERE rel.order_id=$1 GROUP BY rel.id ORDER BY rel.released_at DESC`,[req.params.id]);
   res.set('Cache-Control','no-store, no-cache, must-revalidate');res.json({ok:true,releases:r.rows});
 }catch(e){console.error('GET /api/inventory/orders/:id/releases',e);res.status(500).json({ok:false,error:e.message})}});
+
+// V134 - registra o uso do botão, sem afirmar que a mensagem foi entregue ou lida.
+app.post('/api/inventory/orders/:id/whatsapp-opened',auth,hasPermission('estoque'),async(req,res)=>{try{
+  const r=await pool.query(`UPDATE app_inventory_orders
+    SET whatsapp_last_status=status,whatsapp_last_opened_at=NOW(),whatsapp_last_opened_by=$2,
+        whatsapp_open_count=COALESCE(whatsapp_open_count,0)+1,updated_at=NOW()
+    WHERE id=$1 RETURNING id,status,whatsapp_last_status,whatsapp_last_opened_at,
+      whatsapp_last_opened_by,whatsapp_open_count`,[req.params.id,req.user.username||null]);
+  if(!r.rowCount)return res.status(404).json({ok:false,error:'Pedido não encontrado.'});
+  try{await audit(req.user,'ESTOQUE_PEDIDO_WHATSAPP_ABERTO',{id:req.params.id,status:r.rows[0].status,origem:String(req.body?.source||'status').slice(0,30)})}catch(e){console.error('AUDIT ESTOQUE_PEDIDO_WHATSAPP_ABERTO',e)}
+  res.json({ok:true,notification:r.rows[0]});
+}catch(e){console.error('POST /api/inventory/orders/:id/whatsapp-opened',e);res.status(500).json({ok:false,error:e.message})}});
 
 app.post('/api/inventory/orders',auth,hasPermission('estoque'),async(req,res)=>{const c=await pool.connect();try{
   const b=req.body||{},producerId=String(b.producer_id||'').trim(),payment=String(b.payment_method||'leite').trim().toLowerCase(),raw=Array.isArray(b.items)?b.items:[];
