@@ -229,6 +229,38 @@ async function initDb() {
   await pool.query(`ALTER TABLE app_inventory_movements ADD COLUMN IF NOT EXISTS username TEXT`);
   await pool.query(`ALTER TABLE app_inventory_movements ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
 
+  // V132: pedidos do Galpão ficam pendentes até a liberação. Criar o pedido não baixa estoque.
+  await pool.query(`CREATE TABLE IF NOT EXISTS app_inventory_orders (
+    id TEXT PRIMARY KEY,
+    producer_id TEXT NOT NULL,
+    producer_name TEXT NOT NULL,
+    payment_method TEXT NOT NULL DEFAULT 'leite',
+    status TEXT NOT NULL DEFAULT 'pendente',
+    observation TEXT DEFAULT '',
+    total NUMERIC NOT NULL DEFAULT 0,
+    created_by_id TEXT,
+    created_by TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    released_by_id TEXT,
+    released_by TEXT,
+    released_at TIMESTAMPTZ,
+    cancelled_by TEXT,
+    cancelled_at TIMESTAMPTZ,
+    cancel_reason TEXT DEFAULT ''
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS app_inventory_order_items (
+    id BIGSERIAL PRIMARY KEY,
+    order_id TEXT NOT NULL,
+    product_id TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    unit TEXT NOT NULL DEFAULT 'un',
+    quantity NUMERIC NOT NULL,
+    unit_price NUMERIC NOT NULL DEFAULT 0,
+    subtotal NUMERIC NOT NULL DEFAULT 0
+  )`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_inventory_orders_status_created ON app_inventory_orders(status,created_at DESC)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_inventory_order_items_order ON app_inventory_order_items(order_id)`);
+
 
   // V14 - Loja / PDV (migração aditiva: preserva todos os dados existentes)
   await pool.query(`CREATE TABLE IF NOT EXISTS app_store_products (
@@ -637,7 +669,7 @@ app.post('/api/inventory/sale',auth,hasPermission('estoque'),async(req,res)=>{
       const debId='deb_gal_'+String(ins.rows[0].id);
       if(!debitos.some(d=>String(d.id)===debId)){
         const dateQ=await client.query("SELECT (NOW() AT TIME ZONE 'America/Sao_Paulo')::date::text AS hoje");
-        debitos.push({id:debId,prodId:String(producerId),data:dateQ.rows[0].hoje,descricao:`Galpão: ${p.name} - ${q} ${p.unit||'un'}`,valor:total,origem:'galpao',movementId:String(ins.rows[0].id)});
+        debitos.push({id:debId,prodId:String(producerId),data:dateQ.rows[0].hoje,descricao:`Galpão: ${p.name} - ${q} ${p.unit||'un'}`,valor:total,origem:'galpao',movementId:String(ins.rows[0].id),itens:[{product_id:p.id,produto:p.name,quantidade:q,unidade:p.unit||'un',valor_unitario:unitPrice,subtotal:total}]});
         state.debitos=debitos;
         await client.query(`INSERT INTO app_state(id,data,updated_at) VALUES('vale-da-serra',$1::jsonb,NOW()) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()`,[JSON.stringify(state)]);
       }
@@ -648,6 +680,69 @@ app.post('/api/inventory/sale',auth,hasPermission('estoque'),async(req,res)=>{
   }catch(e){try{await client.query('ROLLBACK')}catch(_){} console.error('POST /api/inventory/sale',e);res.status(500).json({ok:false,error:e.message});}
   finally{client.release();}
 });
+
+// V132 - Pedido do Galpão: criar agora, liberar depois, baixar estoque e gerar cupom.
+app.get('/api/inventory/orders',auth,hasPermission('estoque'),async(req,res)=>{try{
+  const status=String(req.query?.status||'').trim().toLowerCase(),params=[],where=[];
+  if(['pendente','liberado','cancelado'].includes(status)){params.push(status);where.push(`o.status=$${params.length}`)}
+  const r=await pool.query(`SELECT o.*,
+    COALESCE(json_agg(json_build_object('id',i.id,'product_id',i.product_id,'product_name',i.product_name,'unit',i.unit,'quantity',i.quantity,'unit_price',i.unit_price,'subtotal',i.subtotal) ORDER BY i.id) FILTER(WHERE i.id IS NOT NULL),'[]') items
+    FROM app_inventory_orders o LEFT JOIN app_inventory_order_items i ON i.order_id=o.id
+    ${where.length?'WHERE '+where.join(' AND '):''}
+    GROUP BY o.id ORDER BY CASE o.status WHEN 'pendente' THEN 0 WHEN 'liberado' THEN 1 ELSE 2 END,o.created_at DESC LIMIT 500`,params);
+  res.set('Cache-Control','no-store, no-cache, must-revalidate');res.json({ok:true,orders:r.rows});
+}catch(e){console.error('GET /api/inventory/orders',e);res.status(500).json({ok:false,error:e.message})}});
+
+app.post('/api/inventory/orders',auth,hasPermission('estoque'),async(req,res)=>{const c=await pool.connect();try{
+  const b=req.body||{},producerId=String(b.producer_id||'').trim(),payment=String(b.payment_method||'leite').trim().toLowerCase(),raw=Array.isArray(b.items)?b.items:[];
+  if(!producerId)throw new Error('Selecione o produtor do pedido.');
+  if(!['dinheiro','pix','leite'].includes(payment))throw new Error('Forma de pagamento inválida.');
+  if(!raw.length||raw.length>50)throw new Error('Adicione pelo menos um produto ao pedido.');
+  const sr=await c.query("SELECT data FROM app_state WHERE id='vale-da-serra'");const state=sr.rows[0]?.data||{},prods=Array.isArray(state.produtores)?state.produtores:[];
+  const producer=prods.find(x=>String(x.id)===producerId);if(!producer)throw new Error('Produtor não encontrado.');
+  const grouped=new Map();for(const it of raw){const id=String(it.product_id||'').trim(),q=Number(it.quantity);if(!id||!(q>0))throw new Error('Produto ou quantidade inválida.');grouped.set(id,(grouped.get(id)||0)+q)}
+  await c.query('BEGIN');const prepared=[];let total=0;
+  for(const [productId,q] of [...grouped.entries()].sort((a,b)=>a[0].localeCompare(b[0]))){
+    const pr=await c.query(`SELECT p.*,COALESCE(SUM(CASE WHEN m.type='entrada' THEN m.quantity ELSE -m.quantity END),0) balance FROM app_inventory_products p LEFT JOIN app_inventory_movements m ON m.product_id=p.id WHERE p.id=$1 AND COALESCE(p.active,TRUE)=TRUE GROUP BY p.id`,[productId]);
+    if(!pr.rowCount)throw new Error('Um produto do pedido não foi encontrado.');const p=pr.rows[0];
+    if(Number(p.balance)+1e-9<q)throw new Error(`Estoque insuficiente para ${p.name}. Disponível: ${Number(p.balance)} ${p.unit||''}`);
+    const price=Number(p.unit_price||0),subtotal=q*price;total+=subtotal;prepared.push({product_id:p.id,product_name:p.name,unit:p.unit||'un',quantity:q,unit_price:price,subtotal});
+  }
+  const id=crypto.randomUUID();await c.query(`INSERT INTO app_inventory_orders(id,producer_id,producer_name,payment_method,observation,total,created_by_id,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[id,producerId,String(producer.nome||producer.name||'Produtor'),payment,String(b.observation||'').trim(),total,req.user.user_id||null,req.user.username||null]);
+  for(const it of prepared)await c.query(`INSERT INTO app_inventory_order_items(order_id,product_id,product_name,unit,quantity,unit_price,subtotal) VALUES($1,$2,$3,$4,$5,$6,$7)`,[id,it.product_id,it.product_name,it.unit,it.quantity,it.unit_price,it.subtotal]);
+  await c.query('COMMIT');await audit(req.user,'ESTOQUE_PEDIDO_CRIADO',{id,producer_id:producerId,producer_name:producer.nome||'',payment_method:payment,total,items:prepared});
+  res.json({ok:true,order:{id,producer_id:producerId,producer_name:producer.nome||producer.name||'Produtor',payment_method:payment,status:'pendente',observation:String(b.observation||'').trim(),total,items:prepared,created_at:new Date().toISOString()}});
+}catch(e){try{await c.query('ROLLBACK')}catch(_){}res.status(400).json({ok:false,error:e.message})}finally{c.release()}});
+
+app.post('/api/inventory/orders/:id/release',auth,hasPermission('estoque'),async(req,res)=>{const c=await pool.connect();try{
+  await c.query('BEGIN');const or=await c.query(`SELECT * FROM app_inventory_orders WHERE id=$1 FOR UPDATE`,[req.params.id]);if(!or.rowCount)throw new Error('Pedido não encontrado.');const order=or.rows[0];if(order.status!=='pendente')throw new Error(order.status==='liberado'?'Este pedido já foi liberado.':'Este pedido foi cancelado.');
+  const ir=await c.query(`SELECT * FROM app_inventory_order_items WHERE order_id=$1 ORDER BY product_id,id`,[order.id]);if(!ir.rowCount)throw new Error('Pedido sem produtos.');
+  const receiptItems=[];
+  for(const it of ir.rows){
+    const pr=await c.query(`SELECT * FROM app_inventory_products WHERE id=$1 AND COALESCE(active,TRUE)=TRUE FOR UPDATE`,[it.product_id]);if(!pr.rowCount)throw new Error(`Produto indisponível: ${it.product_name}`);
+    const br=await c.query(`SELECT COALESCE(SUM(CASE WHEN type='entrada' THEN quantity ELSE -quantity END),0) balance FROM app_inventory_movements WHERE product_id=$1`,[it.product_id]);const balance=Number(br.rows[0]?.balance||0),q=Number(it.quantity);
+    if(balance+1e-9<q)throw new Error(`Estoque insuficiente para ${it.product_name}. Disponível: ${balance} ${it.unit||''}`);
+    const destination=`PEDIDO GALPÃO #${String(order.id).slice(0,8).toUpperCase()} • ${String(order.payment_method).toUpperCase()}${order.observation?' • '+order.observation:''}`;
+    const mv=await c.query(`INSERT INTO app_inventory_movements(product_id,type,quantity,unit_price,producer_id,producer_name,destination,user_id,username) VALUES($1,'saida',$2,$3,$4,$5,$6,$7,$8) RETURNING id,created_at`,[it.product_id,q,Number(it.unit_price),order.producer_id,order.producer_name,destination,req.user.user_id||null,req.user.username||null]);
+    receiptItems.push({movement_id:mv.rows[0].id,product_id:it.product_id,product_name:it.product_name,unit:it.unit,quantity:q,unit_price:Number(it.unit_price),subtotal:Number(it.subtotal),remaining:balance-q});
+  }
+  if(order.payment_method==='leite'){
+    const stq=await c.query("SELECT data FROM app_state WHERE id='vale-da-serra' FOR UPDATE"),state=(stq.rows[0]?.data&&typeof stq.rows[0].data==='object')?stq.rows[0].data:{},debitos=Array.isArray(state.debitos)?state.debitos.slice():[],debId='deb_ord_gal_'+order.id;
+    if(!debitos.some(d=>String(d.id)===debId)){
+      const dateQ=await c.query("SELECT (NOW() AT TIME ZONE 'America/Sao_Paulo')::date::text AS hoje"),desc=`Galpão - Pedido #${String(order.id).slice(0,8).toUpperCase()}: `+receiptItems.map(x=>`${x.product_name} - ${x.quantity} ${x.unit||'un'}`).join(' • ');
+      debitos.push({id:debId,prodId:String(order.producer_id),data:dateQ.rows[0].hoje,descricao:desc,valor:Number(order.total),origem:'galpao',orderId:order.id,itens:receiptItems.map(x=>({product_id:x.product_id,produto:x.product_name,quantidade:x.quantity,unidade:x.unit,valor_unitario:x.unit_price,subtotal:x.subtotal}))});
+      state.debitos=debitos;await c.query(`INSERT INTO app_state(id,data,updated_at) VALUES('vale-da-serra',$1::jsonb,NOW()) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()`,[JSON.stringify(state)]);
+    }
+  }
+  const up=await c.query(`UPDATE app_inventory_orders SET status='liberado',released_by_id=$2,released_by=$3,released_at=NOW() WHERE id=$1 RETURNING *`,[order.id,req.user.user_id||null,req.user.username||null]);
+  await c.query('COMMIT');const released=up.rows[0];await audit(req.user,'ESTOQUE_PEDIDO_LIBERADO',{id:order.id,producer_id:order.producer_id,producer_name:order.producer_name,payment_method:order.payment_method,total:Number(order.total),items:receiptItems});
+  res.json({ok:true,order:{...released,total:Number(released.total),items:receiptItems}});
+}catch(e){try{await c.query('ROLLBACK')}catch(_){}res.status(400).json({ok:false,error:e.message})}finally{c.release()}});
+
+app.post('/api/inventory/orders/:id/cancel',auth,hasPermission('estoque'),async(req,res)=>{try{
+  const reason=String(req.body?.reason||'').trim();const r=await pool.query(`UPDATE app_inventory_orders SET status='cancelado',cancelled_by=$2,cancelled_at=NOW(),cancel_reason=$3 WHERE id=$1 AND status='pendente' RETURNING *`,[req.params.id,req.user.username||null,reason]);
+  if(!r.rowCount)return res.status(400).json({ok:false,error:'Pedido não encontrado ou já finalizado.'});await audit(req.user,'ESTOQUE_PEDIDO_CANCELADO',{id:req.params.id,reason});res.json({ok:true,order:r.rows[0]});
+}catch(e){res.status(500).json({ok:false,error:e.message})}});
 
 // V14 - API Loja / PDV
 app.get('/api/store/products',auth,hasPermission('loja'),async(req,res)=>{try{
@@ -868,7 +963,7 @@ app.post('/api/store/sales',auth,hasPermission('loja'),async(req,res)=>{
     const debId='deb_pdv_'+id;
     const dateQ=await c.query("SELECT (NOW() AT TIME ZONE 'America/Sao_Paulo')::date::text AS hoje");
     const desc='PDV: '+prepared.map(([p,q])=>`${p.name} - ${q}`).join(' • ');
-    if(!debitos.some(d=>String(d.id)===debId)) debitos.push({id:debId,prodId:String(producerId),data:dateQ.rows[0].hoje,descricao:desc,valor:total,origem:'pdv',saleId:id});
+    if(!debitos.some(d=>String(d.id)===debId)) debitos.push({id:debId,prodId:String(producerId),data:dateQ.rows[0].hoje,descricao:desc,valor:total,origem:'pdv',saleId:id,itens:prepared.map(([p,q,sub,unitPrice])=>({product_id:p.id,produto:p.name,quantidade:q,unidade:p.unit||'un',valor_unitario:unitPrice,subtotal:sub}))});
     state.debitos=debitos;
     await c.query(`INSERT INTO app_state(id,data,updated_at) VALUES('vale-da-serra',$1::jsonb,NOW()) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()`,[JSON.stringify(state)]);
   }
@@ -931,9 +1026,9 @@ app.get('/api/producers/:id/statement',auth,async(req,res)=>{
     const litrosPeriodoAtual=litrosQ-litrosSaldoAnterior;
     // Débitos manuais da quinzena. Débitos do Galpão são calculados pelas movimentações para
     // incluir também vendas antigas e evitar duplicidade com deb_gal_* já sincronizados.
-    const manualDebits=allDebits.filter(d=>String(d.data||'')>=ini&&String(d.data||'')<=fim && !String(d.id||'').startsWith('deb_gal_') && !/^galp[aã]o:/i.test(String(d.descricao||'')));
+    const manualDebits=allDebits.filter(d=>String(d.data||'')>=ini&&String(d.data||'')<=fim && !String(d.id||'').startsWith('deb_gal_') && !String(d.id||'').startsWith('deb_ord_gal_') && !/^galp[aã]o(?:\s*[:\-]|$)/i.test(String(d.descricao||'')));
     const manualTotal=manualDebits.reduce((a,d)=>a+debitBalance(d),0);
-    const galpaoLeite=inv.rows.filter(x=>String(x.business_date||'')>=ini&&String(x.business_date||'')<=fim && /VENDA GALPÃO\s*•\s*LEITE/i.test(String(x.destination||'')));
+    const galpaoLeite=inv.rows.filter(x=>String(x.business_date||'')>=ini&&String(x.business_date||'')<=fim && /(?:VENDA|PEDIDO) GALPÃO.*•\s*LEITE/i.test(String(x.destination||'')));
     const galpaoTotalQ=galpaoLeite.reduce((a,x)=>a+Number(x.quantity||0)*Number(x.unit_price||0),0);
     // Vendas fiado/boleto do PDV vinculadas ao produtor entram como desconto pendente da quinzena.
     const credit=await pool.query(`SELECT a.id,a.sale_id,a.original_amount,a.paid_amount,a.status,a.created_at,(a.created_at AT TIME ZONE 'America/Sao_Paulo')::date::text AS business_date
