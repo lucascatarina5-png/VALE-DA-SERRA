@@ -219,6 +219,9 @@ async function initDb() {
   await pool.query(`ALTER TABLE app_inventory_products ADD COLUMN IF NOT EXISTS unit TEXT NOT NULL DEFAULT 'kg'`);
   await pool.query(`ALTER TABLE app_inventory_products ADD COLUMN IF NOT EXISTS min_stock NUMERIC NOT NULL DEFAULT 0`);
   await pool.query(`ALTER TABLE app_inventory_products ADD COLUMN IF NOT EXISTS unit_price NUMERIC NOT NULL DEFAULT 0`);
+  // V133: custo real e conversão opcional de saco/unidade para peso.
+  await pool.query(`ALTER TABLE app_inventory_products ADD COLUMN IF NOT EXISTS cost_price NUMERIC NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE app_inventory_products ADD COLUMN IF NOT EXISTS package_weight_kg NUMERIC NOT NULL DEFAULT 0`);
   await pool.query(`ALTER TABLE app_inventory_products ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE`);
   await pool.query(`ALTER TABLE app_inventory_products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
   await pool.query(`ALTER TABLE app_inventory_movements ADD COLUMN IF NOT EXISTS unit_price NUMERIC NOT NULL DEFAULT 0`);
@@ -258,8 +261,48 @@ async function initDb() {
     unit_price NUMERIC NOT NULL DEFAULT 0,
     subtotal NUMERIC NOT NULL DEFAULT 0
   )`);
+  // V133: o saldo reservado é a quantidade pedida menos a quantidade já liberada.
+  await pool.query(`ALTER TABLE app_inventory_order_items ADD COLUMN IF NOT EXISTS released_quantity NUMERIC NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE app_inventory_orders ADD COLUMN IF NOT EXISTS separated_by_id TEXT`);
+  await pool.query(`ALTER TABLE app_inventory_orders ADD COLUMN IF NOT EXISTS separated_by TEXT`);
+  await pool.query(`ALTER TABLE app_inventory_orders ADD COLUMN IF NOT EXISTS separated_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE app_inventory_orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS app_inventory_order_releases (
+    id TEXT PRIMARY KEY,
+    order_id TEXT NOT NULL,
+    total NUMERIC NOT NULL DEFAULT 0,
+    observation TEXT DEFAULT '',
+    released_by_id TEXT,
+    released_by TEXT,
+    released_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS app_inventory_order_release_items (
+    id BIGSERIAL PRIMARY KEY,
+    release_id TEXT NOT NULL,
+    order_item_id BIGINT,
+    movement_id BIGINT,
+    product_id TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    unit TEXT NOT NULL DEFAULT 'un',
+    quantity NUMERIC NOT NULL,
+    unit_price NUMERIC NOT NULL DEFAULT 0,
+    subtotal NUMERIC NOT NULL DEFAULT 0
+  )`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_inventory_orders_status_created ON app_inventory_orders(status,created_at DESC)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_inventory_order_items_order ON app_inventory_order_items(order_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_inventory_releases_order ON app_inventory_order_releases(order_id,released_at DESC)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_inventory_release_items_release ON app_inventory_order_release_items(release_id)`);
+  // Converte pedidos liberados na V132 para o novo histórico de comprovantes sem duplicar estoque ou débitos.
+  await pool.query(`UPDATE app_inventory_order_items i SET released_quantity=i.quantity
+    FROM app_inventory_orders o WHERE o.id=i.order_id AND o.status='liberado' AND COALESCE(i.released_quantity,0)=0`);
+  await pool.query(`INSERT INTO app_inventory_order_releases(id,order_id,total,observation,released_by_id,released_by,released_at)
+    SELECT 'legacy-'||o.id,o.id,o.total,'Comprovante migrado da versão anterior',o.released_by_id,o.released_by,COALESCE(o.released_at,o.created_at)
+      FROM app_inventory_orders o WHERE o.status='liberado'
+    ON CONFLICT(id) DO NOTHING`);
+  await pool.query(`INSERT INTO app_inventory_order_release_items(release_id,order_item_id,product_id,product_name,unit,quantity,unit_price,subtotal)
+    SELECT 'legacy-'||o.id,i.id,i.product_id,i.product_name,i.unit,i.quantity,i.unit_price,i.subtotal
+      FROM app_inventory_orders o JOIN app_inventory_order_items i ON i.order_id=o.id
+     WHERE o.status='liberado' AND NOT EXISTS(SELECT 1 FROM app_inventory_order_release_items ri WHERE ri.release_id='legacy-'||o.id AND ri.order_item_id=i.id)`);
 
 
   // V14 - Loja / PDV (migração aditiva: preserva todos os dados existentes)
@@ -523,10 +566,23 @@ app.put('/api/state', optionalAuth, async (req,res)=>{
 app.get('/api/inventory/products',auth,hasPermission('estoque'),async(req,res)=>{
   try{
     const r=await pool.query(`SELECT p.*,
-      COALESCE(SUM(CASE WHEN m.type='entrada' THEN m.quantity ELSE -m.quantity END),0) AS balance
+      COALESCE(m.balance,0) AS balance,
+      COALESCE(r.reserved,0) AS reserved,
+      GREATEST(COALESCE(m.balance,0)-COALESCE(r.reserved,0),0) AS available,
+      m.last_entry_at
       FROM app_inventory_products p
-      LEFT JOIN app_inventory_movements m ON m.product_id=p.id
-      WHERE COALESCE(p.active,TRUE)=TRUE GROUP BY p.id ORDER BY p.name`);
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(CASE WHEN type='entrada' THEN quantity ELSE -quantity END),0) balance,
+               MAX(created_at) FILTER(WHERE type='entrada') last_entry_at
+          FROM app_inventory_movements WHERE product_id=p.id
+      ) m ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(GREATEST(i.quantity-COALESCE(i.released_quantity,0),0)),0) reserved
+          FROM app_inventory_order_items i
+          JOIN app_inventory_orders o ON o.id=i.order_id
+         WHERE i.product_id=p.id AND o.status IN ('pendente','separado','parcial')
+      ) r ON TRUE
+      WHERE COALESCE(p.active,TRUE)=TRUE ORDER BY p.name`);
     res.json({ok:true,products:r.rows});
   }catch(e){res.status(500).json({ok:false,error:e.message});}
 });
@@ -534,13 +590,13 @@ app.get('/api/inventory/products',auth,hasPermission('estoque'),async(req,res)=>
 app.post('/api/inventory/products',auth,hasPermission('estoque'),adminOnly,async(req,res)=>{
   const client=await pool.connect();
   try{
-    const {name,unit='kg',min_stock=0,unit_price=0,initial_quantity=0}=req.body||{};
+    const {name,unit='kg',min_stock=0,unit_price=0,cost_price=0,package_weight_kg=0,initial_quantity=0}=req.body||{};
     if(!String(name||'').trim()) return res.status(400).json({ok:false,error:'Informe o produto'});
     const initial=Number(initial_quantity)||0;
-    if(initial<0) return res.status(400).json({ok:false,error:'Quantidade inicial inválida'});
+    if(initial<0||Number(min_stock)<0||Number(unit_price)<0||Number(cost_price)<0||Number(package_weight_kg)<0) return res.status(400).json({ok:false,error:'Quantidade ou valor inválido'});
     const id=crypto.randomUUID(); await client.query('BEGIN');
-    await client.query(`INSERT INTO app_inventory_products(id,name,unit,min_stock,unit_price) VALUES($1,$2,$3,$4,$5)`,[id,String(name).trim(),unit,Number(min_stock)||0,Number(unit_price)||0]);
-    if(initial>0) await client.query(`INSERT INTO app_inventory_movements (product_id,type,quantity,unit_price,destination,user_id,username) VALUES($1,'entrada',$2,$3,$4,$5,$6)`,[id,initial,Number(unit_price)||0,'Estoque inicial no cadastro',req.user.user_id||null,req.user.username||null]);
+    await client.query(`INSERT INTO app_inventory_products(id,name,unit,min_stock,unit_price,cost_price,package_weight_kg) VALUES($1,$2,$3,$4,$5,$6,$7)`,[id,String(name).trim(),unit,Number(min_stock)||0,Number(unit_price)||0,Number(cost_price)||0,Number(package_weight_kg)||0]);
+    if(initial>0) await client.query(`INSERT INTO app_inventory_movements (product_id,type,quantity,unit_price,destination,user_id,username) VALUES($1,'entrada',$2,$3,$4,$5,$6)`,[id,initial,Number(cost_price)||0,'Estoque inicial no cadastro',req.user.user_id||null,req.user.username||null]);
     await client.query('COMMIT'); await audit(req.user,'ESTOQUE_PRODUTO_CRIADO',{id,name,initial_quantity:initial}); res.json({ok:true,id});
   }catch(e){try{await client.query('ROLLBACK')}catch(_){} res.status(500).json({ok:false,error:e.message});} finally{client.release();}
 });
@@ -548,9 +604,12 @@ app.post('/api/inventory/products',auth,hasPermission('estoque'),adminOnly,async
 app.put('/api/inventory/products/:id',auth,hasPermission('estoque'),adminOnly,async(req,res)=>{
   try{
     const {name,unit='kg',min_stock=0,unit_price=0}=req.body||{};
+    const costPrice=req.body?.cost_price===undefined?null:Number(req.body.cost_price);
+    const packageWeight=req.body?.package_weight_kg===undefined?null:Number(req.body.package_weight_kg);
     if(!String(name||'').trim()) return res.status(400).json({ok:false,error:'Informe o produto'});
-    const r=await pool.query(`UPDATE app_inventory_products SET name=$2,unit=$3,min_stock=$4,unit_price=$5,updated_at=NOW() WHERE id=$1 AND active=TRUE RETURNING id,name`,
-      [req.params.id,String(name).trim(),unit,Number(min_stock)||0,Number(unit_price)||0]);
+    if(Number(min_stock)<0||Number(unit_price)<0||(costPrice!==null&&costPrice<0)||(packageWeight!==null&&packageWeight<0)) return res.status(400).json({ok:false,error:'Quantidade ou valor inválido'});
+    const r=await pool.query(`UPDATE app_inventory_products SET name=$2,unit=$3,min_stock=$4,unit_price=$5,cost_price=COALESCE($6,cost_price),package_weight_kg=COALESCE($7,package_weight_kg),updated_at=NOW() WHERE id=$1 AND active=TRUE RETURNING id,name`,
+      [req.params.id,String(name).trim(),unit,Number(min_stock)||0,Number(unit_price)||0,costPrice,packageWeight]);
     if(!r.rowCount) return res.status(404).json({ok:false,error:'Produto não encontrado'});
     await audit(req.user,'ESTOQUE_PRODUTO_EDITADO',{id:req.params.id,name:String(name).trim()});
     res.json({ok:true});
@@ -559,6 +618,8 @@ app.put('/api/inventory/products/:id',auth,hasPermission('estoque'),adminOnly,as
 
 app.delete('/api/inventory/products/:id',auth,hasPermission('estoque'),adminOnly,async(req,res)=>{
   try{
+    const reserved=await pool.query(`SELECT COALESCE(SUM(GREATEST(i.quantity-COALESCE(i.released_quantity,0),0)),0) reserved FROM app_inventory_order_items i JOIN app_inventory_orders o ON o.id=i.order_id WHERE i.product_id=$1 AND o.status IN ('pendente','separado','parcial')`,[req.params.id]);
+    if(Number(reserved.rows[0]?.reserved||0)>0) return res.status(409).json({ok:false,error:'Este produto possui quantidade reservada em pedido ativo. Cancele ou finalize o pedido antes de excluir.'});
     const r=await pool.query(`UPDATE app_inventory_products SET active=FALSE,updated_at=NOW() WHERE id=$1 AND active=TRUE RETURNING id,name`,[req.params.id]);
     if(!r.rowCount) return res.status(404).json({ok:false,error:'Produto não encontrado'});
     await audit(req.user,'ESTOQUE_PRODUTO_EXCLUIDO',{id:req.params.id,name:r.rows[0].name});
@@ -590,12 +651,18 @@ app.post('/api/inventory/movements',auth,hasPermission('estoque'),async(req,res)
     if(!product_id || !['entrada','saida'].includes(type) || !(q>0))
       return res.status(400).json({ok:false,error:'Movimentação inválida'});
     await client.query('BEGIN');
+    const locked=await client.query(`SELECT id,name,unit FROM app_inventory_products WHERE id=$1 AND COALESCE(active,TRUE)=TRUE FOR UPDATE`,[product_id]);
+    if(!locked.rowCount) throw new Error('Produto não encontrado no Galpão.');
     if(type==='saida'){
       const bal=await client.query(`SELECT COALESCE(SUM(CASE WHEN type='entrada' THEN quantity ELSE -quantity END),0) balance
         FROM app_inventory_movements WHERE product_id=$1`,[product_id]);
-      if(Number(bal.rows[0].balance)<q){
+      const rr=await client.query(`SELECT COALESCE(SUM(GREATEST(i.quantity-COALESCE(i.released_quantity,0),0)),0) reserved
+        FROM app_inventory_order_items i JOIN app_inventory_orders o ON o.id=i.order_id
+        WHERE i.product_id=$1 AND o.status IN ('pendente','separado','parcial')`,[product_id]);
+      const available=Number(bal.rows[0].balance)-Number(rr.rows[0]?.reserved||0);
+      if(available+1e-9<q){
         await client.query('ROLLBACK');
-        return res.status(409).json({ok:false,error:'Estoque insuficiente para esta saída'});
+        return res.status(409).json({ok:false,error:`Estoque livre insuficiente. Disponível: ${Math.max(0,available)} ${locked.rows[0].unit||''}. Há mercadoria reservada em pedidos.`});
       }
     }
     await client.query(`INSERT INTO app_inventory_movements
@@ -603,6 +670,7 @@ app.post('/api/inventory/movements',auth,hasPermission('estoque'),async(req,res)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
       [product_id,type,q,Number(unit_price)||0,producer_id||null,producer_name||null,destination||null,
        req.user.user_id||null,req.user.username||null]);
+    if(type==='entrada') await client.query(`UPDATE app_inventory_products SET cost_price=$2,updated_at=NOW() WHERE id=$1`,[product_id,Number(unit_price)||0]);
     await client.query('COMMIT');
     await audit(req.user,type==='entrada'?'ESTOQUE_ENTRADA':'ESTOQUE_SAIDA',
       {product_id,quantity:q,producer_id:producer_id||null,producer_name:producer_name||null,destination:destination||null});
@@ -618,6 +686,8 @@ app.post('/api/inventory/movements',auth,hasPermission('estoque'),async(req,res)
 // V116 - endpoints dedicados do Galpão mobile: venda e relatório confiáveis.
 app.post('/api/inventory/products/:id/delete',auth,hasPermission('estoque'),adminOnly,async(req,res)=>{
   try{
+    const reserved=await pool.query(`SELECT COALESCE(SUM(GREATEST(i.quantity-COALESCE(i.released_quantity,0),0)),0) reserved FROM app_inventory_order_items i JOIN app_inventory_orders o ON o.id=i.order_id WHERE i.product_id=$1 AND o.status IN ('pendente','separado','parcial')`,[req.params.id]);
+    if(Number(reserved.rows[0]?.reserved||0)>0) return res.status(409).json({ok:false,error:'Este produto possui quantidade reservada em pedido ativo. Cancele ou finalize o pedido antes de excluir.'});
     const r=await pool.query(`UPDATE app_inventory_products SET active=FALSE,updated_at=NOW() WHERE id=$1 AND COALESCE(active,TRUE)=TRUE RETURNING id,name`,[req.params.id]);
     if(!r.rowCount) return res.status(404).json({ok:false,error:'Produto não encontrado ou já excluído.'});
     await audit(req.user,'ESTOQUE_PRODUTO_EXCLUIDO',{id:req.params.id,name:r.rows[0].name,origem:'mobile'});
@@ -632,10 +702,10 @@ app.get('/api/inventory/report',auth,hasPermission('estoque'),async(req,res)=>{
       FROM app_inventory_movements m
       LEFT JOIN app_inventory_products p ON p.id=m.product_id
       ORDER BY m.created_at DESC LIMIT 1000`);
-    let entradas=0,saidas=0,valorEntradas=0,valorSaidas=0;
-    for(const x of r.rows){const q=Number(x.quantity||0),v=q*Number(x.unit_price||0);if(x.type==='entrada'){entradas+=q;valorEntradas+=v}else{saidas+=q;valorSaidas+=v}}
+    let entradas=0,saidas=0,valorEntradas=0,valorSaidas=0;const entradasPorUnidade={},saidasPorUnidade={};
+    for(const x of r.rows){const q=Number(x.quantity||0),v=q*Number(x.unit_price||0),unit=String(x.unit||'un').toLowerCase();if(x.type==='entrada'){entradas+=q;valorEntradas+=v;entradasPorUnidade[unit]=(entradasPorUnidade[unit]||0)+q}else{saidas+=q;valorSaidas+=v;saidasPorUnidade[unit]=(saidasPorUnidade[unit]||0)+q}}
     res.set('Cache-Control','no-store, no-cache, must-revalidate');
-    res.json({ok:true,movements:r.rows,totals:{entradas,saidas,valor_entradas:valorEntradas,valor_saidas:valorSaidas}});
+    res.json({ok:true,movements:r.rows,totals:{entradas,saidas,valor_entradas:valorEntradas,valor_saidas:valorSaidas,entradas_por_unidade:entradasPorUnidade,saidas_por_unidade:saidasPorUnidade}});
   }catch(e){console.error('GET /api/inventory/report',e);res.status(500).json({ok:false,error:e.message});}
 });
 
@@ -654,7 +724,11 @@ app.post('/api/inventory/sale',auth,hasPermission('estoque'),async(req,res)=>{
     const p=pr.rows[0];
     const br=await client.query(`SELECT COALESCE(SUM(CASE WHEN type='entrada' THEN quantity ELSE -quantity END),0) AS balance FROM app_inventory_movements WHERE product_id=$1`,[productId]);
     const balance=Number(br.rows[0]?.balance||0);
-    if(balance+1e-9<q) throw new Error(`Estoque insuficiente. Disponível: ${balance} ${p.unit||''}`);
+    const rr=await client.query(`SELECT COALESCE(SUM(GREATEST(i.quantity-COALESCE(i.released_quantity,0),0)),0) reserved
+      FROM app_inventory_order_items i JOIN app_inventory_orders o ON o.id=i.order_id
+      WHERE i.product_id=$1 AND o.status IN ('pendente','separado','parcial')`,[productId]);
+    const reserved=Number(rr.rows[0]?.reserved||0),available=balance-reserved;
+    if(available+1e-9<q){await client.query('ROLLBACK');return res.status(409).json({ok:false,error:`Estoque livre insuficiente. Disponível: ${Math.max(0,available)} ${p.unit||''}. Reservado em pedidos: ${reserved} ${p.unit||''}`})}
     const unitPrice=(b.unit_price!==undefined&&b.unit_price!==null&&b.unit_price!=='')?Number(b.unit_price):Number(p.unit_price||0);
     const destination=`VENDA GALPÃO • ${payment.toUpperCase()}${String(b.observation||'').trim()?' • '+String(b.observation).trim():''}`;
     const ins=await client.query(`INSERT INTO app_inventory_movements(product_id,type,quantity,unit_price,producer_id,producer_name,destination,user_id,username)
@@ -676,72 +750,147 @@ app.post('/api/inventory/sale',auth,hasPermission('estoque'),async(req,res)=>{
     }
     await client.query('COMMIT');
     await audit(req.user,'ESTOQUE_VENDA_GALPAO',{movement_id:ins.rows[0].id,product_id:p.id,product_name:p.name,quantity:q,unit_price:unitPrice,total,payment_method:payment,producer_id:producerId,producer_name:producerName});
-    res.json({ok:true,sale:{id:ins.rows[0].id,created_at:ins.rows[0].created_at,product_id:p.id,product_name:p.name,unit:p.unit,quantity:q,unit_price:unitPrice,total,payment_method:payment,producer_id:producerId,producer_name:producerName,observation:String(b.observation||'').trim(),remaining:balance-q}});
+    res.json({ok:true,sale:{id:ins.rows[0].id,created_at:ins.rows[0].created_at,product_id:p.id,product_name:p.name,unit:p.unit,quantity:q,unit_price:unitPrice,total,payment_method:payment,producer_id:producerId,producer_name:producerName,observation:String(b.observation||'').trim(),remaining:balance-q,available_remaining:available-q,reserved}});
   }catch(e){try{await client.query('ROLLBACK')}catch(_){} console.error('POST /api/inventory/sale',e);res.status(500).json({ok:false,error:e.message});}
   finally{client.release();}
 });
 
-// V132 - Pedido do Galpão: criar agora, liberar depois, baixar estoque e gerar cupom.
+// V133 - Pedidos com reserva, separação, edição e liberações parciais auditadas.
 app.get('/api/inventory/orders',auth,hasPermission('estoque'),async(req,res)=>{try{
   const status=String(req.query?.status||'').trim().toLowerCase(),params=[],where=[];
-  if(['pendente','liberado','cancelado'].includes(status)){params.push(status);where.push(`o.status=$${params.length}`)}
+  if(status==='ativos') where.push(`o.status IN ('pendente','separado','parcial')`);
+  else if(['pendente','separado','parcial','liberado','cancelado'].includes(status)){params.push(status);where.push(`o.status=$${params.length}`)}
   const r=await pool.query(`SELECT o.*,
-    COALESCE(json_agg(json_build_object('id',i.id,'product_id',i.product_id,'product_name',i.product_name,'unit',i.unit,'quantity',i.quantity,'unit_price',i.unit_price,'subtotal',i.subtotal) ORDER BY i.id) FILTER(WHERE i.id IS NOT NULL),'[]') items
+    (SELECT id FROM app_inventory_order_releases r WHERE r.order_id=o.id ORDER BY r.released_at DESC LIMIT 1) last_release_id,
+    COALESCE(json_agg(json_build_object(
+      'id',i.id,'product_id',i.product_id,'product_name',i.product_name,'unit',i.unit,
+      'quantity',i.quantity,'released_quantity',COALESCE(i.released_quantity,0),
+      'remaining_quantity',GREATEST(i.quantity-COALESCE(i.released_quantity,0),0),
+      'unit_price',i.unit_price,'subtotal',i.subtotal
+    ) ORDER BY i.id) FILTER(WHERE i.id IS NOT NULL),'[]') items
     FROM app_inventory_orders o LEFT JOIN app_inventory_order_items i ON i.order_id=o.id
     ${where.length?'WHERE '+where.join(' AND '):''}
-    GROUP BY o.id ORDER BY CASE o.status WHEN 'pendente' THEN 0 WHEN 'liberado' THEN 1 ELSE 2 END,o.created_at DESC LIMIT 500`,params);
+    GROUP BY o.id
+    ORDER BY CASE o.status WHEN 'separado' THEN 0 WHEN 'pendente' THEN 1 WHEN 'parcial' THEN 2 WHEN 'liberado' THEN 3 ELSE 4 END,o.created_at DESC LIMIT 500`,params);
   res.set('Cache-Control','no-store, no-cache, must-revalidate');res.json({ok:true,orders:r.rows});
 }catch(e){console.error('GET /api/inventory/orders',e);res.status(500).json({ok:false,error:e.message})}});
+
+app.get('/api/inventory/orders/:id/releases',auth,hasPermission('estoque'),async(req,res)=>{try{
+  const r=await pool.query(`SELECT rel.*,
+    COALESCE(json_agg(json_build_object(
+      'id',ri.id,'order_item_id',ri.order_item_id,'movement_id',ri.movement_id,
+      'product_id',ri.product_id,'product_name',ri.product_name,'unit',ri.unit,
+      'quantity',ri.quantity,'unit_price',ri.unit_price,'subtotal',ri.subtotal
+    ) ORDER BY ri.id) FILTER(WHERE ri.id IS NOT NULL),'[]') items
+    FROM app_inventory_order_releases rel
+    LEFT JOIN app_inventory_order_release_items ri ON ri.release_id=rel.id
+    WHERE rel.order_id=$1 GROUP BY rel.id ORDER BY rel.released_at DESC`,[req.params.id]);
+  res.set('Cache-Control','no-store, no-cache, must-revalidate');res.json({ok:true,releases:r.rows});
+}catch(e){console.error('GET /api/inventory/orders/:id/releases',e);res.status(500).json({ok:false,error:e.message})}});
 
 app.post('/api/inventory/orders',auth,hasPermission('estoque'),async(req,res)=>{const c=await pool.connect();try{
   const b=req.body||{},producerId=String(b.producer_id||'').trim(),payment=String(b.payment_method||'leite').trim().toLowerCase(),raw=Array.isArray(b.items)?b.items:[];
   if(!producerId)throw new Error('Selecione o produtor do pedido.');
   if(!['dinheiro','pix','leite'].includes(payment))throw new Error('Forma de pagamento inválida.');
   if(!raw.length||raw.length>50)throw new Error('Adicione pelo menos um produto ao pedido.');
-  const sr=await c.query("SELECT data FROM app_state WHERE id='vale-da-serra'");const state=sr.rows[0]?.data||{},prods=Array.isArray(state.produtores)?state.produtores:[];
-  const producer=prods.find(x=>String(x.id)===producerId);if(!producer)throw new Error('Produtor não encontrado.');
   const grouped=new Map();for(const it of raw){const id=String(it.product_id||'').trim(),q=Number(it.quantity);if(!id||!(q>0))throw new Error('Produto ou quantidade inválida.');grouped.set(id,(grouped.get(id)||0)+q)}
-  await c.query('BEGIN');const prepared=[];let total=0;
+  await c.query('BEGIN');
+  const sr=await c.query("SELECT data FROM app_state WHERE id='vale-da-serra'"),state=sr.rows[0]?.data||{},prods=Array.isArray(state.produtores)?state.produtores:[];
+  const producer=prods.find(x=>String(x.id)===producerId);if(!producer)throw new Error('Produtor não encontrado.');
+  const prepared=[];let total=0;
   for(const [productId,q] of [...grouped.entries()].sort((a,b)=>a[0].localeCompare(b[0]))){
-    const pr=await c.query(`SELECT p.*,COALESCE(SUM(CASE WHEN m.type='entrada' THEN m.quantity ELSE -m.quantity END),0) balance FROM app_inventory_products p LEFT JOIN app_inventory_movements m ON m.product_id=p.id WHERE p.id=$1 AND COALESCE(p.active,TRUE)=TRUE GROUP BY p.id`,[productId]);
+    const pr=await c.query(`SELECT * FROM app_inventory_products WHERE id=$1 AND COALESCE(active,TRUE)=TRUE FOR UPDATE`,[productId]);
     if(!pr.rowCount)throw new Error('Um produto do pedido não foi encontrado.');const p=pr.rows[0];
-    if(Number(p.balance)+1e-9<q)throw new Error(`Estoque insuficiente para ${p.name}. Disponível: ${Number(p.balance)} ${p.unit||''}`);
-    const price=Number(p.unit_price||0),subtotal=q*price;total+=subtotal;prepared.push({product_id:p.id,product_name:p.name,unit:p.unit||'un',quantity:q,unit_price:price,subtotal});
+    const br=await c.query(`SELECT COALESCE(SUM(CASE WHEN type='entrada' THEN quantity ELSE -quantity END),0) balance FROM app_inventory_movements WHERE product_id=$1`,[productId]);
+    const rr=await c.query(`SELECT COALESCE(SUM(GREATEST(i.quantity-COALESCE(i.released_quantity,0),0)),0) reserved FROM app_inventory_order_items i JOIN app_inventory_orders o ON o.id=i.order_id WHERE i.product_id=$1 AND o.status IN ('pendente','separado','parcial')`,[productId]);
+    const available=Number(br.rows[0]?.balance||0)-Number(rr.rows[0]?.reserved||0);
+    if(available+1e-9<q)throw new Error(`Estoque livre insuficiente para ${p.name}. Disponível: ${Math.max(0,available)} ${p.unit||''}`);
+    const price=Number(p.unit_price||0),subtotal=q*price;total+=subtotal;prepared.push({product_id:p.id,product_name:p.name,unit:p.unit||'un',quantity:q,released_quantity:0,remaining_quantity:q,unit_price:price,subtotal});
   }
-  const id=crypto.randomUUID();await c.query(`INSERT INTO app_inventory_orders(id,producer_id,producer_name,payment_method,observation,total,created_by_id,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[id,producerId,String(producer.nome||producer.name||'Produtor'),payment,String(b.observation||'').trim(),total,req.user.user_id||null,req.user.username||null]);
-  for(const it of prepared)await c.query(`INSERT INTO app_inventory_order_items(order_id,product_id,product_name,unit,quantity,unit_price,subtotal) VALUES($1,$2,$3,$4,$5,$6,$7)`,[id,it.product_id,it.product_name,it.unit,it.quantity,it.unit_price,it.subtotal]);
-  await c.query('COMMIT');await audit(req.user,'ESTOQUE_PEDIDO_CRIADO',{id,producer_id:producerId,producer_name:producer.nome||'',payment_method:payment,total,items:prepared});
-  res.json({ok:true,order:{id,producer_id:producerId,producer_name:producer.nome||producer.name||'Produtor',payment_method:payment,status:'pendente',observation:String(b.observation||'').trim(),total,items:prepared,created_at:new Date().toISOString()}});
+  const id=crypto.randomUUID(),producerName=String(producer.nome||producer.name||'Produtor'),observation=String(b.observation||'').trim();
+  await c.query(`INSERT INTO app_inventory_orders(id,producer_id,producer_name,payment_method,observation,total,created_by_id,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[id,producerId,producerName,payment,observation,total,req.user.user_id||null,req.user.username||null]);
+  for(const it of prepared)await c.query(`INSERT INTO app_inventory_order_items(order_id,product_id,product_name,unit,quantity,released_quantity,unit_price,subtotal) VALUES($1,$2,$3,$4,$5,0,$6,$7)`,[id,it.product_id,it.product_name,it.unit,it.quantity,it.unit_price,it.subtotal]);
+  await c.query('COMMIT');
+  try{await audit(req.user,'ESTOQUE_PEDIDO_CRIADO',{id,producer_id:producerId,producer_name:producerName,payment_method:payment,total,items:prepared})}catch(e){console.error('AUDIT ESTOQUE_PEDIDO_CRIADO',e)}
+  res.json({ok:true,order:{id,producer_id:producerId,producer_name:producerName,payment_method:payment,status:'pendente',observation,total,items:prepared,created_by:req.user.username||null,created_at:new Date().toISOString()}});
 }catch(e){try{await c.query('ROLLBACK')}catch(_){}res.status(400).json({ok:false,error:e.message})}finally{c.release()}});
 
+app.put('/api/inventory/orders/:id',auth,hasPermission('estoque'),async(req,res)=>{const c=await pool.connect();try{
+  const b=req.body||{},producerId=String(b.producer_id||'').trim(),payment=String(b.payment_method||'leite').trim().toLowerCase(),raw=Array.isArray(b.items)?b.items:[];
+  if(!producerId||!raw.length||raw.length>50)throw new Error('Informe o produtor e os produtos do pedido.');
+  if(!['dinheiro','pix','leite'].includes(payment))throw new Error('Forma de pagamento inválida.');
+  const grouped=new Map();for(const it of raw){const id=String(it.product_id||'').trim(),q=Number(it.quantity);if(!id||!(q>0))throw new Error('Produto ou quantidade inválida.');grouped.set(id,(grouped.get(id)||0)+q)}
+  await c.query('BEGIN');
+  const or=await c.query(`SELECT * FROM app_inventory_orders WHERE id=$1 FOR UPDATE`,[req.params.id]);if(!or.rowCount)throw new Error('Pedido não encontrado.');
+  const order=or.rows[0];if(!['pendente','separado'].includes(order.status))throw new Error('Somente pedidos ainda não liberados podem ser editados.');
+  const used=await c.query(`SELECT COALESCE(SUM(released_quantity),0) used FROM app_inventory_order_items WHERE order_id=$1`,[order.id]);if(Number(used.rows[0]?.used||0)>0)throw new Error('Este pedido já possui liberação e não pode ser editado.');
+  const sr=await c.query("SELECT data FROM app_state WHERE id='vale-da-serra'"),state=sr.rows[0]?.data||{},prods=Array.isArray(state.produtores)?state.produtores:[];
+  const producer=prods.find(x=>String(x.id)===producerId);if(!producer)throw new Error('Produtor não encontrado.');
+  const prepared=[];let total=0;
+  for(const [productId,q] of [...grouped.entries()].sort((a,b)=>a[0].localeCompare(b[0]))){
+    const pr=await c.query(`SELECT * FROM app_inventory_products WHERE id=$1 AND COALESCE(active,TRUE)=TRUE FOR UPDATE`,[productId]);if(!pr.rowCount)throw new Error('Um produto do pedido não foi encontrado.');const p=pr.rows[0];
+    const br=await c.query(`SELECT COALESCE(SUM(CASE WHEN type='entrada' THEN quantity ELSE -quantity END),0) balance FROM app_inventory_movements WHERE product_id=$1`,[productId]);
+    const rr=await c.query(`SELECT COALESCE(SUM(GREATEST(i.quantity-COALESCE(i.released_quantity,0),0)),0) reserved FROM app_inventory_order_items i JOIN app_inventory_orders o ON o.id=i.order_id WHERE i.product_id=$1 AND o.id<>$2 AND o.status IN ('pendente','separado','parcial')`,[productId,order.id]);
+    const available=Number(br.rows[0]?.balance||0)-Number(rr.rows[0]?.reserved||0);if(available+1e-9<q)throw new Error(`Estoque livre insuficiente para ${p.name}. Disponível: ${Math.max(0,available)} ${p.unit||''}`);
+    const price=Number(p.unit_price||0),subtotal=q*price;total+=subtotal;prepared.push({product_id:p.id,product_name:p.name,unit:p.unit||'un',quantity:q,released_quantity:0,remaining_quantity:q,unit_price:price,subtotal});
+  }
+  const producerName=String(producer.nome||producer.name||'Produtor'),observation=String(b.observation||'').trim();
+  await c.query(`DELETE FROM app_inventory_order_items WHERE order_id=$1`,[order.id]);
+  for(const it of prepared)await c.query(`INSERT INTO app_inventory_order_items(order_id,product_id,product_name,unit,quantity,released_quantity,unit_price,subtotal) VALUES($1,$2,$3,$4,$5,0,$6,$7)`,[order.id,it.product_id,it.product_name,it.unit,it.quantity,it.unit_price,it.subtotal]);
+  const up=await c.query(`UPDATE app_inventory_orders SET producer_id=$2,producer_name=$3,payment_method=$4,observation=$5,total=$6,status='pendente',separated_by_id=NULL,separated_by=NULL,separated_at=NULL,updated_at=NOW() WHERE id=$1 RETURNING *`,[order.id,producerId,producerName,payment,observation,total]);
+  await c.query('COMMIT');try{await audit(req.user,'ESTOQUE_PEDIDO_EDITADO',{id:order.id,total,items:prepared})}catch(e){console.error('AUDIT ESTOQUE_PEDIDO_EDITADO',e)}
+  res.json({ok:true,order:{...up.rows[0],items:prepared}});
+}catch(e){try{await c.query('ROLLBACK')}catch(_){}res.status(400).json({ok:false,error:e.message})}finally{c.release()}});
+
+app.post('/api/inventory/orders/:id/separate',auth,hasPermission('estoque'),async(req,res)=>{try{
+  const r=await pool.query(`UPDATE app_inventory_orders SET status='separado',separated_by_id=$2,separated_by=$3,separated_at=NOW(),updated_at=NOW() WHERE id=$1 AND status='pendente' RETURNING *`,[req.params.id,req.user.user_id||null,req.user.username||null]);
+  if(!r.rowCount)return res.status(400).json({ok:false,error:'Pedido não encontrado ou não está aguardando separação.'});
+  try{await audit(req.user,'ESTOQUE_PEDIDO_SEPARADO',{id:req.params.id})}catch(e){console.error('AUDIT ESTOQUE_PEDIDO_SEPARADO',e)}
+  res.json({ok:true,order:r.rows[0]});
+}catch(e){res.status(500).json({ok:false,error:e.message})}});
+
 app.post('/api/inventory/orders/:id/release',auth,hasPermission('estoque'),async(req,res)=>{const c=await pool.connect();try{
-  await c.query('BEGIN');const or=await c.query(`SELECT * FROM app_inventory_orders WHERE id=$1 FOR UPDATE`,[req.params.id]);if(!or.rowCount)throw new Error('Pedido não encontrado.');const order=or.rows[0];if(order.status!=='pendente')throw new Error(order.status==='liberado'?'Este pedido já foi liberado.':'Este pedido foi cancelado.');
+  await c.query('BEGIN');
+  const or=await c.query(`SELECT * FROM app_inventory_orders WHERE id=$1 FOR UPDATE`,[req.params.id]);if(!or.rowCount)throw new Error('Pedido não encontrado.');const order=or.rows[0];
+  if(!['pendente','separado','parcial'].includes(order.status))throw new Error(order.status==='liberado'?'Este pedido já foi totalmente liberado.':'Este pedido foi cancelado.');
   const ir=await c.query(`SELECT * FROM app_inventory_order_items WHERE order_id=$1 ORDER BY product_id,id`,[order.id]);if(!ir.rowCount)throw new Error('Pedido sem produtos.');
-  const receiptItems=[];
-  for(const it of ir.rows){
+  const raw=Array.isArray(req.body?.items)?req.body.items:[],requested=new Map();
+  if(raw.length){for(const x of raw){const id=String(x.item_id||'').trim(),q=Number(x.quantity);if(!id||!(q>0))throw new Error('Quantidade de liberação inválida.');requested.set(id,(requested.get(id)||0)+q)}}
+  const selected=[];
+  for(const it of ir.rows){const remaining=Math.max(0,Number(it.quantity)-Number(it.released_quantity||0)),q=raw.length?Number(requested.get(String(it.id))||0):remaining;if(q<=0)continue;if(q>remaining+1e-9)throw new Error(`A quantidade de ${it.product_name} é maior que o saldo do pedido.`);selected.push({it,q,remaining})}
+  if(!selected.length)throw new Error('Informe ao menos um produto para liberar.');
+  if(raw.length&&[...requested.keys()].some(id=>!ir.rows.some(it=>String(it.id)===id)))throw new Error('Um item informado não pertence ao pedido.');
+  const releaseId=crypto.randomUUID(),receiptItems=[];let releaseTotal=0;
+  await c.query(`INSERT INTO app_inventory_order_releases(id,order_id,total,observation,released_by_id,released_by) VALUES($1,$2,0,$3,$4,$5)`,[releaseId,order.id,String(req.body?.observation||'').trim(),req.user.user_id||null,req.user.username||null]);
+  for(const {it,q} of selected){
     const pr=await c.query(`SELECT * FROM app_inventory_products WHERE id=$1 AND COALESCE(active,TRUE)=TRUE FOR UPDATE`,[it.product_id]);if(!pr.rowCount)throw new Error(`Produto indisponível: ${it.product_name}`);
-    const br=await c.query(`SELECT COALESCE(SUM(CASE WHEN type='entrada' THEN quantity ELSE -quantity END),0) balance FROM app_inventory_movements WHERE product_id=$1`,[it.product_id]);const balance=Number(br.rows[0]?.balance||0),q=Number(it.quantity);
-    if(balance+1e-9<q)throw new Error(`Estoque insuficiente para ${it.product_name}. Disponível: ${balance} ${it.unit||''}`);
-    const destination=`PEDIDO GALPÃO #${String(order.id).slice(0,8).toUpperCase()} • ${String(order.payment_method).toUpperCase()}${order.observation?' • '+order.observation:''}`;
+    const br=await c.query(`SELECT COALESCE(SUM(CASE WHEN type='entrada' THEN quantity ELSE -quantity END),0) balance FROM app_inventory_movements WHERE product_id=$1`,[it.product_id]);const balance=Number(br.rows[0]?.balance||0);
+    if(balance+1e-9<q)throw new Error(`Estoque físico insuficiente para ${it.product_name}. Disponível: ${balance} ${it.unit||''}`);
+    const destination=`PEDIDO GALPÃO #${String(order.id).slice(0,8).toUpperCase()} • ${String(order.payment_method).toUpperCase()} • LIBERAÇÃO #${String(releaseId).slice(0,8).toUpperCase()}${order.observation?' • '+order.observation:''}`;
     const mv=await c.query(`INSERT INTO app_inventory_movements(product_id,type,quantity,unit_price,producer_id,producer_name,destination,user_id,username) VALUES($1,'saida',$2,$3,$4,$5,$6,$7,$8) RETURNING id,created_at`,[it.product_id,q,Number(it.unit_price),order.producer_id,order.producer_name,destination,req.user.user_id||null,req.user.username||null]);
-    receiptItems.push({movement_id:mv.rows[0].id,product_id:it.product_id,product_name:it.product_name,unit:it.unit,quantity:q,unit_price:Number(it.unit_price),subtotal:Number(it.subtotal),remaining:balance-q});
+    const subtotal=q*Number(it.unit_price||0);releaseTotal+=subtotal;
+    await c.query(`UPDATE app_inventory_order_items SET released_quantity=COALESCE(released_quantity,0)+$2 WHERE id=$1`,[it.id,q]);
+    await c.query(`INSERT INTO app_inventory_order_release_items(release_id,order_item_id,movement_id,product_id,product_name,unit,quantity,unit_price,subtotal) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[releaseId,it.id,mv.rows[0].id,it.product_id,it.product_name,it.unit||'un',q,Number(it.unit_price),subtotal]);
+    receiptItems.push({movement_id:mv.rows[0].id,order_item_id:it.id,product_id:it.product_id,product_name:it.product_name,unit:it.unit,quantity:q,unit_price:Number(it.unit_price),subtotal,remaining_stock:balance-q});
   }
+  await c.query(`UPDATE app_inventory_order_releases SET total=$2 WHERE id=$1`,[releaseId,releaseTotal]);
   if(order.payment_method==='leite'){
-    const stq=await c.query("SELECT data FROM app_state WHERE id='vale-da-serra' FOR UPDATE"),state=(stq.rows[0]?.data&&typeof stq.rows[0].data==='object')?stq.rows[0].data:{},debitos=Array.isArray(state.debitos)?state.debitos.slice():[],debId='deb_ord_gal_'+order.id;
-    if(!debitos.some(d=>String(d.id)===debId)){
-      const dateQ=await c.query("SELECT (NOW() AT TIME ZONE 'America/Sao_Paulo')::date::text AS hoje"),desc=`Galpão - Pedido #${String(order.id).slice(0,8).toUpperCase()}: `+receiptItems.map(x=>`${x.product_name} - ${x.quantity} ${x.unit||'un'}`).join(' • ');
-      debitos.push({id:debId,prodId:String(order.producer_id),data:dateQ.rows[0].hoje,descricao:desc,valor:Number(order.total),origem:'galpao',orderId:order.id,itens:receiptItems.map(x=>({product_id:x.product_id,produto:x.product_name,quantidade:x.quantity,unidade:x.unit,valor_unitario:x.unit_price,subtotal:x.subtotal}))});
-      state.debitos=debitos;await c.query(`INSERT INTO app_state(id,data,updated_at) VALUES('vale-da-serra',$1::jsonb,NOW()) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()`,[JSON.stringify(state)]);
-    }
+    const stq=await c.query("SELECT data FROM app_state WHERE id='vale-da-serra' FOR UPDATE"),state=(stq.rows[0]?.data&&typeof stq.rows[0].data==='object')?stq.rows[0].data:{},debitos=Array.isArray(state.debitos)?state.debitos.slice():[],debId='deb_ord_gal_'+order.id+'_'+releaseId;
+    const dateQ=await c.query("SELECT (NOW() AT TIME ZONE 'America/Sao_Paulo')::date::text AS hoje"),desc=`Galpão - Pedido #${String(order.id).slice(0,8).toUpperCase()} / Liberação #${String(releaseId).slice(0,8).toUpperCase()}: `+receiptItems.map(x=>`${x.product_name} - ${x.quantity} ${x.unit||'un'}`).join(' • ');
+    debitos.push({id:debId,prodId:String(order.producer_id),data:dateQ.rows[0].hoje,descricao:desc,valor:releaseTotal,origem:'galpao',orderId:order.id,releaseId,itens:receiptItems.map(x=>({product_id:x.product_id,produto:x.product_name,quantidade:x.quantity,unidade:x.unit,valor_unitario:x.unit_price,subtotal:x.subtotal}))});
+    state.debitos=debitos;await c.query(`INSERT INTO app_state(id,data,updated_at) VALUES('vale-da-serra',$1::jsonb,NOW()) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()`,[JSON.stringify(state)]);
   }
-  const up=await c.query(`UPDATE app_inventory_orders SET status='liberado',released_by_id=$2,released_by=$3,released_at=NOW() WHERE id=$1 RETURNING *`,[order.id,req.user.user_id||null,req.user.username||null]);
-  await c.query('COMMIT');const released=up.rows[0];await audit(req.user,'ESTOQUE_PEDIDO_LIBERADO',{id:order.id,producer_id:order.producer_id,producer_name:order.producer_name,payment_method:order.payment_method,total:Number(order.total),items:receiptItems});
-  res.json({ok:true,order:{...released,total:Number(released.total),items:receiptItems}});
+  const remainingBefore=ir.rows.reduce((s,it)=>s+Math.max(0,Number(it.quantity)-Number(it.released_quantity||0)),0),releasedNow=selected.reduce((s,x)=>s+x.q,0),newStatus=releasedNow+1e-9>=remainingBefore?'liberado':'parcial';
+  const up=await c.query(`UPDATE app_inventory_orders SET status=$2,released_by_id=$3,released_by=$4,released_at=NOW(),updated_at=NOW() WHERE id=$1 RETURNING *`,[order.id,newStatus,req.user.user_id||null,req.user.username||null]);
+  await c.query('COMMIT');
+  try{await audit(req.user,newStatus==='liberado'?'ESTOQUE_PEDIDO_LIBERADO':'ESTOQUE_PEDIDO_LIBERADO_PARCIAL',{id:order.id,release_id:releaseId,producer_id:order.producer_id,producer_name:order.producer_name,payment_method:order.payment_method,total:releaseTotal,items:receiptItems})}catch(e){console.error('AUDIT ESTOQUE_PEDIDO_LIBERADO',e)}
+  const releasedAt=up.rows[0].released_at||new Date().toISOString();
+  res.json({ok:true,order:{...up.rows[0],total:Number(up.rows[0].total)},release:{id:releaseId,order_id:order.id,total:releaseTotal,observation:String(req.body?.observation||'').trim(),released_by:req.user.username||null,released_at:releasedAt,items:receiptItems}});
 }catch(e){try{await c.query('ROLLBACK')}catch(_){}res.status(400).json({ok:false,error:e.message})}finally{c.release()}});
 
 app.post('/api/inventory/orders/:id/cancel',auth,hasPermission('estoque'),async(req,res)=>{try{
-  const reason=String(req.body?.reason||'').trim();const r=await pool.query(`UPDATE app_inventory_orders SET status='cancelado',cancelled_by=$2,cancelled_at=NOW(),cancel_reason=$3 WHERE id=$1 AND status='pendente' RETURNING *`,[req.params.id,req.user.username||null,reason]);
-  if(!r.rowCount)return res.status(400).json({ok:false,error:'Pedido não encontrado ou já finalizado.'});await audit(req.user,'ESTOQUE_PEDIDO_CANCELADO',{id:req.params.id,reason});res.json({ok:true,order:r.rows[0]});
+  const reason=String(req.body?.reason||'').trim();const r=await pool.query(`UPDATE app_inventory_orders SET status='cancelado',cancelled_by=$2,cancelled_at=NOW(),cancel_reason=$3,updated_at=NOW() WHERE id=$1 AND status IN ('pendente','separado','parcial') RETURNING *`,[req.params.id,req.user.username||null,reason]);
+  if(!r.rowCount)return res.status(400).json({ok:false,error:'Pedido não encontrado ou já finalizado.'});try{await audit(req.user,'ESTOQUE_PEDIDO_CANCELADO',{id:req.params.id,reason})}catch(e){console.error('AUDIT ESTOQUE_PEDIDO_CANCELADO',e)}res.json({ok:true,order:r.rows[0]});
 }catch(e){res.status(500).json({ok:false,error:e.message})}});
 
 // V14 - API Loja / PDV

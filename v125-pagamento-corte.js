@@ -71,14 +71,47 @@
     const closure={id:crypto.randomUUID(),createdAt:new Date().toISOString()};let count=0;ps.forEach(p=>{if(pay(p.id,true,closure))count++});save();
     try{await syncNow();renderPagamentos(false);alert(`✅ QUINZENA DA LOCALIDADE FINALIZADA.\n\n${c.local}\n${count} produtor(es) pagos\n${fmt(liters)} litros\n${moeda(total)}\n\nAgora o painel mostra somente o que ainda está pendente.`)}catch(e){alert('❌ '+e.message+' Tente novamente antes de fechar a tela.')}
   };
-  window.v129ClearAllMilk=async function(){
-    if(!lancamentos.length&&!pagamentos.length)return alert('As entradas e os pagamentos já estão zerados. Você pode começar os novos lançamentos.');
-    const liters=lancamentos.reduce((s,x)=>s+N(x.qtd),0),people=new Set(lancamentos.map(x=>String(x.prodId))).size;
-    if(!confirm(`ZERAR OS TESTES E COMEÇAR NOVAMENTE?\n\nSerão excluídos:\n• ${lancamentos.length} entradas de leite\n• ${fmt(liters)} litros\n• registros de ${people} produtor(es)\n• ${pagamentos.length} pagamentos feitos nos testes\n\nSerão mantidos: produtores, débitos, vendas, estoque e usuários.`))return;
-    lancamentos=[];
-    pagamentos=[];
-    save();
-    try{await syncNow();renderPagamentos(false);alert('✅ Entradas e pagamentos de teste zerados no servidor.\n\nAgora você pode registrar as novas entradas de leite.')}catch(e){alert('❌ A limpeza foi feita neste aparelho, mas o servidor não confirmou: '+e.message)}
+  window.v131ClearAugustRange=async function(){
+    const start='2026-08-01',end='2026-08-29';
+    const dateKey=v=>{const s=String(v||'').trim(),iso=s.match(/^(\d{4})-(\d{2})-(\d{2})/),br=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);return iso?`${iso[1]}-${iso[2]}-${iso[3]}`:br?`${br[3]}-${br[2]}-${br[1]}`:s.slice(0,10)};
+    const removed=lancamentos.filter(x=>{const d=dateKey(x.data);return d>=start&&d<=end});
+    if(!removed.length)return alert('Não existem entradas de leite entre 01/08/2026 e 29/08/2026. Nenhum dado foi alterado.');
+    const liters=removed.reduce((s,x)=>s+N(x.qtd),0),people=new Set(removed.map(x=>String(x.prodId))).size;
+    if(!confirm(`EXCLUIR AS ENTRADAS DE LEITE DE 01/08/2026 A 29/08/2026?\n\nSerão excluídos:\n• ${removed.length} entradas de leite\n• ${fmt(liters)} litros\n• lançamentos de ${people} produtor(es)\n\nSerão mantidos:\n• todos os produtores\n• entradas anteriores a 01/08/2026\n• entradas a partir de 30/08/2026\n• débitos, vendas, estoque e usuários\n\nEsta ação não pode ser desfeita pela tela.`))return;
+
+    const oldEntries=lancamentos,oldPayments=pagamentos,oldDebits=debitos;
+    const removedIds=new Set(removed.map(x=>String(x.id))),entryById=new Map(oldEntries.map(x=>[String(x.id),x]));
+    let removedPayments=0,adjustedPayments=0;
+    const releasedDebitIds=new Set();
+    const rebuild=(pg,ids)=>{
+      const entries=ids.map(id=>entryById.get(String(id))).filter(Boolean),litersLeft=entries.reduce((s,x)=>s+N(x.qtd),0),parts=splitLiters(entries,String(pg.mes||'')),rate=N(pg.valorLitro)||VALOR_LITRO,gross=litersLeft*rate,debt=N(pg.totalDebitos);
+      adjustedPayments++;
+      return {...pg,entryIds:entries.map(x=>x.id),litros:litersLeft,litrosSaldoAnterior:parts.previous,litrosQuinzenaAtual:parts.current,valorLitro:rate,valorBruto:gross,valorPago:Math.max(0,gross-debt),modeloPagamento:pg.modeloPagamento||'pagamento-ajustado-limpeza-v131'};
+    };
+    const drop=pg=>{removedPayments++;(pg.debitIds||[]).forEach(id=>releasedDebitIds.add(String(id)));return null};
+    pagamentos=oldPayments.map(pg=>{
+      if(Array.isArray(pg.entryIds)){
+        const remaining=pg.entryIds.filter(id=>!removedIds.has(String(id)));
+        if(remaining.length===pg.entryIds.length)return pg;
+        return remaining.length?rebuild(pg,remaining):drop(pg);
+      }
+      if(String(pg.mes)!=='2026-08'||!['1','2'].includes(String(pg.quinzena)))return pg;
+      const period=fixedPeriod(pg),remaining=oldEntries.filter(x=>String(x.prodId)===String(pg.prodId)&&dateKey(x.data)>=period.ini&&dateKey(x.data)<=period.fim&&!removedIds.has(String(x.id))).map(x=>x.id);
+      return remaining.length?rebuild(pg,remaining):drop(pg);
+    }).filter(Boolean);
+    lancamentos=oldEntries.filter(x=>!removedIds.has(String(x.id)));
+    debitos=oldDebits.map(x=>releasedDebitIds.has(String(x.id))?({...x,situacaoPagamento:'Pendente',pagamentoId:undefined}):x);
+    try{
+      await syncNow();
+      localStorage.setItem('vds_limpeza_agosto_2026_v131',JSON.stringify({executadoEm:new Date().toISOString(),inicio:start,fim:end,entradas:removed.length,litros:liters,produtores:people,pagamentosRemovidos:removedPayments,pagamentosAjustados:adjustedPayments}));
+      save();
+      v25Audit('ENTRADAS_LEITE_PERIODO_EXCLUIDAS',{inicio:start,fim:end,entradas:removed.length,litros:liters,produtores:people,pagamentosRemovidos:removedPayments,pagamentosAjustados:adjustedPayments});
+      renderPagamentos(false);
+      alert(`✅ LIMPEZA CONCLUÍDA E CONFIRMADA NO SERVIDOR.\n\n${removed.length} entradas excluídas\n${fmt(liters)} litros retirados\n${people} produtor(es) envolvidos\n${removedPayments} pagamento(s) de teste removido(s)\n${adjustedPayments} pagamento(s) recalculado(s)\n\nTodos os produtores e as entradas fora de 01/08/2026 a 29/08/2026 foram mantidos.`);
+    }catch(e){
+      lancamentos=oldEntries;pagamentos=oldPayments;debitos=oldDebits;renderPagamentos(false);
+      alert('❌ O servidor não confirmou a limpeza. Nenhuma entrada foi removida deste aparelho.\n\nMotivo: '+e.message);
+    }
   };
   window.v130UndoClosure=async function(id){
     const group=pagamentos.filter(pg=>String(pg.fechamentoId||'')===String(id));if(!group.length)return;
@@ -91,7 +124,7 @@
   };
   function inject(){
     const anchor=document.getElementById('pgFiltroInfo');if(!anchor||document.getElementById('v125CutBox'))return;
-    const box=document.createElement('div');box.id='v125CutBox';box.className='v125-cut';box.innerHTML=`<div class="v125-title">💰 Finalizar quinzena de uma localidade</div><div class="v129-steps"><span><b>1</b> Escolha a localidade</span><span><b>2</b> Informe data e turno final pagos</span><span><b>3</b> Finalize a quinzena</span></div><div class="v125-grid"><label>Localidade<select id="v125Local"></select></label><label>Pago até a data<input id="v125CutDate" type="date"></label><label>Último turno pago<select id="v125CutTurn"><option value="M">Manhã — tarde ficará pendente</option><option value="T" selected>Tarde — dia completo</option></select></label><button type="button" onclick="v125PayLocal()">✓ Finalizar quinzena da localidade</button></div><div id="v125Pending" class="v125-pending"></div><div id="v128AfterCut" class="v128-after"></div><details class="v128-clean"><summary>🧪 Zerar entradas e pagamentos usados nos testes</summary><div><button type="button" onclick="v129ClearAllMilk()">Zerar todos os testes e começar novamente</button></div><small>Mantém produtores, débitos, vendas, estoque e usuários. Exclui somente entradas de leite e pagamentos dos testes.</small></details>`;
+    const box=document.createElement('div');box.id='v125CutBox';box.className='v125-cut';box.innerHTML=`<div class="v125-title">💰 Finalizar quinzena de uma localidade</div><div class="v129-steps"><span><b>1</b> Escolha a localidade</span><span><b>2</b> Informe data e turno final pagos</span><span><b>3</b> Finalize a quinzena</span></div><div class="v125-grid"><label>Localidade<select id="v125Local"></select></label><label>Pago até a data<input id="v125CutDate" type="date"></label><label>Último turno pago<select id="v125CutTurn"><option value="M">Manhã — tarde ficará pendente</option><option value="T" selected>Tarde — dia completo</option></select></label><button type="button" onclick="v125PayLocal()">✓ Finalizar quinzena da localidade</button></div><div id="v125Pending" class="v125-pending"></div><div id="v128AfterCut" class="v128-after"></div><details class="v128-clean" open><summary>🧹 Limpar entradas de teste de agosto de 2026</summary><div><button type="button" onclick="v131ClearAugustRange()">Excluir entradas de 01/08/2026 a 29/08/2026</button></div><small>Mantém todos os produtores e as entradas fora desse intervalo. Pagamentos ligados às entradas excluídas serão removidos ou recalculados para não deixar totais incorretos.</small></details>`;
     anchor.insertAdjacentElement('afterend',box);
     const loc=document.getElementById('v125Local'),vals=[...new Set(produtores.map(p=>p.local).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
     loc.innerHTML='<option value="">Todas / pagamento individual</option>'+vals.map(x=>`<option>${String(x).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}</option>`).join('');
