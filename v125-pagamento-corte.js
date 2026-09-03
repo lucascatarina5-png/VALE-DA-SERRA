@@ -29,6 +29,13 @@
   function pendingDebits(prodId,c){return debitosProd(prodId).filter(x=>!debitPaid(x)&&String(x.data||'')<=c.date&&saldoDebito(x.id)>0)}
   function splitLiters(arr,ym){return arr.reduce((a,x)=>{const q=N(x.qtd);if(String(x.data||'').startsWith(ym))a.current+=q;else a.previous+=q;return a},{previous:0,current:0})}
   function qKey(prodId,ym,q){return `${prodId}|${ym}|${q}`}
+  async function syncNow(){
+    const data={produtores,lancamentos,pagamentos,debitos,pagamentosDebitos:typeof pagamentosDebitos==='undefined'?[]:pagamentosDebitos};
+    const token=localStorage.getItem('vale_token')||sessionStorage.getItem('vale_token')||'';
+    const headers={'Content-Type':'application/json'};if(token)headers.Authorization='Bearer '+token;
+    const response=await fetch('/api/state',{method:'PUT',headers,body:JSON.stringify({data}),cache:'no-store'});
+    if(!response.ok)throw new Error('O servidor não confirmou a baixa do pagamento.');
+  }
   function pay(prodId,quiet){
     const ym=pgMes.value||isoHoje().slice(0,7),q=pgQuinzena.value,c=selected();
     if(q==='mes'){if(!quiet)alert('Selecione uma quinzena.');return false}
@@ -38,24 +45,30 @@
     if(!entries.length&&!debArr.length){if(!quiet)alert('Este produtor não possui entradas ou débitos pendentes até o corte escolhido.');return false}
     const liters=entries.reduce((s,x)=>s+N(x.qtd),0),parts=splitLiters(entries,ym),gross=liters*VALOR_LITRO,debt=debArr.reduce((s,x)=>s+saldoDebito(x.id),0),net=Math.max(0,gross-debt);
     pagamentos=pagamentos.filter(x=>x.chave!==qKey(prodId,ym,q));
-    pagamentos.push({chave:qKey(prodId,ym,q),id:crypto.randomUUID(),prodId,mes:ym,quinzena:q,localidade:local,corteData:c.date,corteTurno:c.turn==='M'?'Manhã':'Tarde',entryIds:entries.map(x=>x.id),debitIds:debArr.map(x=>x.id),litros,litrosSaldoAnterior:parts.previous,litrosQuinzenaAtual:parts.current,valorLitro:VALOR_LITRO,valorBruto:gross,totalDebitos:debt,valorPago:net,dataPagamento:isoHoje(),modeloPagamento:'corte-localidade-v125'});
+    const paymentId=crypto.randomUUID();
+    pagamentos.push({chave:qKey(prodId,ym,q),id:paymentId,prodId,mes:ym,quinzena:q,localidade:local,corteData:c.date,corteTurno:c.turn==='M'?'Manhã':'Tarde',entryIds:entries.map(x=>x.id),debitIds:debArr.map(x=>x.id),litros,litrosSaldoAnterior:parts.previous,litrosQuinzenaAtual:parts.current,valorLitro:VALOR_LITRO,valorBruto:gross,totalDebitos:debt,valorPago:net,dataPagamento:isoHoje(),modeloPagamento:'corte-localidade-v127'});
+    entries.forEach(x=>{x.situacaoPagamento='Liquidada';x.pagamentoId=paymentId;x.dataLiquidacao=isoHoje()});
+    debArr.forEach(x=>{x.situacaoPagamento='Liquidado';x.pagamentoId=paymentId});
     v25Audit('PAGAMENTO_QUINZENA_REGISTRADO',{produtor:p.nome,localidade:local,quinzena:q,mes:ym,corteData:c.date,corteTurno:c.turn,litros,valor:net});
     return true;
   }
-  window.marcarPago=function(prodId){if(pay(prodId,false))save()};
+  window.marcarPago=async function(prodId){if(!pay(prodId,false))return;save();try{await syncNow();renderPagamentos(false)}catch(e){alert('❌ '+e.message)}};
   window.desfazerPagamento=function(prodId){
     const ym=pgMes.value||isoHoje().slice(0,7),q=pgQuinzena.value,pg=pagamentos.find(x=>x.chave===qKey(prodId,ym,q));
     if(!pg)return;
     if(!confirm(`Desfazer o pagamento de ${prodById(prodId)?.nome||'produtor'}? As entradas voltarão a ficar pendentes.`))return;
-    pagamentos=pagamentos.filter(x=>x.chave!==pg.chave);v25Audit('PAGAMENTO_QUINZENA_DESFEITO',{produtor:prodById(prodId)?.nome||'',quinzena:q,mes:ym,entryIds:pg.entryIds||[]});save();
+    (pg.entryIds||[]).forEach(id=>{const x=lancamentos.find(a=>String(a.id)===String(id));if(x){x.situacaoPagamento='Pendente';delete x.pagamentoId;delete x.dataLiquidacao}});
+    (pg.debitIds||[]).forEach(id=>{const x=debitos.find(a=>String(a.id)===String(id));if(x){x.situacaoPagamento='Pendente';delete x.pagamentoId}});
+    pagamentos=pagamentos.filter(x=>x.chave!==pg.chave);v25Audit('PAGAMENTO_QUINZENA_DESFEITO',{produtor:prodById(prodId)?.nome||'',quinzena:q,mes:ym,entryIds:pg.entryIds||[]});save();syncNow().catch(e=>alert('❌ '+e.message));
   };
-  window.v125PayLocal=function(){
+  window.v125PayLocal=async function(){
     const c=selected();if(!c.local)return alert('Selecione uma localidade para fazer o pagamento em lote.');
     const ps=produtores.filter(p=>norm(p.local)===norm(c.local)&&pendingEntries(p.id,c,c.local).length);
     if(!ps.length)return alert('Não há entradas pendentes nessa localidade até o corte informado.');
     const liters=ps.reduce((s,p)=>s+pendingEntries(p.id,c,c.local).reduce((a,x)=>a+N(x.qtd),0),0);
     if(!confirm(`Confirmar pagamento de ${ps.length} produtor(es) de ${c.local}, até ${brDate(c.date)} - ${c.turn==='M'?'manhã':'tarde'}?\n\nTotal: ${fmt(liters)} litros.`))return;
-    let count=0;ps.forEach(p=>{if(pay(p.id,true))count++});save();alert(`✅ ${count} pagamento(s) registrados. Cada entrada incluída foi marcada como liquidada.`)
+    let count=0;ps.forEach(p=>{if(pay(p.id,true))count++});save();
+    try{await syncNow();renderPagamentos(false);alert(`✅ Baixa confirmada no servidor.\n${count} pagamento(s) registrados e entradas marcadas como liquidadas.`)}catch(e){alert('❌ '+e.message+' Tente novamente antes de fechar a tela.')}
   };
   function inject(){
     const anchor=document.getElementById('pgFiltroInfo');if(!anchor||document.getElementById('v125CutBox'))return;
@@ -72,8 +85,8 @@
     const ym=pgMes.value,q=pgQuinzena.value,c=selected(),filterLocal=norm(document.getElementById('pgLocalidade')?.value),filterName=norm(document.getElementById('pgNomeProdutor')?.value),cutLocal=norm(c.local),rows=[];
     produtores.forEach(p=>{
       if(filterLocal&&!norm(p.local).includes(filterLocal)||filterName&&!norm(p.nome).includes(filterName)||cutLocal&&norm(p.local)!==cutLocal)return;
-      const arr=pendingEntries(p.id,c,c.local),ds=pendingDebits(p.id,c),parts=splitLiters(arr,ym),liters=parts.previous+parts.current,debt=ds.reduce((s,x)=>s+saldoDebito(x.id),0),pg=q==='mes'?null:pagamentoDo(p.id,ym,q);
-      if(liters||debt||pg)rows.push({p,arr,parts,liters,debt,gross:liters*VALOR_LITRO,net:Math.max(0,liters*VALOR_LITRO-debt),pg});
+      const arr=pendingEntries(p.id,c,c.local),ds=pendingDebits(p.id,c),pendingParts=splitLiters(arr,ym),pg=q==='mes'?null:pagamentoDo(p.id,ym,q),parts=pg?{previous:N(pg.litrosSaldoAnterior),current:N(pg.litrosQuinzenaAtual)}:pendingParts,liters=pg?N(pg.litros):parts.previous+parts.current,debt=pg?N(pg.totalDebitos):ds.reduce((s,x)=>s+saldoDebito(x.id),0);
+      if(liters||debt||pg)rows.push({p,arr,parts,liters,debt,gross:pg?N(pg.valorBruto):liters*VALOR_LITRO,net:pg?N(pg.valorPago):Math.max(0,liters*VALOR_LITRO-debt),pg});
     });
     rows.sort((a,b)=>(a.p.local||'').localeCompare(b.p.local||'','pt-BR')||a.p.nome.localeCompare(b.p.nome,'pt-BR'));
     pgLitros.textContent=fmt(rows.reduce((s,x)=>s+x.liters,0))+' L';pgTotal.textContent=moeda(rows.reduce((s,x)=>s+x.net,0));pgProdutores.textContent=rows.filter(x=>x.liters||x.debt).length;
