@@ -1162,7 +1162,13 @@ app.get('/api/producers/:id/statement',auth,async(req,res)=>{
     const milk=(Array.isArray(st.lancamentos)?st.lancamentos:[]).filter(x=>String(x.prodId)===producerId).sort((a,b)=>String(b.data||'').localeCompare(String(a.data||'')));
     const allDebits=(Array.isArray(st.debitos)?st.debitos:[]).filter(x=>String(x.prodId||x.produtorId||'')===producerId || (producerName&&norm(x.produtor||x.produtorNome||x.nomeProdutor)===norm(producerName)));
     const debitPayments=Array.isArray(st.pagamentosDebitos)?st.pagamentosDebitos:[];
-    const debitBalance=d=>Math.max(0,Number(d.valor||0)-debitPayments.filter(x=>String(x.debitoId)===String(d.id)).reduce((a,x)=>a+Number(x.valor||0),0));
+    const statePayments=Array.isArray(st.pagamentos)?st.pagamentos:[];
+    const debitBalance=d=>{
+      if(String(d.situacaoPagamento||'').toLowerCase()==='liquidado')return 0;
+      const legacyPaid=statePayments.some(pg=>!Array.isArray(pg.debitApplications)&&Array.isArray(pg.debitIds)&&pg.debitIds.some(id=>String(id)===String(d.id)));
+      if(legacyPaid)return 0;
+      return Math.max(0,Number(d.valor||0)-debitPayments.filter(x=>String(x.debitoId)===String(d.id)).reduce((a,x)=>a+Number(x.valor||0),0));
+    };
     const sales=await pool.query(`SELECT s.id,s.created_at,(s.created_at AT TIME ZONE 'America/Sao_Paulo')::date::text AS business_date,s.total,s.payment_method,s.customer_name,s.customer_id,s.username,s.status,
       COALESCE(json_agg(json_build_object('product_id',i.product_id,'product_name',i.product_name,'quantity',i.quantity,'unit_price',i.unit_price,'subtotal',i.subtotal)) FILTER (WHERE i.id IS NOT NULL),'[]') items
       FROM app_store_sales s LEFT JOIN app_store_sale_items i ON i.sale_id=s.id
@@ -1185,7 +1191,7 @@ app.get('/api/producers/:id/statement',auth,async(req,res)=>{
     const todayR=await pool.query("SELECT (NOW() AT TIME ZONE 'America/Sao_Paulo')::date::text AS hoje");
     const hoje=todayR.rows[0].hoje, ym=hoje.slice(0,7), day=Number(hoje.slice(8,10)), q=day<=15?1:2;
     const ini=ym+(q===1?'-01':'-16'), fim=ym+(q===1?'-15':'-31'), valorLitro=2.30;
-    const pagamentos=Array.isArray(st.pagamentos)?st.pagamentos:[];
+    const pagamentos=statePayments;
     const pagamento=pagamentos.find(x=>String(x.prodId)===producerId&&String(x.mes)===ym&&String(x.quinzena)===String(q))||null;
     const fixedRange=pg=>({ini:String(pg.mes||'')+(String(pg.quinzena)==='1'?'-01':'-16'),fim:String(pg.mes||'')+(String(pg.quinzena)==='1'?'-15':'-31')});
     const milkPaid=x=>pagamentos.some(pg=>{

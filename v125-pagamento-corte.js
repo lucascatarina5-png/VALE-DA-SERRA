@@ -19,7 +19,11 @@
     });
   }
   function debitPaid(x){
+    if(saldoDebito(x.id)<=0)return true;
     return pagamentos.some(pg=>{
+      // V136 grava aplicações parciais. Nelas, o saldoDebito é a fonte correta;
+      // debitIds de pagamentos antigos continuam sendo tratados como liquidação total.
+      if(Array.isArray(pg.debitApplications))return false;
       if(Array.isArray(pg.debitIds))return pg.debitIds.some(id=>String(id)===String(x.id));
       if(String(pg.prodId)!==String(x.prodId)||!['1','2'].includes(String(pg.quinzena)))return false;
       const p=fixedPeriod(pg);return String(x.data||'')>=p.ini&&String(x.data||'')<=p.fim;
@@ -42,14 +46,25 @@
     const p=prodById(prodId);if(!p)return false;
     const local=c.local||p.local||'';
     const entries=pendingEntries(prodId,c,local),debArr=pendingDebits(prodId,c);
-    if(!entries.length&&!debArr.length){if(!quiet)alert('Este produtor não possui entradas ou débitos pendentes até o corte escolhido.');return false}
-    const liters=entries.reduce((s,x)=>s+N(x.qtd),0),parts=splitLiters(entries,ym),gross=liters*VALOR_LITRO,debt=debArr.reduce((s,x)=>s+saldoDebito(x.id),0),net=Math.max(0,gross-debt);
+    if(!entries.length){if(!quiet)alert('Este produtor não possui leite pendente até o corte escolhido. Os débitos continuarão em aberto para a próxima entrada.');return false}
+    const litros=entries.reduce((s,x)=>s+N(x.qtd),0),parts=splitLiters(entries,ym),gross=litros*VALOR_LITRO;
+    const debtOutstandingBefore=debArr.reduce((s,x)=>s+saldoDebito(x.id),0),applications=[];
+    let availableForDebts=Math.max(0,gross);
+    debArr.slice().sort((a,b)=>String(a.data||'').localeCompare(String(b.data||''))).forEach(d=>{
+      const balance=saldoDebito(d.id),applied=Math.min(balance,availableForDebts);
+      if(applied<=0)return;
+      const application={debitId:d.id,amount:applied,balanceBefore:balance,balanceAfter:Math.max(0,balance-applied)};
+      applications.push(application);availableForDebts-=applied;
+    });
+    const debt=applications.reduce((s,x)=>s+x.amount,0),net=Math.max(0,gross-debt);
     pagamentos=pagamentos.filter(x=>x.chave!==qKey(prodId,ym,q));
     const paymentId=crypto.randomUUID();
-    pagamentos.push({chave:qKey(prodId,ym,q),id:paymentId,prodId,mes:ym,quinzena:q,localidade:local,corteData:c.date,corteTurno:c.turn==='M'?'Manhã':'Tarde',entryIds:entries.map(x=>x.id),debitIds:debArr.map(x=>x.id),litros,litrosSaldoAnterior:parts.previous,litrosQuinzenaAtual:parts.current,valorLitro:VALOR_LITRO,valorBruto:gross,totalDebitos:debt,valorPago:net,dataPagamento:isoHoje(),modeloPagamento:'fechamento-localidade-v130',fechamentoId:closure?.id||paymentId,fechamentoCriadoEm:closure?.createdAt||new Date().toISOString()});
+    const closingId=closure?.id||paymentId;
+    applications.forEach(a=>pagamentosDebitos.push({id:'pgdeb_leite_'+crypto.randomUUID(),debitoId:a.debitId,prodId,data:isoHoje(),valor:a.amount,origem:'pagamento_leite',pagamentoId:paymentId,fechamentoId:closingId}));
+    pagamentos.push({chave:qKey(prodId,ym,q),id:paymentId,prodId,mes:ym,quinzena:q,localidade:local,corteData:c.date,corteTurno:c.turn==='M'?'Manhã':'Tarde',entryIds:entries.map(x=>x.id),debitIds:applications.map(x=>x.debitId),debitApplications:applications,debitoAbertoAntes:debtOutstandingBefore,saldoDebitosApos:Math.max(0,debtOutstandingBefore-debt),litros,litrosSaldoAnterior:parts.previous,litrosQuinzenaAtual:parts.current,valorLitro:VALOR_LITRO,valorBruto:gross,totalDebitos:debt,valorPago:net,dataPagamento:isoHoje(),modeloPagamento:'fechamento-localidade-v136-saldo-devedor',fechamentoId:closingId,fechamentoCriadoEm:closure?.createdAt||new Date().toISOString()});
     entries.forEach(x=>{x.situacaoPagamento='Liquidada';x.pagamentoId=paymentId;x.dataLiquidacao=isoHoje()});
-    debArr.forEach(x=>{x.situacaoPagamento='Liquidado';x.pagamentoId=paymentId});
-    v25Audit('PAGAMENTO_QUINZENA_REGISTRADO',{produtor:p.nome,localidade:local,quinzena:q,mes:ym,corteData:c.date,corteTurno:c.turn,litros,valor:net});
+    applications.forEach(a=>{const x=debitos.find(d=>String(d.id)===String(a.debitId));if(x){x.situacaoPagamento=a.balanceAfter<=0?'Liquidado':'Pendente';x.pagamentoId=a.balanceAfter<=0?paymentId:undefined}});
+    v25Audit('PAGAMENTO_QUINZENA_REGISTRADO',{produtor:p.nome,localidade:local,quinzena:q,mes:ym,corteData:c.date,corteTurno:c.turn,litros,valor:net,debitoAplicado:debt,saldoDevedor:Math.max(0,debtOutstandingBefore-debt)});
     return true;
   }
   window.marcarPago=async function(prodId){if(!pay(prodId,false))return;save();try{await syncNow();renderPagamentos(false)}catch(e){alert('❌ '+e.message)}};
@@ -58,7 +73,8 @@
     if(!pg)return;
     if(!confirm(`Desfazer o pagamento de ${prodById(prodId)?.nome||'produtor'}? As entradas voltarão a ficar pendentes.`))return;
     (pg.entryIds||[]).forEach(id=>{const x=lancamentos.find(a=>String(a.id)===String(id));if(x){x.situacaoPagamento='Pendente';delete x.pagamentoId;delete x.dataLiquidacao}});
-    (pg.debitIds||[]).forEach(id=>{const x=debitos.find(a=>String(a.id)===String(id));if(x){x.situacaoPagamento='Pendente';delete x.pagamentoId}});
+    pagamentosDebitos=pagamentosDebitos.filter(x=>String(x.pagamentoId||'')!==String(pg.id||''));
+    (pg.debitIds||[]).forEach(id=>{const x=debitos.find(a=>String(a.id)===String(id));if(x){x.situacaoPagamento=saldoDebito(x.id)<=0?'Liquidado':'Pendente';delete x.pagamentoId}});
     pagamentos=pagamentos.filter(x=>x.chave!==pg.chave);v25Audit('PAGAMENTO_QUINZENA_DESFEITO',{produtor:prodById(prodId)?.nome||'',quinzena:q,mes:ym,entryIds:pg.entryIds||[]});save();syncNow().catch(e=>alert('❌ '+e.message));
   };
   window.v125PayLocal=async function(){
@@ -116,9 +132,10 @@
   window.v130UndoClosure=async function(id){
     const group=pagamentos.filter(pg=>String(pg.fechamentoId||'')===String(id));if(!group.length)return;
     if(!confirm(`Desfazer o fechamento de ${group[0].localidade||'localidade'}?\n\n${group.length} pagamento(s) voltarão para pendente.`))return;
-    const entryIds=new Set(group.flatMap(pg=>pg.entryIds||[]).map(String)),debitIds=new Set(group.flatMap(pg=>pg.debitIds||[]).map(String));
+    const paymentIds=new Set(group.map(pg=>String(pg.id||''))),entryIds=new Set(group.flatMap(pg=>pg.entryIds||[]).map(String)),debitIds=new Set(group.flatMap(pg=>pg.debitIds||[]).map(String));
     lancamentos.forEach(x=>{if(entryIds.has(String(x.id))){x.situacaoPagamento='Pendente';delete x.pagamentoId;delete x.dataLiquidacao}});
-    debitos.forEach(x=>{if(debitIds.has(String(x.id))){x.situacaoPagamento='Pendente';delete x.pagamentoId}});
+    pagamentosDebitos=pagamentosDebitos.filter(x=>!paymentIds.has(String(x.pagamentoId||''))&&String(x.fechamentoId||'')!==String(id));
+    debitos.forEach(x=>{if(debitIds.has(String(x.id))){x.situacaoPagamento=saldoDebito(x.id)<=0?'Liquidado':'Pendente';delete x.pagamentoId}});
     pagamentos=pagamentos.filter(pg=>String(pg.fechamentoId||'')!==String(id));save();
     try{await syncNow();renderPagamentos(false);alert('Fechamento desfeito. Os valores voltaram para Total Pendente.')}catch(e){alert('❌ '+e.message)}
   };

@@ -1990,6 +1990,7 @@ function save(){
   localStorage.setItem(KLANC,JSON.stringify(lancamentos));
   localStorage.setItem(KPAG,JSON.stringify(pagamentos));
   localStorage.setItem(KDEB,JSON.stringify(debitos));
+  localStorage.setItem(KDEBPAG,JSON.stringify(pagamentosDebitos));
   renderAll(atual);
 }
 
@@ -2640,6 +2641,12 @@ function normalizarWhats(n){
   if(d.length===10||d.length===11)d='55'+d;
   return d;
 }
+function valorDebitoNoComprovante(pg,debito){
+  if(Array.isArray(pg?.debitApplications)){
+    return pg.debitApplications.filter(x=>String(x.debitId)===String(debito.id)).reduce((s,x)=>s+Number(x.amount||0),0);
+  }
+  return pg?Number(debito.valor||0):saldoDebito(debito.id);
+}
 function textoComprovante(prodId){
   let ym=pgMes.value||isoHoje().slice(0,7),q=pgQuinzena.value,per=periodoPagamento(),p=prodById(prodId);
   let pg=pagamentoDo(prodId,ym,q),entryIds=new Set(Array.isArray(pg?.entryIds)?pg.entryIds.map(String):[]),debitIds=new Set(Array.isArray(pg?.debitIds)?pg.debitIds.map(String):[]);
@@ -2647,7 +2654,7 @@ function textoComprovante(prodId){
   let debArr=debitIds.size?debitosProd(prodId).filter(x=>debitIds.has(String(x.id))):debitosProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
   if(pg?.corteData){per={ini:arr.length?arr.reduce((a,x)=>x.data<a?x.data:a,arr[0].data):per.ini,fim:pg.corteData}}
   let litros=pg?Number(pg.litros||0):arr.reduce((s,x)=>s+Number(x.qtd),0),bruto=pg?Number(pg.valorBruto||0):litros*VALOR_LITRO,totalDeb=pg?Number(pg.totalDebitos||0):debArr.reduce((s,x)=>s+saldoDebito(x.id),0),liquido=pg?Number(pg.valorPago||0):Math.max(0,bruto-totalDeb);
-  let debTxt=debArr.length?debArr.map(x=>`• ${brDate(x.data)} - ${x.descricao}: ${moeda(x.valor)}`).join('\n'):'Sem débitos nesta quinzena.';
+  let debTxt=debArr.length?debArr.map(x=>`• ${brDate(x.data)} - ${x.descricao}: ${moeda(valorDebitoNoComprovante(pg,x))}`).join('\n'):'Sem débitos nesta quinzena.';
   return `VALE DA SERRA LATICÍNIOS
 Comprovante de Pagamento - ${q}ª Quinzena
 
@@ -2662,6 +2669,7 @@ ${debTxt}
 
 Total de débitos: ${moeda(totalDeb)}
 LÍQUIDO A RECEBER: ${moeda(liquido)}
+Saldo devedor restante: ${moeda(pg?Number(pg.saldoDebitosApos||0):Math.max(0,debArr.reduce((s,x)=>s+saldoDebito(x.id),0)-totalDeb))}
 Status: ${pg?'PAGO':'PENDENTE'}${pg?`\nData do pagamento: ${brDate(pg.dataPagamento)}`:''}`;
 }
 async function gerarComprovantePNG(prodId){
@@ -2748,13 +2756,14 @@ async function gerarComprovantePNG(prodId){
   if(debArr.length){
     debArr.forEach(d=>{
       ctx.fillStyle='#10233f';ctx.fillText(`${brDate(d.data)}  •  ${d.descricao}`,pad+24,dy);
-      ctx.textAlign='right';ctx.fillStyle='#b52c2c';ctx.font='bold 17px Arial';ctx.fillText(moeda(d.valor),width-pad-24,dy);
+      ctx.textAlign='right';ctx.fillStyle='#b52c2c';ctx.font='bold 17px Arial';ctx.fillText(moeda(valorDebitoNoComprovante(pg,d)),width-pad-24,dy);
       ctx.textAlign='left';ctx.font='17px Arial';dy+=rowH;
     });
   }else{
     ctx.fillStyle='#617086';ctx.fillText('Sem débitos nesta quinzena.',pad+24,dy);dy+=rowH;
   }
-  ctx.fillStyle='#b52c2c';ctx.font='bold 19px Arial';ctx.fillText(`Total de débitos: ${moeda(totalDeb)}`,pad+24,y+90+debExtra);
+  ctx.fillStyle='#b52c2c';ctx.font='bold 19px Arial';ctx.fillText(`Total descontado: ${moeda(totalDeb)}`,pad+24,y+90+debExtra);
+  if(pg){ctx.textAlign='right';ctx.fillText(`Saldo devedor: ${moeda(Number(pg.saldoDebitosApos||0))}`,width-pad-24,y+90+debExtra);ctx.textAlign='left'}
   y+=140+debExtra;
 
   // líquido
@@ -2886,7 +2895,7 @@ function imprimirCupom(prodId,formato='80mm'){
   let debRows=debArr.length?debArr.map(x=>{
     let pago=totalPagoDebito(x.id),saldo=saldoDebito(x.id);
     let hist=pagamentosDoDebito(x.id).map(pg=>`${brDate(pg.data)}: ${moeda(pg.valor)}`).join(' • ')||'-';
-    return `<tr><td>${brDate(x.data)}</td><td>${x.descricao}<br><small>Pagamentos: ${hist}</small></td><td style="text-align:right">${moeda(x.valor)}<br><small>Pago ${moeda(pago)} • Saldo ${moeda(saldo)}</small></td></tr>`;
+    return `<tr><td>${brDate(x.data)}</td><td>${x.descricao}<br><small>Pagamentos: ${hist}</small></td><td style="text-align:right">Aplicado: ${moeda(valorDebitoNoComprovante(pg,x))}<br><small>Valor original ${moeda(x.valor)} • Saldo ${moeda(saldo)}</small></td></tr>`;
   }).join(''):'<tr><td colspan="3">Sem débitos nesta quinzena.</td></tr>';
 
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Comprovante - ${p.nome}</title>
@@ -2955,7 +2964,8 @@ function imprimirCupom(prodId,formato='80mm'){
       <div class="section debt">
         <h3>DÉBITOS DA QUINZENA</h3>
         <table><tr><th>Data</th><th>Descrição</th><th style="text-align:right">Valor</th></tr>${debRows}</table>
-        <div class="debt-total">Total de débitos: ${moeda(totalDeb)}</div>
+        <div class="debt-total">Total descontado neste pagamento: ${moeda(totalDeb)}</div>
+        ${pg?`<div class="gross"><span>Saldo devedor para a próxima quinzena</span><span>${moeda(Number(pg.saldoDebitosApos||0))}</span></div>`:''}
       </div>
 
       <div class="net">
@@ -5809,9 +5819,9 @@ body:not(.v112-galpao-admin) #estoque .gal-quick{display:none!important}
   document.addEventListener('click',()=>setTimeout(apply,0),true);
 })();
 </script>
-<script src="v125-pagamento-corte.js?v=135"></script>
-<script src="v133-galpao-inteligente.js?v=135"></script>
-<script src="v135-pesquisa-produtor.js?v=135"></script>
+<script src="v125-pagamento-corte.js?v=136"></script>
+<script src="v133-galpao-inteligente.js?v=136"></script>
+<script src="v135-pesquisa-produtor.js?v=136"></script>
 <script id="v126-open-section">window.addEventListener('load',()=>{const id=location.hash.slice(1);if(['pagamentos','pesquisa'].includes(id))setTimeout(()=>{if(typeof go==='function')go(id)},250)});</script>
 </body>
 </html>

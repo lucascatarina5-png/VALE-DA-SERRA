@@ -81,6 +81,11 @@
       document.querySelectorAll('[data-v133-pay]').forEach(x=>x.classList.toggle('sel',x.dataset.v133Pay===S.payment));renderCart();show('v133OrderModal');
     }catch(e){toast(e.message,true)}
   }
+  window.v136NovoPedidoProdutor=async function(producerId){
+    await openOrder();
+    const select=$('#v133Producer');
+    if(select&&[...select.options].some(o=>String(o.value)===String(producerId)))select.value=String(producerId);
+  };
   function addItem(){
     const id=$('#v133Product').value,q=Number($('#v133Qty').value),p=S.products.find(x=>String(x.id)===String(id));if(!p||!(q>0))return toast('Selecione o produto e informe a quantidade.',true);
     const old=S.cart.find(x=>String(x.product_id)===String(id)),total=q+Number(old?.quantity||0),allowed=currentAllowance(p);
