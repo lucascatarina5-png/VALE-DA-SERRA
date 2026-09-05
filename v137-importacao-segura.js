@@ -119,7 +119,7 @@
     if(manual)warnings.push(`${manual} produtor(es) foram escolhidos manualmente porque a linha não possuía código.`);
     if(manualCodes)warnings.push(`${manualCodes} código(s) diferente(s) foram confirmados manualmente e serão guardados no cadastro correto.`);
     if(variations)warnings.push(`${variations} entrada(s) variam 50% ou mais da média recente do mesmo turno.`);
-    if(localConflicts)warnings.push(`${localConflicts} localidade(s) são diferentes do cadastro principal e serão guardadas como conhecidas.`);
+    if(localConflicts)warnings.push(`${localConflicts} entrega(s) ocorreram fora da localidade principal. O leite será registrado e pago pela localidade desta entrega; o cadastro principal não será alterado.`);
     return {rows,meta,data,total,declared,prepared,issues:[...new Set(issues)],warnings,manual,manualCodes,unresolved,variations,localConflicts,duplicates};
   }
 
@@ -134,11 +134,11 @@
     if(typeof v106RenderMeta==='function')v106RenderMeta();
     if(!rows.length){box.innerHTML='<div class="v137-empty"><b>Nenhuma coleta válida foi montada.</b><span>Confira o texto lido. Nenhum pagamento deve ser feito enquanto o relatório estiver pendente.</span></div>';renderReview();return}
     const total=rows.reduce((s,x)=>s+N(x.litros),0),exact=rows.filter(x=>x.v137Exact).length;
-    box.innerHTML=`<div class="v137-headline"><div><b>🛡️ Conferência obrigatória V140</b><small>${rows.length} coleta(s) • ${liters(total)} L • ${exact} código(s) reconhecidos automaticamente</small></div><button type="button" onclick="v137ApplyLocality()">📍 Aplicar localidade a todos</button></div>
+    box.innerHTML=`<div class="v137-headline"><div><b>🛡️ Conferência obrigatória V141</b><small>${rows.length} coleta(s) • ${liters(total)} L • ${exact} código(s) reconhecidos automaticamente</small></div><button type="button" onclick="v137ApplyLocality()">📍 Aplicar localidade a todos</button></div>
       <div class="v137-tablewrap"><table class="v104-table v137-table"><thead><tr><th>Linha</th><th>Hora / turno</th><th>Código e nome no PDF</th><th>Produtor que receberá o leite</th><th>Localidade</th><th>Litros</th><th>Verificação</th></tr></thead><tbody>${rows.map((r,i)=>{
         const p=producer(r.prodId),avg=p?averageFor(p.id,r.v137Turn,meta.data||document.getElementById('v104EntradaData')?.value):0,diff=avg?Math.round((N(r.litros)-avg)/avg*100):null;
         const manualConfirmed=manualCodeLink(r,p),verified=r.v137Exact||manualConfirmed;
-        return `<tr id="v137row${i}" class="${verified?'v137-exact':'v137-manual'}"><td><b>${i+1}</b></td><td><b>${E(r.hora||'—')}</b><select id="v137turn${i}" onchange="v137Review()"><option value="">Confirmar...</option><option value="M" ${r.v137Turn==='M'?'selected':''}>Manhã</option><option value="T" ${r.v137Turn==='T'?'selected':''}>Tarde</option></select></td><td><b>${E(r.codigo||'Sem código')} • ${E(r.name||'')}</b><small>${E(r.raw||'')}</small></td><td>${producerFinder(r,i)}</td><td><input id="v137loc${i}" list="v107LocalidadesList" value="${E(r.localidade||'')}" onchange="v137Review()"></td><td><input id="v137qty${i}" type="number" min="0.01" step="0.01" value="${E(r.litros)}" oninput="v137Review()"></td><td id="v138verify${i}">${r.v137Exact?'<span class="v137-ok">✓ Código reconhecido</span>':manualConfirmed?'<span class="v137-ok">✓ Código diferente confirmado</span>':'<span class="v137-warn">⚠ Revisão manual</span>'}${diff!==null&&Math.abs(diff)>=50?`<small class="v137-variation">Variação de ${diff>0?'+':''}${diff}% da média</small>`:''}</td></tr>`;
+        return `<tr id="v137row${i}" class="${verified?'v137-exact':'v137-manual'}"><td><b>${i+1}</b></td><td><b>${E(r.hora||'—')}</b><select id="v137turn${i}" onchange="v137Review()"><option value="">Confirmar...</option><option value="M" ${r.v137Turn==='M'?'selected':''}>Manhã</option><option value="T" ${r.v137Turn==='T'?'selected':''}>Tarde</option></select></td><td><b>${E(r.codigo||'Sem código')} • ${E(r.name||'')}</b><small>${E(r.raw||'')}</small></td><td>${producerFinder(r,i)}</td><td><input id="v137loc${i}" list="v107LocalidadesList" value="${E(r.localidade||'')}" onchange="v137Review()"></td><td><input id="v137qty${i}" type="number" min="0.01" step="0.01" value="${E(r.litros)}" oninput="v137Review()"></td><td id="v138verify${i}">${r.v137Exact?'<span class="v137-ok">✓ Código reconhecido</span>':manualConfirmed?'<span class="v137-ok">✓ Código diferente confirmado</span>':'<span class="v137-warn">⚠ Revisão manual</span>'}${diff!==null&&Math.abs(diff)>=50?`<small class="v137-variation">Variação de ${diff>0?'+':''}${diff}% da média</small>`:''}<small id="v141cross${i}"></small></td></tr>`;
       }).join('')}</tbody></table></div>
       <div id="v137ReviewPanel"></div>
       <button id="v137ConfirmBtn" class="v104-confirm" style="width:100%;margin-top:12px" onclick="v137ConfirmImport()">🔒 Confirmar lote completo e registrar entradas</button>`;
@@ -151,6 +151,14 @@
     panel.innerHTML=`<div class="v137-review ${ok?'ok':'bad'}"><div class="v137-review-title">${ok?'✅ RELATÓRIO PRONTO PARA CONFIRMAR':'⛔ CONFIRMAÇÃO BLOQUEADA'}</div><div class="v137-checks"><span class="${v.rows.length?'ok':'bad'}">${v.rows.length?'✓':'✕'} ${v.rows.length} linha(s) identificada(s)</span><span class="${v.unresolved?'bad':'ok'}">${v.unresolved?'✕':'✓'} ${v.unresolved||'Todos'} produtor(es) ${v.unresolved?'sem localizar':'localizados'}</span><span class="${v.declared>0&&Math.abs(v.total-v.declared)<.01?'ok':'bad'}">${v.declared>0&&Math.abs(v.total-v.declared)<.01?'✓':'✕'} Total PDF ${liters(v.declared)} L • sistema ${liters(v.total)} L</span><span class="${v.duplicates?'bad':'ok'}">${v.duplicates?'✕':'✓'} ${v.duplicates||'Nenhuma'} duplicidade${v.duplicates?' encontrada':' encontrada'}</span></div>${v.issues.length?`<ul>${v.issues.map(x=>`<li>${E(x)}</li>`).join('')}</ul>`:''}${v.warnings.length?`<div class="v137-warnings">${v.warnings.map(x=>`<span>⚠️ ${E(x)}</span>`).join('')}</div>`:''}</div>`;
     if(button){button.disabled=!ok;button.textContent=ok?'🔒 Confirmar lote completo e registrar entradas':`⛔ Corrija ${v.issues.length} problema(s) para confirmar`}
     updatePendingFromReview(v);
+    refreshCrossLocalities();
+  }
+
+  function refreshCrossLocalities(){
+    (Array.isArray(V104?.entradaRows)?V104.entradaRows:[]).forEach((row,index)=>{
+      const pid=document.getElementById('v137prod'+index)?.value||row.prodId,p=producer(pid),local=selectedLocality(row,index),verify=document.getElementById('v138verify'+index);let note=document.getElementById('v141cross'+index);if(!note&&verify){verify.innerHTML+=`<small id="v141cross${index}"></small>`;note=document.getElementById('v141cross'+index)}if(!note)return;
+      const cross=!!(p?.local&&local&&norm(p.local)!==norm(local));note.className=cross?'v141-cross-note':'';note.innerHTML=cross?`📍 Entrega em <b>${E(local)}</b>; cadastro principal: ${E(p.local)}. Pagamento ficará nesta localidade.`:'';
+    });
   }
 
   function updatePendingFromReview(v){
@@ -246,7 +254,7 @@
         }
         if(v.meta.rota&&!p.rota)p.rota=v.meta.rota;if(v.meta.responsavel&&!p.tanqueiro)p.tanqueiro=v.meta.responsavel;
         const id=crypto.randomUUID();entryIds.push(id);
-        lancamentos.push({id,data:v.data,prodId:p.id,qtd:x.q,periodo:x.turn,turno:turnName(x.turn),situacaoPagamento:'Pendente',local:x.local,tanqueiro:v.meta.responsavel||p.tanqueiro||'',caminhao:p.caminhao||'',origem:'PDF_SEGURO',hora:x.row.hora||'',rota:v.meta.rota||p.rota||'',pdfHash:current.hash,pdfBatchId:batchId,pdfEventKey:x.eventKey,pdfFileName:current.fileName,pdfModelo:'RELATORIO_RECEBIMENTO_TANQUEIRO_V140'});
+        lancamentos.push({id,data:v.data,prodId:p.id,qtd:x.q,periodo:x.turn,turno:turnName(x.turn),situacaoPagamento:'Pendente',local:x.local,tanqueiro:v.meta.responsavel||p.tanqueiro||'',caminhao:p.caminhao||'',origem:'PDF_SEGURO',hora:x.row.hora||'',rota:v.meta.rota||p.rota||'',pdfHash:current.hash,pdfBatchId:batchId,pdfEventKey:x.eventKey,pdfFileName:current.fileName,pdfModelo:'RELATORIO_RECEBIMENTO_TANQUEIRO_V141'});
       }
       const confirmed={...current,status:'confirmado',data:v.data,localities:unique(v.prepared.map(x=>x.local)),totalLido:v.total,totalDeclarado:v.declared,linhas:v.prepared.length,entryIds,problemas:0,avisos:v.warnings,confirmedAt:new Date().toISOString()};
       const next=oldBatches.filter(x=>x.id!==batchId);next.push(confirmed);
@@ -327,6 +335,8 @@
   const oldPayLocal=window.v125PayLocal;if(typeof oldPayLocal==='function')window.v125PayLocal=function(){const local=document.getElementById('v125Local')?.value||'',date=document.getElementById('v125CutDate')?.value||today();if(!canPay(local,date))return;return oldPayLocal.apply(this,arguments)};
   const oldPayOne=window.marcarPago;if(typeof oldPayOne==='function')window.marcarPago=function(prodId){const p=producer(prodId),date=document.getElementById('v125CutDate')?.value||today();if(!canPay(p?.local||'',date))return;return oldPayOne.apply(this,arguments)};
   const oldRenderPayments=window.renderPagamentos;if(typeof oldRenderPayments==='function')window.renderPagamentos=function(){const r=oldRenderPayments.apply(this,arguments);setTimeout(updatePaymentGuard,0);return r};
+
+  const crossStyle=document.createElement('style');crossStyle.textContent=`.v141-cross-note{display:block!important;margin-top:6px!important;padding:6px!important;border-radius:7px;background:#fff0d5;color:#865100!important;line-height:1.35}`;document.head.appendChild(crossStyle);
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{inject();migrateOldTurns();setTimeout(updatePaymentGuard,120)},{once:true});else{inject();migrateOldTurns();setTimeout(updatePaymentGuard,120)}
 })();

@@ -2654,12 +2654,14 @@ function textoComprovante(prodId){
   let debArr=debitIds.size?debitosProd(prodId).filter(x=>debitIds.has(String(x.id))):debitosProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
   if(pg?.corteData){per={ini:arr.length?arr.reduce((a,x)=>x.data<a?x.data:a,arr[0].data):per.ini,fim:pg.corteData}}
   let litros=pg?Number(pg.litros||0):arr.reduce((s,x)=>s+Number(x.qtd),0),bruto=pg?Number(pg.valorBruto||0):litros*VALOR_LITRO,totalDeb=pg?Number(pg.totalDebitos||0):debArr.reduce((s,x)=>s+saldoDebito(x.id),0),liquido=pg?Number(pg.valorPago||0):Math.max(0,bruto-totalDeb);
+  let localEntrega=pg?.localidade||arr[0]?.local||p?.local||'-',localPrincipal=pg?.localidadeCadastroProdutor||p?.local||'-',foraLocalidade=normalizarTextoImportacao(localEntrega)!==normalizarTextoImportacao(localPrincipal);
   let debTxt=debArr.length?debArr.map(x=>`• ${brDate(x.data)} - ${x.descricao}: ${moeda(valorDebitoNoComprovante(pg,x))}`).join('\n'):'Sem débitos nesta quinzena.';
   return `VALE DA SERRA LATICÍNIOS
 Comprovante de Pagamento - ${q}ª Quinzena
 
 Produtor: ${p?.nome||''}
-Período: ${brDate(per.ini)} a ${brDate(per.fim)}
+Localidade da entrega/pagamento: ${localEntrega}
+${foraLocalidade?`Localidade principal do cadastro: ${localPrincipal}\n`:''}Período: ${brDate(per.ini)} a ${brDate(per.fim)}
 Total de leite: ${fmt(litros)} L
 Valor por litro: ${moeda(VALOR_LITRO)}
 Valor bruto: ${moeda(bruto)}
@@ -2679,10 +2681,11 @@ async function gerarComprovantePNG(prodId){
   let debArr=debitIds.size?debitosProd(prodId).filter(x=>debitIds.has(String(x.id))):debitosProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
   if(pg?.corteData){per={ini:arr.length?arr.reduce((a,x)=>x.data<a?x.data:a,arr[0].data):per.ini,fim:pg.corteData}}
   let litros=pg?Number(pg.litros||0):arr.reduce((s,x)=>s+Number(x.qtd),0),bruto=pg?Number(pg.valorBruto||0):litros*VALOR_LITRO,totalDeb=pg?Number(pg.totalDebitos||0):debArr.reduce((s,x)=>s+saldoDebito(x.id),0),liquido=pg?Number(pg.valorPago||0):Math.max(0,bruto-totalDeb);
+  let localEntrega=pg?.localidade||arr[0]?.local||p?.local||'-',localPrincipal=pg?.localidadeCadastroProdutor||p?.local||'-',foraLocalidade=normalizarTextoImportacao(localEntrega)!==normalizarTextoImportacao(localPrincipal);
 
   const width=1080, pad=60, rowH=36;
   const debExtra=Math.max(1,debArr.length)*rowH;
-  const height=1050+debExtra;
+  const height=1050+debExtra+(foraLocalidade?35:0);
   const c=document.createElement('canvas'); c.width=width; c.height=height;
   const ctx=c.getContext('2d');
 
@@ -2725,7 +2728,8 @@ async function gerarComprovantePNG(prodId){
   // produtor
   ctx.fillStyle='#10233f';ctx.font='bold 28px Arial';ctx.fillText(p?.nome||'',pad,y);
   y+=38; ctx.fillStyle='#617086';ctx.font='19px Arial';
-  ctx.fillText(`${p?.local||'-'}  •  ${q}ª quinzena  •  ${brDate(per.ini)} a ${brDate(per.fim)}`,pad,y);
+  ctx.fillText(`Entrega/pagamento: ${localEntrega}  •  ${q}ª quinzena  •  ${brDate(per.ini)} a ${brDate(per.fim)}`,pad,y);
+  if(foraLocalidade){y+=29;ctx.fillText(`Localidade principal do cadastro: ${localPrincipal}`,pad,y)}
   if(pg){y+=31;ctx.fillText(`Data do pagamento: ${brDate(pg.dataPagamento)}`,pad,y)}
   y+=48;
 
@@ -2888,10 +2892,11 @@ function imprimirCupom(prodId,formato='80mm'){
   let debArr=debitIds.size?debitosProd(prodId).filter(x=>debitIds.has(String(x.id))):debitosProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
   if(pg?.corteData){per={ini:arr.length?arr.reduce((a,x)=>x.data<a?x.data:a,arr[0].data):per.ini,fim:pg.corteData}}
   let litros=pg?Number(pg.litros||0):arr.reduce((s,x)=>s+Number(x.qtd),0),bruto=pg?Number(pg.valorBruto||0):litros*VALOR_LITRO,totalDeb=pg?Number(pg.totalDebitos||0):debArr.reduce((s,x)=>s+saldoDebito(x.id),0),liquido=pg?Number(pg.valorPago||0):Math.max(0,bruto-totalDeb);
+  let localEntrega=pg?.localidade||arr[0]?.local||p?.local||'-',localPrincipal=pg?.localidadeCadastroProdutor||p?.local||'-',foraLocalidade=normalizarTextoImportacao(localEntrega)!==normalizarTextoImportacao(localPrincipal);
   let logo=(document.querySelector('.hero-logo')||document.querySelector('.logo-wrap img'))?.src||'';
   let w=window.open('','','width=900,height=900');if(!w)return;
 
-  let rows=arr.map(x=>`<tr><td>${brDate(x.data)}</td><td style="text-align:right">${fmt(x.qtd)} L</td></tr>`).join('');
+  let rows=arr.map(x=>`<tr><td>${brDate(x.data)}</td><td>${normalizarTextoImportacao(x.turno||x.periodo).startsWith('manha')?'Manhã':'Tarde'}</td><td>${x.local||localEntrega}</td><td style="text-align:right">${fmt(x.qtd)} L</td></tr>`).join('');
   let debRows=debArr.length?debArr.map(x=>{
     let pago=totalPagoDebito(x.id),saldo=saldoDebito(x.id);
     let hist=pagamentosDoDebito(x.id).map(pg=>`${brDate(pg.data)}: ${moeda(pg.valor)}`).join(' • ')||'-';
@@ -2948,14 +2953,15 @@ function imprimirCupom(prodId,formato='80mm'){
 
       <div class="producer">
         <b>${p.nome}</b><br>
-        ${p.local||'-'}<br>
+        <b>Localidade da entrega/pagamento:</b> ${localEntrega}<br>
+        ${foraLocalidade?`<b>Localidade principal:</b> ${localPrincipal}<br>`:''}
         ${q}ª quinzena • ${brDate(per.ini)} a ${brDate(per.fim)}
         ${pg?`<br>Pagamento em ${brDate(pg.dataPagamento)}`:''}
       </div>
 
       <div class="section">
         <h3>RESUMO DO LEITE</h3>
-        <table><tr><th>Data</th><th style="text-align:right">Litros</th></tr>${rows}</table>
+        <table><tr><th>Data</th><th>Turno</th><th>Localidade</th><th style="text-align:right">Litros</th></tr>${rows}</table>
         <div class="gross"><span>Total de litros</span><span>${fmt(litros)} L</span></div>
         <div class="gross"><span>Valor por litro</span><span>${moeda(VALOR_LITRO)}</span></div>
         <div class="gross"><span>VALOR BRUTO</span><span>${moeda(bruto)}</span></div>
@@ -3613,7 +3619,7 @@ function imprimirRelatorioA4(){
   w.document.close();
 }
 
-function exportarBackup(){let importacoesPdf=[];try{importacoesPdf=JSON.parse(localStorage.getItem('vds_pdf_import_batches_v137')||'[]')}catch(_){}downloadBlob(JSON.stringify({produtores,lancamentos,pagamentos,debitos,pagamentosDebitos,importacoesPdf,versao:140},null,2),'backup_vale_da_serra.json','application/json')}
+function exportarBackup(){let importacoesPdf=[];try{importacoesPdf=JSON.parse(localStorage.getItem('vds_pdf_import_batches_v137')||'[]')}catch(_){}downloadBlob(JSON.stringify({produtores,lancamentos,pagamentos,debitos,pagamentosDebitos,importacoesPdf,versao:141},null,2),'backup_vale_da_serra.json','application/json')}
 function importarBackup(ev){let f=ev.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);produtores=d.produtores||[];lancamentos=d.lancamentos||[];pagamentos=d.pagamentos||[];debitos=d.debitos||[];pagamentosDebitos=d.pagamentosDebitos||[];localStorage.setItem('vds_pdf_import_batches_v137',JSON.stringify(d.importacoesPdf||[]));save();alert('Backup importado.')}catch(e){alert('Backup inválido.')}};r.readAsText(f)}
 function downloadBlob(txt,name,type){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type}));a.download=name;a.click();URL.revokeObjectURL(a.href)}
 function apagarTudo(){if(confirm('Apagar todos os dados?')){produtores=[];lancamentos=[];pagamentos=[];debitos=[];pagamentosDebitos=[];localStorage.setItem('vds_pdf_import_batches_v137','[]');save()}}
@@ -5320,7 +5326,7 @@ const old=window.renderPainel;if(typeof old==='function')window.renderPainel=fun
    <label>Arquivo PDF<input id="v104EntradaFile" type="file" accept="application/pdf,.pdf"></label>
    <label>Data das entradas<input id="v104EntradaData" type="date"></label>
    <label>Localidade das entradas<input id="v104EntradaLocal" list="v107LocalidadesList" placeholder="Digite ou selecione uma localidade" autocomplete="off"><datalist id="v107LocalidadesList"></datalist></label>
-   <label>Modo de importação<select id="v104EntradaMode" disabled><option value="seguro">V140 — conferência segura e códigos alternativos</option></select></label>
+   <label>Modo de importação<select id="v104EntradaMode" disabled><option value="seguro">V141 — conferência segura por código e localidade da entrega</option></select></label>
   </div>
   <div class="v104-note">🛡️ <b>Importação segura:</b> o código do produtor, o total do PDF, a data, o turno e todas as linhas com <b>SIM</b> precisam conferir. Qualquer dúvida bloqueia o lote inteiro e também impede o pagamento até ser resolvida.<br><b>Pesquisa e cadastro rápido:</b> digite nome, apelido ou código. Se o produtor ainda não existir, cadastre-o nesta própria tela; o código do PDF será preservado e a localidade será reutilizada nas próximas entradas.</div>
   <div class="v104-actions"><button class="v104-primary" onclick="v104LerEntradaPDF()">🔎 Ler e distribuir</button><span id="v104EntradaStatus" class="v104-status"></span></div>
@@ -5820,11 +5826,11 @@ body:not(.v112-galpao-admin) #estoque .gal-quick{display:none!important}
   document.addEventListener('click',()=>setTimeout(apply,0),true);
 })();
 </script>
-<script src="v125-pagamento-corte.js?v=140"></script>
-<script src="v133-galpao-inteligente.js?v=140"></script>
-<script src="v135-pesquisa-produtor.js?v=140"></script>
-<script src="v137-importacao-segura.js?v=140"></script>
-<script src="v139-pagamentos-organizados.js?v=140"></script>
+<script src="v125-pagamento-corte.js?v=141"></script>
+<script src="v133-galpao-inteligente.js?v=141"></script>
+<script src="v135-pesquisa-produtor.js?v=141"></script>
+<script src="v137-importacao-segura.js?v=141"></script>
+<script src="v139-pagamentos-organizados.js?v=141"></script>
 <script id="v126-open-section">window.addEventListener('load',()=>{const id=location.hash.slice(1);if(['pagamentos','pesquisa'].includes(id))setTimeout(()=>{if(typeof go==='function')go(id)},250)});</script>
 </body>
 </html>
