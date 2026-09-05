@@ -5320,9 +5320,9 @@ const old=window.renderPainel;if(typeof old==='function')window.renderPainel=fun
    <label>Arquivo PDF<input id="v104EntradaFile" type="file" accept="application/pdf,.pdf"></label>
    <label>Data das entradas<input id="v104EntradaData" type="date"></label>
    <label>Localidade das entradas<input id="v104EntradaLocal" list="v107LocalidadesList" placeholder="Digite ou selecione uma localidade" autocomplete="off"><datalist id="v107LocalidadesList"></datalist></label>
-   <label>Modo de importação<select id="v104EntradaMode" disabled><option value="seguro">V137 — conferência segura obrigatória</option></select></label>
+   <label>Modo de importação<select id="v104EntradaMode" disabled><option value="seguro">V138 — pesquisa e conferência segura</option></select></label>
   </div>
-  <div class="v104-note">🛡️ <b>Importação segura:</b> o código do produtor, o total do PDF, a data, o turno e todas as linhas com <b>SIM</b> precisam conferir. Qualquer dúvida bloqueia o lote inteiro e também impede o pagamento até ser resolvida.<br><b>Localidade inteligente:</b> quando o relatório informar a localidade, ela será vinculada ao cadastro e reutilizada nas próximas entradas.</div>
+  <div class="v104-note">🛡️ <b>Importação segura:</b> o código do produtor, o total do PDF, a data, o turno e todas as linhas com <b>SIM</b> precisam conferir. Qualquer dúvida bloqueia o lote inteiro e também impede o pagamento até ser resolvida.<br><b>Pesquisa e cadastro rápido:</b> digite nome, apelido ou código. Se o produtor ainda não existir, cadastre-o nesta própria tela; o código do PDF será preservado e a localidade será reutilizada nas próximas entradas.</div>
   <div class="v104-actions"><button class="v104-primary" onclick="v104LerEntradaPDF()">🔎 Ler e distribuir</button><span id="v104EntradaStatus" class="v104-status"></span></div>
   <div id="v106EntradaMeta"></div>
   <div id="v104EntradaResults"></div>
@@ -5820,10 +5820,10 @@ body:not(.v112-galpao-admin) #estoque .gal-quick{display:none!important}
   document.addEventListener('click',()=>setTimeout(apply,0),true);
 })();
 </script>
-<script src="v125-pagamento-corte.js?v=137"></script>
-<script src="v133-galpao-inteligente.js?v=137"></script>
-<script src="v135-pesquisa-produtor.js?v=137"></script>
-<script src="v137-importacao-segura.js?v=137"></script>
+<script src="v125-pagamento-corte.js?v=138"></script>
+<script src="v133-galpao-inteligente.js?v=138"></script>
+<script src="v135-pesquisa-produtor.js?v=138"></script>
+<script src="v137-importacao-segura.js?v=138"></script>
 <script id="v126-open-section">window.addEventListener('load',()=>{const id=location.hash.slice(1);if(['pagamentos','pesquisa'].includes(id))setTimeout(()=>{if(typeof go==='function')go(id)},250)});</script>
 </body>
 </html>
