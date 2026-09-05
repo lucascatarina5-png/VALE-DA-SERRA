@@ -330,7 +330,8 @@
     try{
       const headers=typeof v4Headers==='function'?v4Headers():{'Content-Type':'application/json'};
       headers['Content-Type']='application/json';
-      const r=await fetch('/api/state',{method:'PUT',headers,body:JSON.stringify({data:{produtores,lancamentos,pagamentos,debitos,pagamentosDebitos}})});
+      let importacoesPdf=[];try{importacoesPdf=JSON.parse(localStorage.getItem('vds_pdf_import_batches_v137')||'[]')}catch(_){}
+      const r=await fetch('/api/state',{method:'PUT',headers,body:JSON.stringify({data:{produtores,lancamentos,pagamentos,debitos,pagamentosDebitos,importacoesPdf}})});
       if(!r.ok)throw new Error('O servidor não confirmou a sincronização.');
       S.statement=await getStatement(S.id);renderProfile();alert('✅ '+message);
     }catch(e){S.statement=localStatement(S.id);renderProfile();alert('✅ Alteração salva neste aparelho.\n\n⚠️ '+e.message+' O sistema tentará sincronizar novamente automaticamente.')}

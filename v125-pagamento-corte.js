@@ -34,7 +34,8 @@
   function splitLiters(arr,ym){return arr.reduce((a,x)=>{const q=N(x.qtd);if(String(x.data||'').startsWith(ym))a.current+=q;else a.previous+=q;return a},{previous:0,current:0})}
   function qKey(prodId,ym,q){return `${prodId}|${ym}|${q}`}
   async function syncNow(){
-    const data={produtores,lancamentos,pagamentos,debitos,pagamentosDebitos:typeof pagamentosDebitos==='undefined'?[]:pagamentosDebitos};
+    let importacoesPdf=[];try{importacoesPdf=JSON.parse(localStorage.getItem('vds_pdf_import_batches_v137')||'[]')}catch(_){}
+    const data={produtores,lancamentos,pagamentos,debitos,pagamentosDebitos:typeof pagamentosDebitos==='undefined'?[]:pagamentosDebitos,importacoesPdf};
     const token=localStorage.getItem('vale_token')||sessionStorage.getItem('vale_token')||'';
     const headers={'Content-Type':'application/json'};if(token)headers.Authorization='Bearer '+token;
     const response=await fetch('/api/state',{method:'PUT',headers,body:JSON.stringify({data}),cache:'no-store'});
