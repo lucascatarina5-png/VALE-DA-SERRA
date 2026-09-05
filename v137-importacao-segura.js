@@ -9,6 +9,7 @@
   const liters=v=>N(v).toLocaleString('pt-BR',{maximumFractionDigits:2});
   const today=()=>new Date().toISOString().slice(0,10);
   const brDate=v=>{const m=String(v||'').slice(0,10).match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?`${m[3]}/${m[2]}/${m[1]}`:(v||'-')};
+  const currentUser=()=>{try{return V4?.user?.username||V4?.user?.name||'Administrador'}catch(_){return 'Administrador'}};
   let current=null;
 
   function batches(){try{const x=JSON.parse(localStorage.getItem(BATCH_KEY)||'[]');return Array.isArray(x)?x:[]}catch(_){return []}}
@@ -83,12 +84,36 @@
   }
   function canManageProducers(){try{return typeof v4TemPermissao!=='function'||v4TemPermissao('produtores')}catch(_){return true}}
 
+  function reportDateInfo(meta=V104?.entradaMeta||{}){
+    const start=String(meta.dataInicio||meta.data||''),end=String(meta.dataFim||start),crosses=!!(start&&end&&start!==end),suggested=String(meta.dataSugerida||(crosses?end:start)||'');
+    return {start,end,crosses,suggested,startTime:String(meta.inicio||''),endTime:String(meta.fim||'')};
+  }
+  function dateReason(){return String(document.getElementById('v142DateReason')?.value||'').trim()}
+  function dateConfirmed(){return !!document.getElementById('v142DateConfirmed')?.checked}
+  function defaultDateReason(data,info){return data===info.end?'Relatório aberto no dia anterior para registrar as coletas do dia seguinte.':'Coletas confirmadas na data inicial do relatório.'}
+  function dateDecisionHtml(meta){
+    const info=reportDateInfo(meta);if(!info.crosses)return '';
+    const selected=document.getElementById('v104EntradaData')?.value||info.suggested,reason=defaultDateReason(selected,info);
+    return `<div class="v142-date-card"><div class="v142-date-title"><span>🌙 Relatório atravessou dois dias</span><strong>CONFIRMAÇÃO OBRIGATÓRIA</strong></div><p>O MilkWork foi aberto em <b>${brDate(info.start)} às ${E(info.startTime||'--:--')}</b> e sincronizado/finalizado em <b>${brDate(info.end)} às ${E(info.endTime||'--:--')}</b>.</p><div class="v142-date-grid"><span><small>Data inicial do PDF</small><b>${brDate(info.start)}</b></span><span><small>Data final do PDF</small><b>${brDate(info.end)}</b></span><span><small>Data real selecionada</small><b id="v142SelectedDateLabel">${brDate(selected)}</b></span></div><label class="v142-reason">Justificativa da data real<input id="v142DateReason" maxlength="240" value="${E(reason)}" oninput="v137Review()"></label><label class="v142-confirm"><input id="v142DateConfirmed" type="checkbox" onchange="v137Review()"> Confirmo que todas as coletas deste lote pertencem a <b id="v142ConfirmDateLabel">${brDate(selected)}</b>.</label><small id="v142DateStatus">A confirmação ficará registrada no histórico da importação.</small></div>`;
+  }
+  function refreshDateDecision(){
+    const info=reportDateInfo(),data=document.getElementById('v104EntradaData')?.value||'',selected=document.getElementById('v142SelectedDateLabel'),confirmLabel=document.getElementById('v142ConfirmDateLabel'),status=document.getElementById('v142DateStatus');
+    if(selected)selected.textContent=brDate(data);if(confirmLabel)confirmLabel.textContent=brDate(data);if(status){const within=!!(data&&info.start&&info.end&&data>=info.start&&data<=info.end);status.className=within?'ok':'bad';status.textContent=within?'A data está dentro do período do PDF. Confirme a declaração acima.':'A data escolhida está fora do período informado pelo PDF.'}
+  }
+  window.v142HandleDateChange=function(){
+    const info=reportDateInfo(),data=document.getElementById('v104EntradaData')?.value||'',reason=document.getElementById('v142DateReason'),check=document.getElementById('v142DateConfirmed');if(reason)reason.value=defaultDateReason(data,info);if(check)check.checked=false;refreshDateDecision();renderReview();
+  };
+
   function review(){
     const rows=Array.isArray(V104?.entradaRows)?V104.entradaRows:[],meta=V104?.entradaMeta||{},issues=[],warnings=[],prepared=[];
-    const data=document.getElementById('v104EntradaData')?.value||meta.data||'';
+    const data=document.getElementById('v104EntradaData')?.value||meta.data||'',dateInfo=reportDateInfo(meta),reason=dateReason(),confirmed=dateConfirmed(),dateAdjusted=!!(dateInfo.start&&data&&data!==dateInfo.start);
     if(!current)issues.push('Leia o arquivo PDF antes de confirmar.');
     if(!data)issues.push('A data do relatório não foi identificada.');
-    if(meta.data&&data!==meta.data)issues.push(`A data escolhida (${brDate(data)}) é diferente da data impressa no PDF (${brDate(meta.data)}).`);
+    if(dateInfo.start&&dateInfo.end&&dateInfo.end<dateInfo.start)issues.push('O período de datas do PDF está inválido. Confira o relatório antes de continuar.');
+    else if(dateInfo.start&&dateInfo.end&&data&&(data<dateInfo.start||data>dateInfo.end))issues.push(`A data real escolhida (${brDate(data)}) está fora do período do PDF: ${brDate(dateInfo.start)} a ${brDate(dateInfo.end)}.`);
+    else if(dateInfo.start&&!dateInfo.crosses&&data&&data!==dateInfo.start)issues.push(`Este relatório pertence somente a ${brDate(dateInfo.start)}. A data ${brDate(data)} não pode ser utilizada.`);
+    if(dateInfo.crosses&&!reason)issues.push('Informe a justificativa da data real das coletas.');
+    if(dateInfo.crosses&&!confirmed)issues.push(`Marque a confirmação de que as coletas pertencem a ${brDate(data)}.`);
     if(!rows.length)issues.push('Nenhuma coleta com SIM e volume maior que zero foi identificada.');
     let total=0,manual=0,manualCodes=0,unresolved=0,variations=0,localConflicts=0,duplicates=0;const batchEvents=new Map();
     rows.forEach((r,i)=>{
@@ -118,9 +143,10 @@
     if(current&&batches().some(x=>x.status==='confirmado'&&x.hash===current.hash))issues.push('Este mesmo arquivo PDF já foi confirmado anteriormente.');
     if(manual)warnings.push(`${manual} produtor(es) foram escolhidos manualmente porque a linha não possuía código.`);
     if(manualCodes)warnings.push(`${manualCodes} código(s) diferente(s) foram confirmados manualmente e serão guardados no cadastro correto.`);
+    if(dateInfo.crosses&&data>=dateInfo.start&&data<=dateInfo.end)warnings.push(`O MilkWork atravessou ${brDate(dateInfo.start)} a ${brDate(dateInfo.end)}. As entradas serão gravadas em ${brDate(data)} com a justificativa informada.`);
     if(variations)warnings.push(`${variations} entrada(s) variam 50% ou mais da média recente do mesmo turno.`);
     if(localConflicts)warnings.push(`${localConflicts} entrega(s) ocorreram fora da localidade principal. O leite será registrado e pago pela localidade desta entrega; o cadastro principal não será alterado.`);
-    return {rows,meta,data,total,declared,prepared,issues:[...new Set(issues)],warnings,manual,manualCodes,unresolved,variations,localConflicts,duplicates};
+    return {rows,meta,data,total,declared,prepared,issues:[...new Set(issues)],warnings,manual,manualCodes,unresolved,variations,localConflicts,duplicates,dateInfo,dateReason:reason,dateConfirmed:confirmed,dateAdjusted};
   }
 
   function producerFinder(row,index){
@@ -134,9 +160,10 @@
     if(typeof v106RenderMeta==='function')v106RenderMeta();
     if(!rows.length){box.innerHTML='<div class="v137-empty"><b>Nenhuma coleta válida foi montada.</b><span>Confira o texto lido. Nenhum pagamento deve ser feito enquanto o relatório estiver pendente.</span></div>';renderReview();return}
     const total=rows.reduce((s,x)=>s+N(x.litros),0),exact=rows.filter(x=>x.v137Exact).length;
-    box.innerHTML=`<div class="v137-headline"><div><b>🛡️ Conferência obrigatória V141</b><small>${rows.length} coleta(s) • ${liters(total)} L • ${exact} código(s) reconhecidos automaticamente</small></div><button type="button" onclick="v137ApplyLocality()">📍 Aplicar localidade a todos</button></div>
+    box.innerHTML=`<div class="v137-headline"><div><b>🛡️ Conferência obrigatória V142</b><small>${rows.length} coleta(s) • ${liters(total)} L • ${exact} código(s) reconhecidos automaticamente</small></div><button type="button" onclick="v137ApplyLocality()">📍 Aplicar localidade a todos</button></div>
+      ${dateDecisionHtml(meta)}
       <div class="v137-tablewrap"><table class="v104-table v137-table"><thead><tr><th>Linha</th><th>Hora / turno</th><th>Código e nome no PDF</th><th>Produtor que receberá o leite</th><th>Localidade</th><th>Litros</th><th>Verificação</th></tr></thead><tbody>${rows.map((r,i)=>{
-        const p=producer(r.prodId),avg=p?averageFor(p.id,r.v137Turn,meta.data||document.getElementById('v104EntradaData')?.value):0,diff=avg?Math.round((N(r.litros)-avg)/avg*100):null;
+        const p=producer(r.prodId),avg=p?averageFor(p.id,r.v137Turn,document.getElementById('v104EntradaData')?.value||meta.data):0,diff=avg?Math.round((N(r.litros)-avg)/avg*100):null;
         const manualConfirmed=manualCodeLink(r,p),verified=r.v137Exact||manualConfirmed;
         return `<tr id="v137row${i}" class="${verified?'v137-exact':'v137-manual'}"><td><b>${i+1}</b></td><td><b>${E(r.hora||'—')}</b><select id="v137turn${i}" onchange="v137Review()"><option value="">Confirmar...</option><option value="M" ${r.v137Turn==='M'?'selected':''}>Manhã</option><option value="T" ${r.v137Turn==='T'?'selected':''}>Tarde</option></select></td><td><b>${E(r.codigo||'Sem código')} • ${E(r.name||'')}</b><small>${E(r.raw||'')}</small></td><td>${producerFinder(r,i)}</td><td><input id="v137loc${i}" list="v107LocalidadesList" value="${E(r.localidade||'')}" onchange="v137Review()"></td><td><input id="v137qty${i}" type="number" min="0.01" step="0.01" value="${E(r.litros)}" oninput="v137Review()"></td><td id="v138verify${i}">${r.v137Exact?'<span class="v137-ok">✓ Código reconhecido</span>':manualConfirmed?'<span class="v137-ok">✓ Código diferente confirmado</span>':'<span class="v137-warn">⚠ Revisão manual</span>'}${diff!==null&&Math.abs(diff)>=50?`<small class="v137-variation">Variação de ${diff>0?'+':''}${diff}% da média</small>`:''}<small id="v141cross${i}"></small></td></tr>`;
       }).join('')}</tbody></table></div>
@@ -152,6 +179,7 @@
     if(button){button.disabled=!ok;button.textContent=ok?'🔒 Confirmar lote completo e registrar entradas':`⛔ Corrija ${v.issues.length} problema(s) para confirmar`}
     updatePendingFromReview(v);
     refreshCrossLocalities();
+    refreshDateDecision();
   }
 
   function refreshCrossLocalities(){
@@ -163,7 +191,7 @@
 
   function updatePendingFromReview(v){
     if(!current||current.confirmedDuplicate)return;
-    const all=batches(),idx=all.findIndex(x=>x.id===current.id),row={...current,status:'pendente',data:v.data||'',localities:unique(v.prepared.map(x=>x.local)),totalLido:v.total,totalDeclarado:v.declared,linhas:v.rows.length,problemas:v.issues.length,avisos:v.warnings.length,updatedAt:new Date().toISOString()};
+    const all=batches(),idx=all.findIndex(x=>x.id===current.id),row={...current,status:'pendente',data:v.data||'',dataEfetiva:v.data||'',dataInicioPdf:v.dateInfo?.start||'',dataFimPdf:v.dateInfo?.end||'',dataAjustada:!!v.dateAdjusted,justificativaData:v.dateReason||'',confirmacaoData:!!v.dateConfirmed,localities:unique(v.prepared.map(x=>x.local)),totalLido:v.total,totalDeclarado:v.declared,linhas:v.rows.length,problemas:v.issues.length,avisos:v.warnings.length,updatedAt:new Date().toISOString()};
     if(idx>=0)all[idx]=row;else all.push(row);saveBatches(all);
   }
 
@@ -236,7 +264,7 @@
 
   window.v137ConfirmImport=async function(){
     const v=review();if(v.issues.length){v25Audit('IMPORTACAO_PDF_BLOQUEADA',{arquivo:current?.fileName||'',problemas:v.issues.length,totalPdf:v.declared,totalLido:v.total});alert('⛔ A importação está bloqueada.\n\n'+v.issues.map((x,i)=>`${i+1}. ${x}`).join('\n'));return}
-    const summary=`CONFIRMAR O LOTE COMPLETO?\n\nArquivo: ${current.fileName}\nData: ${brDate(v.data)}\nEntradas: ${v.prepared.length}\nTotal: ${liters(v.total)} litros\n${v.warnings.length?'\nATENÇÃO:\n'+v.warnings.join('\n')+'\n':''}\nDepois da confirmação, qualquer correção ficará registrada no histórico.`;
+    const summary=`CONFIRMAR O LOTE COMPLETO?\n\nArquivo: ${current.fileName}\nData real das coletas: ${brDate(v.data)}${v.dateInfo?.crosses?`\nPeríodo no MilkWork: ${brDate(v.dateInfo.start)} ${v.dateInfo.startTime||''} até ${brDate(v.dateInfo.end)} ${v.dateInfo.endTime||''}\nJustificativa: ${v.dateReason}`:''}\nEntradas: ${v.prepared.length}\nTotal: ${liters(v.total)} litros\n${v.warnings.length?'\nATENÇÃO:\n'+v.warnings.join('\n')+'\n':''}\nDepois da confirmação, qualquer correção ficará registrada no histórico.`;
     if(!confirm(summary))return;
     const oldProducers=JSON.parse(JSON.stringify(produtores)),oldEntries=lancamentos.slice(),oldBatches=batches();
     const batchId=current.id,entryIds=[];
@@ -254,14 +282,14 @@
         }
         if(v.meta.rota&&!p.rota)p.rota=v.meta.rota;if(v.meta.responsavel&&!p.tanqueiro)p.tanqueiro=v.meta.responsavel;
         const id=crypto.randomUUID();entryIds.push(id);
-        lancamentos.push({id,data:v.data,prodId:p.id,qtd:x.q,periodo:x.turn,turno:turnName(x.turn),situacaoPagamento:'Pendente',local:x.local,tanqueiro:v.meta.responsavel||p.tanqueiro||'',caminhao:p.caminhao||'',origem:'PDF_SEGURO',hora:x.row.hora||'',rota:v.meta.rota||p.rota||'',pdfHash:current.hash,pdfBatchId:batchId,pdfEventKey:x.eventKey,pdfFileName:current.fileName,pdfModelo:'RELATORIO_RECEBIMENTO_TANQUEIRO_V141'});
+        lancamentos.push({id,data:v.data,prodId:p.id,qtd:x.q,periodo:x.turn,turno:turnName(x.turn),situacaoPagamento:'Pendente',local:x.local,tanqueiro:v.meta.responsavel||p.tanqueiro||'',caminhao:p.caminhao||'',origem:'PDF_SEGURO',hora:x.row.hora||'',rota:v.meta.rota||p.rota||'',pdfHash:current.hash,pdfBatchId:batchId,pdfEventKey:x.eventKey,pdfFileName:current.fileName,pdfModelo:'RELATORIO_RECEBIMENTO_TANQUEIRO_V142',pdfDataInicio:v.dateInfo?.start||'',pdfDataFim:v.dateInfo?.end||'',pdfDataEfetiva:v.data,pdfDataAjustada:!!v.dateAdjusted,pdfDataJustificativa:v.dateReason||''});
       }
-      const confirmed={...current,status:'confirmado',data:v.data,localities:unique(v.prepared.map(x=>x.local)),totalLido:v.total,totalDeclarado:v.declared,linhas:v.prepared.length,entryIds,problemas:0,avisos:v.warnings,confirmedAt:new Date().toISOString()};
+      const confirmed={...current,status:'confirmado',data:v.data,dataEfetiva:v.data,dataInicioPdf:v.dateInfo?.start||'',dataFimPdf:v.dateInfo?.end||'',dataAjustada:!!v.dateAdjusted,justificativaData:v.dateReason||'',dataConfirmadaPor:currentUser(),localities:unique(v.prepared.map(x=>x.local)),totalLido:v.total,totalDeclarado:v.declared,linhas:v.prepared.length,entryIds,problemas:0,avisos:v.warnings,confirmedAt:new Date().toISOString()};
       const next=oldBatches.filter(x=>x.id!==batchId);next.push(confirmed);
       await syncState(next);saveBatches(next);save();
-      await v25Audit('IMPORTACAO_PDF_CONFIRMADA',{lote:batchId,arquivo:current.fileName,data:v.data,entradas:entryIds.length,litros:v.total,localidades:confirmed.localities.join(', '),codigosAlternativosVinculados:v.manualCodes,hash:current.hash});
+      await v25Audit('IMPORTACAO_PDF_CONFIRMADA',{lote:batchId,arquivo:current.fileName,dataEfetiva:v.data,dataInicioPdf:v.dateInfo?.start||'',dataFimPdf:v.dateInfo?.end||'',dataAjustada:!!v.dateAdjusted,justificativaData:v.dateReason||'',confirmadaPor:currentUser(),entradas:entryIds.length,litros:v.total,localidades:confirmed.localities.join(', '),codigosAlternativosVinculados:v.manualCodes,hash:current.hash});
       current={...confirmed,confirmedDuplicate:true};v104Fechar('v104EntradaModal');
-      alert(`✅ IMPORTAÇÃO SEGURA CONCLUÍDA\n\n${entryIds.length} entradas registradas\n${liters(v.total)} litros\nTodos os produtores foram identificados\nTotal do PDF conferido\nTurnos gravados como Manhã/Tarde\nLote confirmado no servidor`);
+      alert(`✅ IMPORTAÇÃO SEGURA CONCLUÍDA\n\n${entryIds.length} entradas registradas em ${brDate(v.data)}\n${liters(v.total)} litros\nTodos os produtores foram identificados\nTotal do PDF conferido\nTurnos gravados como Manhã/Tarde${v.dateInfo?.crosses?'\nPeríodo do MilkWork e justificativa preservados no histórico':''}\nLote confirmado no servidor`);
     }catch(e){
       produtores=oldProducers;lancamentos=oldEntries;saveBatches(oldBatches);save();alert('❌ Nenhuma entrada foi registrada.\n\n'+e.message);
     }
@@ -269,7 +297,8 @@
 
   function batchCard(x){
     const color=x.status==='confirmado'?'ok':x.status==='pendente'?'warn':'muted',status=x.status==='confirmado'?'CONFIRMADO':x.status==='pendente'?'PENDENTE DE CONFERÊNCIA':'CANCELADO / DESCARTADO';
-    return `<div class="v137-batch ${color}"><div><b>${E(x.fileName||'Relatório PDF')}</b><small>${brDate(x.data)} • ${E((x.localities||[]).join(', ')||'Localidade não definida')} • ${x.linhas||0} entrada(s) • ${liters(x.totalLido)} L</small><small>Lote ${E(String(x.id||'').slice(-12))} • ${x.confirmedAt?'Confirmado em '+new Date(x.confirmedAt).toLocaleString('pt-BR'):'Aguardando conclusão'}</small></div><span class="v137-batch-status ${color}">${status}</span>${x.status==='confirmado'?`<button onclick="v137CancelBatch('${E(x.id)}')">Cancelar lote</button>`:x.status==='pendente'?`<button onclick="v137DiscardBatch('${E(x.id)}')">Descartar pendência</button>`:''}</div>`;
+    const sourceDates=x.dataInicioPdf&&x.dataFimPdf&&x.dataInicioPdf!==x.dataFimPdf?`<small>🌙 Período MilkWork: ${brDate(x.dataInicioPdf)} até ${brDate(x.dataFimPdf)} • data efetiva: <b>${brDate(x.dataEfetiva||x.data)}</b></small>${x.justificativaData?`<small>Justificativa: ${E(x.justificativaData)}</small>`:''}`:'';
+    return `<div class="v137-batch ${color}"><div><b>${E(x.fileName||'Relatório PDF')}</b><small>${brDate(x.dataEfetiva||x.data)} • ${E((x.localities||[]).join(', ')||'Localidade não definida')} • ${x.linhas||0} entrada(s) • ${liters(x.totalLido)} L</small>${sourceDates}<small>Lote ${E(String(x.id||'').slice(-12))} • ${x.confirmedAt?'Confirmado em '+new Date(x.confirmedAt).toLocaleString('pt-BR'):'Aguardando conclusão'}</small></div><span class="v137-batch-status ${color}">${status}</span>${x.status==='confirmado'?`<button onclick="v137CancelBatch('${E(x.id)}')">Cancelar lote</button>`:x.status==='pendente'?`<button onclick="v137DiscardBatch('${E(x.id)}')">Descartar pendência</button>`:''}</div>`;
   }
 
   window.v137OpenHistory=function(){const all=batches().slice().sort((a,b)=>String(b.confirmedAt||b.updatedAt||'').localeCompare(String(a.confirmedAt||a.updatedAt||'')));document.getElementById('v137HistoryRows').innerHTML=all.map(batchCard).join('')||'<div class="v137-empty"><b>Nenhuma importação registrada.</b><span>Os próximos relatórios aparecerão aqui.</span></div>';document.getElementById('v137HistoryModal').classList.add('on');document.getElementById('v137HistoryModal').style.display='flex'};
@@ -321,10 +350,11 @@
   const originalRender=window.v104RenderEntryRows;
   if(typeof originalRead==='function')window.v104LerEntradaPDF=async function(){
     current=null;await originalRead.apply(this,arguments);
+    const info=reportDateInfo(),dateInput=document.getElementById('v104EntradaData');if(info.crosses&&info.suggested&&dateInput)dateInput.value=info.suggested;
     const file=document.getElementById('v104EntradaFile')?.files?.[0],rows=Array.isArray(V104?.entradaRows)?V104.entradaRows:[];if(!file||!rows.length){renderSafeRows();return}
     try{
       const hash=await fileHash(file),id='pdf_'+hash.slice(0,24),confirmed=batches().find(x=>x.hash===hash&&x.status==='confirmado');
-      current={id,hash,fileName:file.name,fileSize:file.size,fileModified:file.lastModified,createdAt:new Date().toISOString(),confirmedDuplicate:!!confirmed};
+      current={id,hash,fileName:file.name,fileSize:file.size,fileModified:file.lastModified,createdAt:new Date().toISOString(),dataInicioPdf:info.start,dataFimPdf:info.end,dataSugerida:info.suggested,confirmedDuplicate:!!confirmed};
       rows.forEach(r=>{const original=producer(r.prodId),codeOwner=producerByCode(r.codigo),exactProducer=codeOwner||(exactCode(r,original)?original:null),exact=!!exactProducer;r.v137Exact=exact;r.v137Suggestion=exact?'':r.prodId;r.prodId=exact?exactProducer.id:'';r.status=exact?'ok':r.v137Suggestion?'warn':'bad';delete r.v140CodeLink;r.v137Turn=turnFromHour(r.hora)});
       renderSafeRows();
       const st=document.getElementById('v104EntradaStatus');if(st)st.textContent+=(confirmed?' ⛔ Este arquivo já foi confirmado anteriormente.':' 🛡️ Revise todos os campos; somente o lote completo poderá ser confirmado.');
@@ -337,6 +367,7 @@
   const oldRenderPayments=window.renderPagamentos;if(typeof oldRenderPayments==='function')window.renderPagamentos=function(){const r=oldRenderPayments.apply(this,arguments);setTimeout(updatePaymentGuard,0);return r};
 
   const crossStyle=document.createElement('style');crossStyle.textContent=`.v141-cross-note{display:block!important;margin-top:6px!important;padding:6px!important;border-radius:7px;background:#fff0d5;color:#865100!important;line-height:1.35}`;document.head.appendChild(crossStyle);
+  const dateStyle=document.createElement('style');dateStyle.textContent=`.v142-date-card{margin:0 0 12px;padding:14px;border:1px solid #efc35d;border-left:6px solid #e49a00;border-radius:12px;background:#fff9e9;color:#62430b}.v142-date-title{display:flex;justify-content:space-between;gap:10px;align-items:center}.v142-date-title span{font-size:16px;font-weight:900}.v142-date-title strong{padding:5px 8px;border-radius:999px;background:#8b5200;color:#fff;font-size:9px}.v142-date-card p{margin:9px 0;line-height:1.45}.v142-date-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.v142-date-grid span{padding:9px;border:1px solid #ead7a5;border-radius:8px;background:#fff}.v142-date-grid small,.v142-date-grid b{display:block}.v142-date-grid small{color:#806d45}.v142-date-grid b{margin-top:3px;color:#513500}.v142-reason{display:block;margin-top:10px;font-size:11px;font-weight:900}.v142-reason input{display:block;width:100%;box-sizing:border-box;margin-top:5px;padding:10px;border:1px solid #d7b35f;border-radius:8px;background:#fff;color:#4f3a12}.v142-confirm{display:flex;align-items:flex-start;gap:8px;margin-top:10px;padding:10px;border-radius:8px;background:#fff;border:1px solid #dfc47f}.v142-confirm input{width:20px;height:20px;flex:0 0 20px;accent-color:#168148}.v142-date-card>small{display:block;margin-top:7px}.v142-date-card>small.ok{color:#176e36}.v142-date-card>small.bad{color:#b52222;font-weight:900}@media(max-width:700px){.v142-date-title,.v142-date-grid{display:grid;grid-template-columns:1fr}.v142-date-title strong{justify-self:start}}`;document.head.appendChild(dateStyle);
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{inject();migrateOldTurns();setTimeout(updatePaymentGuard,120)},{once:true});else{inject();migrateOldTurns();setTimeout(updatePaymentGuard,120)}
 })();

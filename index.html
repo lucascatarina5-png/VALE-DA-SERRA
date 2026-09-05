@@ -3619,7 +3619,7 @@ function imprimirRelatorioA4(){
   w.document.close();
 }
 
-function exportarBackup(){let importacoesPdf=[];try{importacoesPdf=JSON.parse(localStorage.getItem('vds_pdf_import_batches_v137')||'[]')}catch(_){}downloadBlob(JSON.stringify({produtores,lancamentos,pagamentos,debitos,pagamentosDebitos,importacoesPdf,versao:141},null,2),'backup_vale_da_serra.json','application/json')}
+function exportarBackup(){let importacoesPdf=[];try{importacoesPdf=JSON.parse(localStorage.getItem('vds_pdf_import_batches_v137')||'[]')}catch(_){}downloadBlob(JSON.stringify({produtores,lancamentos,pagamentos,debitos,pagamentosDebitos,importacoesPdf,versao:142},null,2),'backup_vale_da_serra.json','application/json')}
 function importarBackup(ev){let f=ev.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);produtores=d.produtores||[];lancamentos=d.lancamentos||[];pagamentos=d.pagamentos||[];debitos=d.debitos||[];pagamentosDebitos=d.pagamentosDebitos||[];localStorage.setItem('vds_pdf_import_batches_v137',JSON.stringify(d.importacoesPdf||[]));save();alert('Backup importado.')}catch(e){alert('Backup inválido.')}};r.readAsText(f)}
 function downloadBlob(txt,name,type){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type}));a.download=name;a.click();URL.revokeObjectURL(a.href)}
 function apagarTudo(){if(confirm('Apagar todos os dados?')){produtores=[];lancamentos=[];pagamentos=[];debitos=[];pagamentosDebitos=[];localStorage.setItem('vds_pdf_import_batches_v137','[]');save()}}
@@ -5324,9 +5324,9 @@ const old=window.renderPainel;if(typeof old==='function')window.renderPainel=fun
  <div class="v104-body">
   <div class="v104-fields">
    <label>Arquivo PDF<input id="v104EntradaFile" type="file" accept="application/pdf,.pdf"></label>
-   <label>Data das entradas<input id="v104EntradaData" type="date"></label>
+   <label>Data real das coletas<input id="v104EntradaData" type="date" onchange="if(window.v142HandleDateChange)v142HandleDateChange()"></label>
    <label>Localidade das entradas<input id="v104EntradaLocal" list="v107LocalidadesList" placeholder="Digite ou selecione uma localidade" autocomplete="off"><datalist id="v107LocalidadesList"></datalist></label>
-   <label>Modo de importação<select id="v104EntradaMode" disabled><option value="seguro">V141 — conferência segura por código e localidade da entrega</option></select></label>
+   <label>Modo de importação<select id="v104EntradaMode" disabled><option value="seguro">V142 — data real das coletas e conferência segura</option></select></label>
   </div>
   <div class="v104-note">🛡️ <b>Importação segura:</b> o código do produtor, o total do PDF, a data, o turno e todas as linhas com <b>SIM</b> precisam conferir. Qualquer dúvida bloqueia o lote inteiro e também impede o pagamento até ser resolvida.<br><b>Pesquisa e cadastro rápido:</b> digite nome, apelido ou código. Se o produtor ainda não existir, cadastre-o nesta própria tela; o código do PDF será preservado e a localidade será reutilizada nas próximas entradas.</div>
   <div class="v104-actions"><button class="v104-primary" onclick="v104LerEntradaPDF()">🔎 Ler e distribuir</button><span id="v104EntradaStatus" class="v104-status"></span></div>
@@ -5385,12 +5385,20 @@ function v106IsoBR(d){
 function v106MetaRecebimento(text){
   const t=String(text||'').replace(/\u00a0/g,' ');
   const get=(rx)=>{const m=t.match(rx);return m?String(m[1]).replace(/\s+/g,' ').trim():''};
-  const dataBR=get(/Data\s*:\s*(\d{2}\/\d{2}\/\d{4})/i);
+  const periodo=t.match(/Data\s*:\s*(\d{2}\/\d{2}\/\d{4})\s*-\s*(\d{2}:\d{2})\s*at[eé]\s*(\d{2}\/\d{2}\/\d{4})\s*-\s*(\d{2}:\d{2})/i);
+  const dataInicioBR=periodo?.[1]||get(/Data\s*:\s*(\d{2}\/\d{2}\/\d{4})/i),dataFimBR=periodo?.[3]||dataInicioBR;
+  const dataInicio=v106IsoBR(dataInicioBR),dataFim=v106IsoBR(dataFimBR);
   return {
-    dataBR,
-    data:v106IsoBR(dataBR),
-    inicio:get(/Data\s*:\s*\d{2}\/\d{2}\/\d{4}\s*-\s*(\d{2}:\d{2})/i),
-    fim:get(/at[eé]\s*\d{2}\/\d{2}\/\d{4}\s*-\s*(\d{2}:\d{2})/i),
+    dataBR:dataInicioBR,
+    data:dataInicio,
+    dataInicioBR,
+    dataFimBR,
+    dataInicio,
+    dataFim,
+    atravessaDatas:!!(dataInicio&&dataFim&&dataInicio!==dataFim),
+    dataSugerida:dataInicio&&dataFim&&dataInicio!==dataFim?dataFim:dataInicio,
+    inicio:periodo?.[2]||get(/Data\s*:\s*\d{2}\/\d{2}\/\d{4}\s*-\s*(\d{2}:\d{2})/i),
+    fim:periodo?.[4]||get(/at[eé]\s*\d{2}\/\d{2}\/\d{4}\s*-\s*(\d{2}:\d{2})/i),
     titularCodigo:get(/C[oó]digo do Titular do Tanque\s*:\s*([^\n]+)/i),
     titularNome:get(/Nome do Titular do Tanque\s*:\s*([^\n]+)/i),
     rota:get(/Rota\s*:\s*([^\n]+)/i),
@@ -5429,7 +5437,8 @@ function v106RenderMeta(){
   const el=document.getElementById('v106EntradaMeta'); if(!el)return;
   const m=V104.entradaMeta||{}; if(!m.dataBR&&!m.responsavel&&!m.rota){el.innerHTML='';return;}
   el.innerHTML=`<div style="margin:12px 0;padding:14px 16px;border:1px solid #cfe0f5;border-radius:14px;background:#f8fbff;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;font-size:13px;color:#173b68">
-    <div><b>📅 Data</b><br>${v104Esc(m.dataBR||'—')} ${m.inicio?`• ${v104Esc(m.inicio)} a ${v104Esc(m.fim||'—')}`:''}</div>
+    <div><b>📅 Período informado pelo MilkWork</b><br>${v104Esc(m.dataInicioBR||m.dataBR||'—')} ${m.inicio?`• ${v104Esc(m.inicio)}`:''}${m.dataFimBR?` até ${v104Esc(m.dataFimBR)}${m.fim?` • ${v104Esc(m.fim)}`:''}`:''}</div>
+    <div><b>✅ Data sugerida para as coletas</b><br>${v104Esc((m.dataSugerida||m.data||'').split('-').reverse().join('/')||'—')}${m.atravessaDatas?'<br><small>O relatório atravessou dois dias</small>':''}</div>
     <div><b>🛣️ Rota</b><br>${v104Esc(m.rota||'—')}</div>
     <div><b>👤 Responsável</b><br>${v104Esc(m.responsavel||'—')}</div>
     <div><b>🥛 Titular do tanque</b><br>${v104Esc((m.titularCodigo?m.titularCodigo+' • ':'')+(m.titularNome||'—'))}</div>
@@ -5826,11 +5835,11 @@ body:not(.v112-galpao-admin) #estoque .gal-quick{display:none!important}
   document.addEventListener('click',()=>setTimeout(apply,0),true);
 })();
 </script>
-<script src="v125-pagamento-corte.js?v=141"></script>
-<script src="v133-galpao-inteligente.js?v=141"></script>
-<script src="v135-pesquisa-produtor.js?v=141"></script>
-<script src="v137-importacao-segura.js?v=141"></script>
-<script src="v139-pagamentos-organizados.js?v=141"></script>
+<script src="v125-pagamento-corte.js?v=142"></script>
+<script src="v133-galpao-inteligente.js?v=142"></script>
+<script src="v135-pesquisa-produtor.js?v=142"></script>
+<script src="v137-importacao-segura.js?v=142"></script>
+<script src="v139-pagamentos-organizados.js?v=142"></script>
 <script id="v126-open-section">window.addEventListener('load',()=>{const id=location.hash.slice(1);if(['pagamentos','pesquisa'].includes(id))setTimeout(()=>{if(typeof go==='function')go(id)},250)});</script>
 </body>
 </html>
