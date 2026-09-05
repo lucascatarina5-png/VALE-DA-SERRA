@@ -114,6 +114,7 @@
       <div class="v135-dialog-head"><div><h3>✏️ Editar produtor</h3><p>As alterações aparecem em toda a ficha.</p></div><button type="button" onclick="v135CloseDialog('v135ProducerDialog')">×</button></div>
       <div class="v135-formgrid">
         <label>Código do produtor<input id="v135PCode" maxlength="40" placeholder="Ex.: 00125"></label>
+        <label>Códigos alternativos<input id="v135PAlternateCodes" maxlength="250" placeholder="Ex.: 401-2, 401-A"></label>
         <label>Nome completo<input id="v135PName" required></label>
         <label>Apelido<input id="v135PAlias" placeholder="Como é conhecido"></label>
         <label>Localidade<input id="v135PLocal" required></label>
@@ -166,11 +167,11 @@
     const q=norm(input.value),matches=produtores.filter(p=>{
       if(local&&norm(p.local)!==norm(local))return false;
       if(!q)return false;
-      return norm([p.nome,p.apelido,p.codigo,p.local,p.tanqueiro,p.caminhao,p.whatsapp,p.whatsTanqueiro].join(' ')).includes(q);
+      return norm([p.nome,p.apelido,p.codigo,...(Array.isArray(p.codigosAlternativos)?p.codigosAlternativos:[]),p.local,p.tanqueiro,p.caminhao,p.whatsapp,p.whatsTanqueiro].join(' ')).includes(q);
     }).sort((a,b)=>String(a.nome).localeCompare(String(b.nome),'pt-BR')).slice(0,50);
     if(!q){out.innerHTML='<div class="v135-empty"><b>Digite para localizar um produtor</b><span>Você também pode pesquisar pelo WhatsApp, código ou localidade.</span></div>';return}
     if(!matches.length){out.innerHTML='<div class="v135-empty"><b>Nenhum produtor encontrado</b><span>Confira os dados digitados ou escolha outra localidade.</span></div>';return}
-    out.innerHTML=matches.map(p=>`<button type="button" class="v135-result" onclick="v135OpenProducer('${E(p.id)}')"><span><b>${E(p.nome)}</b><small>${p.apelido?'Conhecido como '+E(p.apelido)+' • ':''}${p.codigo?'Código '+E(p.codigo):'Sem código cadastrado'}</small></span><span><b>📍 ${E(p.local||'-')}</b><small>Tanqueiro: ${E(p.tanqueiro||'-')}</small></span><span><b>📱 ${E(p.whatsapp||'-')}</b><small>Caminhão: ${E(p.caminhao||'-')}</small></span><span class="open">Abrir ficha →</span></button>`).join('');
+    out.innerHTML=matches.map(p=>`<button type="button" class="v135-result" onclick="v135OpenProducer('${E(p.id)}')"><span><b>${E(p.nome)}</b><small>${p.apelido?'Conhecido como '+E(p.apelido)+' • ':''}${p.codigo?'Código '+E(p.codigo):'Sem código cadastrado'}${Array.isArray(p.codigosAlternativos)&&p.codigosAlternativos.length?' • Alternativos: '+E(p.codigosAlternativos.join(', ')):''}</small></span><span><b>📍 ${E(p.local||'-')}</b><small>Tanqueiro: ${E(p.tanqueiro||'-')}</small></span><span><b>📱 ${E(p.whatsapp||'-')}</b><small>Caminhão: ${E(p.caminhao||'-')}</small></span><span class="open">Abrir ficha →</span></button>`).join('');
   };
 
   window.v135ClearSearch=function(){const b=document.getElementById('busca'),l=document.getElementById('v135SearchLocal');if(b)b.value='';if(l)l.value='';S.id=null;S.statement=null;document.getElementById('v135Profile').innerHTML='';renderPesquisa();b?.focus()};
@@ -228,7 +229,7 @@
     <div class="v135-section-title"><h3>Indicadores do leite nesta quinzena</h3><span class="v136-difference ${m.variation===null?'':m.variation>=0?'up':'down'}">${m.variation===null?'Sem comparação anterior':`${m.variation>=0?'▲':'▼'} ${num(Math.abs(m.variation))}% comparado à quinzena anterior`}</span></div>
     <div class="v136-metrics"><div class="v136-metric"><small>Manhã</small><b>${num(m.morning)} L</b></div><div class="v136-metric"><small>Tarde</small><b>${num(m.afternoon)} L</b></div><div class="v136-metric"><small>Média dos últimos 10 dias</small><b>${num(m.average10)} L/dia</b></div><div class="v136-metric"><small>Média por dia com entrega</small><b>${num(m.average)} L</b></div><div class="v136-metric"><small>Dias com entrega</small><b>${m.days}</b></div><div class="v136-metric"><small>Maior entrada</small><b>${num(m.max)} L</b></div><div class="v136-metric"><small>Menor entrada</small><b>${num(m.min)} L</b></div><div class="v136-metric"><small>Quinzena anterior</small><b>${num(m.previous)} L</b></div></div>
     <div class="v135-two"><div><div class="v135-section-title"><h3>Dados do cadastro</h3></div><div class="v135-list">
-      ${infoRow('Código',p.codigo||'-')}${infoRow('Apelido',p.apelido||'-')}${infoRow('Localidade',p.local||'-')}${infoRow('WhatsApp',p.whatsapp||'-')}${infoRow('Tanqueiro',p.tanqueiro||'-')}${infoRow('WhatsApp do tanqueiro',p.whatsTanqueiro||'-')}${infoRow('Caminhão',p.caminhao||'-')}${p.observacoes?infoRow('Observações',p.observacoes):''}
+      ${infoRow('Código principal',p.codigo||'-')}${Array.isArray(p.codigosAlternativos)&&p.codigosAlternativos.length?infoRow('Códigos alternativos',p.codigosAlternativos.join(', ')):''}${infoRow('Apelido',p.apelido||'-')}${infoRow('Localidade',p.local||'-')}${infoRow('WhatsApp',p.whatsapp||'-')}${infoRow('Tanqueiro',p.tanqueiro||'-')}${infoRow('WhatsApp do tanqueiro',p.whatsTanqueiro||'-')}${infoRow('Caminhão',p.caminhao||'-')}${p.observacoes?infoRow('Observações',p.observacoes):''}
     </div></div><div><div class="v135-section-title"><h3>Movimentação comercial</h3></div><div class="v135-list">${infoRow('Pedidos do Galpão',String((d.inventory_orders||[]).length))}${infoRow('Pedidos ainda ativos',String(activeOrders.length))}${infoRow('Retiradas no Galpão',String(d.totals?.inventory_items||0))}${infoRow('Valor no Galpão',money(d.totals?.inventory_value))}${infoRow('Compras na loja',String(d.totals?.pdv_sales||0))}${infoRow('Valor na loja',money(d.totals?.pdv_value))}</div></div></div>
     <div class="v135-section-title"><h3>Linha do tempo do produtor</h3><small>Últimas movimentações registradas</small></div>${timelineHtml(d)}`;
   }
@@ -286,11 +287,14 @@
   window.v135EditProducer=function(){
     if(!permitted('produtores'))return alert('Você não possui permissão para editar produtores.');
     const p=S.statement?.producer;if(!p)return;
-    v135PCode.value=p.codigo||'';v135PName.value=p.nome||'';v135PAlias.value=p.apelido||'';v135PLocal.value=p.local||'';v135PTanker.value=p.tanqueiro||'';v135PTankerPhone.value=p.whatsTanqueiro||'';v135PTruck.value=p.caminhao||'';v135PPhone.value=p.whatsapp||'';v135PNotes.value=p.observacoes||'';v135ProducerDialog.showModal();
+    v135PCode.value=p.codigo||'';v135PAlternateCodes.value=Array.isArray(p.codigosAlternativos)?p.codigosAlternativos.join(', '):'';v135PName.value=p.nome||'';v135PAlias.value=p.apelido||'';v135PLocal.value=p.local||'';v135PTanker.value=p.tanqueiro||'';v135PTankerPhone.value=p.whatsTanqueiro||'';v135PTruck.value=p.caminhao||'';v135PPhone.value=p.whatsapp||'';v135PNotes.value=p.observacoes||'';v135ProducerDialog.showModal();
   };
   window.v135SaveProducer=async function(ev){
     ev.preventDefault();const old=produtores.find(x=>String(x.id)===S.id);if(!old)return false;
-    const updated={...old,codigo:v135PCode.value.trim(),nome:v135PName.value.trim(),apelido:v135PAlias.value.trim(),local:v135PLocal.value.trim(),tanqueiro:v135PTanker.value.trim(),whatsTanqueiro:v135PTankerPhone.value.trim(),caminhao:v135PTruck.value.trim(),whatsapp:v135PPhone.value.trim(),observacoes:v135PNotes.value.trim()};
+    const mainCode=v135PCode.value.trim(),alternateCodes=[...new Set(v135PAlternateCodes.value.split(/[,;\n]+/).map(x=>x.trim()).filter(Boolean))].filter(x=>x.toUpperCase()!==mainCode.toUpperCase());
+    const requestedCodes=[mainCode,...alternateCodes].filter(Boolean).map(x=>x.toUpperCase()),conflict=produtores.find(p=>String(p.id)!==S.id&&[p.codigo,...(Array.isArray(p.codigosAlternativos)?p.codigosAlternativos:[])].filter(Boolean).some(code=>requestedCodes.includes(String(code).trim().toUpperCase())));
+    if(conflict)return alert(`Um dos códigos informados já pertence a ${conflict.nome}.\n\nRemova o código repetido antes de salvar.`),false;
+    const updated={...old,codigo:mainCode,codigosAlternativos:alternateCodes,nome:v135PName.value.trim(),apelido:v135PAlias.value.trim(),local:v135PLocal.value.trim(),tanqueiro:v135PTanker.value.trim(),whatsTanqueiro:v135PTankerPhone.value.trim(),caminhao:v135PTruck.value.trim(),whatsapp:v135PPhone.value.trim(),observacoes:v135PNotes.value.trim()};
     if(!updated.nome||!updated.local){alert('Informe o nome e a localidade.');return false}
     produtores=produtores.map(x=>String(x.id)===S.id?updated:x);v25Audit('PRODUTOR_EDITADO',{produtor:updated.nome,motivo:'Atualização pela ficha completa',antes:old,depois:updated});v135ProducerDialog.close();await persistAndReload('Cadastro atualizado com sucesso.');return false;
   };
