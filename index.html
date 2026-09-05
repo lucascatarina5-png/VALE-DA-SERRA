@@ -3613,7 +3613,7 @@ function imprimirRelatorioA4(){
   w.document.close();
 }
 
-function exportarBackup(){let importacoesPdf=[];try{importacoesPdf=JSON.parse(localStorage.getItem('vds_pdf_import_batches_v137')||'[]')}catch(_){}downloadBlob(JSON.stringify({produtores,lancamentos,pagamentos,debitos,pagamentosDebitos,importacoesPdf,versao:137},null,2),'backup_vale_da_serra.json','application/json')}
+function exportarBackup(){let importacoesPdf=[];try{importacoesPdf=JSON.parse(localStorage.getItem('vds_pdf_import_batches_v137')||'[]')}catch(_){}downloadBlob(JSON.stringify({produtores,lancamentos,pagamentos,debitos,pagamentosDebitos,importacoesPdf,versao:139},null,2),'backup_vale_da_serra.json','application/json')}
 function importarBackup(ev){let f=ev.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);produtores=d.produtores||[];lancamentos=d.lancamentos||[];pagamentos=d.pagamentos||[];debitos=d.debitos||[];pagamentosDebitos=d.pagamentosDebitos||[];localStorage.setItem('vds_pdf_import_batches_v137',JSON.stringify(d.importacoesPdf||[]));save();alert('Backup importado.')}catch(e){alert('Backup inválido.')}};r.readAsText(f)}
 function downloadBlob(txt,name,type){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type}));a.download=name;a.click();URL.revokeObjectURL(a.href)}
 function apagarTudo(){if(confirm('Apagar todos os dados?')){produtores=[];lancamentos=[];pagamentos=[];debitos=[];pagamentosDebitos=[];localStorage.setItem('vds_pdf_import_batches_v137','[]');save()}}
@@ -4205,7 +4205,7 @@ const V25_AUDIT_LABELS={
  LEITE_ENTRADA_REGISTRADA:'Registrou entrada de leite',LEITE_ENTRADA_EDITADA:'Editou entrada pendente de leite',LEITE_ENTRADA_CORRIGIDA:'Criou correção de entrada já paga',LEITE_ENTRADA_EXCLUIDA:'Excluiu entrada de leite',
  DEBITO_CRIADO:'Cadastrou débito',DEBITO_EXCLUIDO:'Excluiu débito',DEBITO_PAGAMENTO_REGISTRADO:'Registrou pagamento de débito',DEBITO_PAGAMENTO_EXCLUIDO:'Excluiu pagamento de débito',
  PAGAMENTO_QUINZENA_REGISTRADO:'Marcou quinzena como paga',PAGAMENTO_QUINZENA_DESFEITO:'Desfez pagamento da quinzena',
- IMPORTACAO_PDF_CONFIRMADA:'Confirmou importação segura de PDF',IMPORTACAO_PDF_CANCELADA:'Cancelou lote de importação PDF',IMPORTACAO_PDF_BLOQUEADA:'Tentou confirmar PDF com pendências',IMPORTACAO_PDF_MIGRACAO_TURNO:'Corrigiu turnos de entradas PDF antigas',
+ IMPORTACAO_PDF_CONFIRMADA:'Confirmou importação segura de PDF',IMPORTACAO_PDF_CANCELADA:'Cancelou lote de importação PDF',IMPORTACAO_PDF_BLOQUEADA:'Tentou confirmar PDF com pendências',IMPORTACAO_PDF_MIGRACAO_TURNO:'Corrigiu turnos de entradas PDF antigas',ENTRADAS_LEITE_PERIODO_EXCLUIDAS:'Excluiu entradas de leite de testes por período',
  ESTOQUE_PRODUTO_CRIADO:'Cadastrou produto no galpão',ESTOQUE_ENTRADA:'Entrada no estoque/galpão',ESTOQUE_SAIDA:'Saída do estoque/galpão',ESTOQUE_PEDIDO_CRIADO:'Criou pedido do galpão',ESTOQUE_PEDIDO_EDITADO:'Editou pedido do galpão',ESTOQUE_PEDIDO_SEPARADO:'Marcou pedido como separado',ESTOQUE_PEDIDO_LIBERADO_PARCIAL:'Liberou parte do pedido do galpão',ESTOQUE_PEDIDO_LIBERADO:'Liberou pedido do galpão',ESTOQUE_PEDIDO_CANCELADO:'Cancelou pedido do galpão',ESTOQUE_PEDIDO_WHATSAPP_ABERTO:'Abriu o status do pedido no WhatsApp',
  LOJA_PRODUTO_CRIADO:'Cadastrou produto na loja',LOJA_PRODUTO_EDITADO:'Editou produto da loja',LOJA_PRODUTO_EXCLUIDO:'Excluiu produto da loja',LOJA_AJUSTE_ESTOQUE:'Ajustou estoque da loja',
  LOJA_VENDA:'Realizou venda',LOJA_VENDA_CORRIGIDA:'Corrigiu venda (ADM)',LOJA_VENDA_CANCELADA:'Cancelou venda (ADM)',
@@ -5820,10 +5820,11 @@ body:not(.v112-galpao-admin) #estoque .gal-quick{display:none!important}
   document.addEventListener('click',()=>setTimeout(apply,0),true);
 })();
 </script>
-<script src="v125-pagamento-corte.js?v=138"></script>
-<script src="v133-galpao-inteligente.js?v=138"></script>
-<script src="v135-pesquisa-produtor.js?v=138"></script>
-<script src="v137-importacao-segura.js?v=138"></script>
+<script src="v125-pagamento-corte.js?v=139"></script>
+<script src="v133-galpao-inteligente.js?v=139"></script>
+<script src="v135-pesquisa-produtor.js?v=139"></script>
+<script src="v137-importacao-segura.js?v=139"></script>
+<script src="v139-pagamentos-organizados.js?v=139"></script>
 <script id="v126-open-section">window.addEventListener('load',()=>{const id=location.hash.slice(1);if(['pagamentos','pesquisa'].includes(id))setTimeout(()=>{if(typeof go==='function')go(id)},250)});</script>
 </body>
 </html>

@@ -266,6 +266,9 @@
   }
 
   function canPay(local,date){const b=paymentBlockers(local,date);if(!b.pending.length&&!b.missingTurn.length)return true;alert(`⛔ PAGAMENTO BLOQUEADO\n\n${b.pending.length?`${b.pending.length} relatório(s) PDF ainda não foram concluídos.\n`:''}${b.missingTurn.length?`${b.missingTurn.length} entrada(s) importadas não possuem Manhã/Tarde.\n`:''}\nAbra o histórico de importações e resolva as pendências antes de pagar.`);updatePaymentGuard();return false}
+  // Integração pública usada pelo fechamento organizado da V139.
+  window.v137CanPay=canPay;
+  window.v137UpdatePaymentGuard=updatePaymentGuard;
 
   function migrateOldTurns(){
     let count=0;(Array.isArray(lancamentos)?lancamentos:[]).forEach(x=>{if(String(x.origem||'').toUpperCase().includes('PDF')&&!String(x.periodo||'').trim()&&!norm(x.turno).match(/manh|tard/)){const t=turnFromHour(x.hora);if(t){x.periodo=t;x.turno=turnName(t);count++}}});
