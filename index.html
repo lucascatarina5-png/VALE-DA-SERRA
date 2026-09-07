@@ -1357,7 +1357,7 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
     <div style="display:flex;align-items:center;gap:10px"><span style="font-size:30px">👤</span><div><small>ADMINISTRADOR</small><div style="font-weight:800;margin-top:3px">Nível: Administrador</div></div></div>
   </div>
 <div style="padding:12px 8px 2px;color:#dfe9f8;font-size:11px;line-height:1.55">
-    Versão 149<br>
+    Versão 150<br>
     © Vale da Serra Laticínios<br>
     Todos os direitos reservados
   </div>
@@ -3619,7 +3619,7 @@ function imprimirRelatorioA4(){
   w.document.close();
 }
 
-function exportarBackup(){let importacoesPdf=[];try{importacoesPdf=JSON.parse(localStorage.getItem('vds_pdf_import_batches_v137')||'[]')}catch(_){}downloadBlob(JSON.stringify({produtores,lancamentos,pagamentos,debitos,pagamentosDebitos,importacoesPdf,versao:149},null,2),'backup_vale_da_serra.json','application/json')}
+function exportarBackup(){let importacoesPdf=[];try{importacoesPdf=JSON.parse(localStorage.getItem('vds_pdf_import_batches_v137')||'[]')}catch(_){}downloadBlob(JSON.stringify({produtores,lancamentos,pagamentos,debitos,pagamentosDebitos,importacoesPdf,versao:150},null,2),'backup_vale_da_serra.json','application/json')}
 function importarBackup(ev){let f=ev.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);produtores=d.produtores||[];lancamentos=d.lancamentos||[];pagamentos=d.pagamentos||[];debitos=d.debitos||[];pagamentosDebitos=d.pagamentosDebitos||[];localStorage.setItem('vds_pdf_import_batches_v137',JSON.stringify(d.importacoesPdf||[]));save();alert('Backup importado.')}catch(e){alert('Backup inválido.')}};r.readAsText(f)}
 function downloadBlob(txt,name,type){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type}));a.download=name;a.click();URL.revokeObjectURL(a.href)}
 function apagarTudo(){if(confirm('Apagar todos os dados?')){produtores=[];lancamentos=[];pagamentos=[];debitos=[];pagamentosDebitos=[];localStorage.setItem('vds_pdf_import_batches_v137','[]');save()}}
@@ -5326,7 +5326,7 @@ const old=window.renderPainel;if(typeof old==='function')window.renderPainel=fun
    <label>Arquivo PDF<input id="v104EntradaFile" type="file" accept="application/pdf,.pdf"></label>
    <label>Data real das coletas<input id="v104EntradaData" type="date" onchange="if(window.v142HandleDateChange)v142HandleDateChange()"></label>
    <label>Localidade das entradas<input id="v104EntradaLocal" list="v107LocalidadesList" placeholder="Digite ou selecione uma localidade" autocomplete="off"><datalist id="v107LocalidadesList"></datalist></label>
-   <label>Modo de importação<select id="v104EntradaMode" disabled><option value="seguro">V149 — data real das coletas e conferência segura</option></select></label>
+   <label>Modo de importação<select id="v104EntradaMode" disabled><option value="seguro">V150 — data real das coletas e conferência segura</option></select></label>
   </div>
   <div class="v104-note">🛡️ <b>Importação segura:</b> o código do produtor, o total do PDF, a data, o turno e todas as linhas com <b>SIM</b> precisam conferir. Qualquer dúvida bloqueia o lote inteiro e também impede o pagamento até ser resolvida.<br><b>Pesquisa e cadastro rápido:</b> digite nome, apelido ou código. Se o produtor ainda não existir, cadastre-o nesta própria tela; o código do PDF será preservado e a localidade será reutilizada nas próximas entradas.</div>
   <div class="v104-actions"><button class="v104-primary" onclick="v104LerEntradaPDF()">🔎 Ler e distribuir</button><span id="v104EntradaStatus" class="v104-status"></span></div>
@@ -5856,13 +5856,14 @@ body:not(.v112-galpao-admin) #estoque .gal-quick{display:none!important}
   html body .main .hero>.v147-clock-panel strong{color:#fff!important;-webkit-text-fill-color:#fff!important;font-size:12px!important;font-weight:900!important;opacity:1!important}
 }
 </style>
-<script src="v125-pagamento-corte.js?v=149"></script>
-<script src="v133-galpao-inteligente.js?v=149"></script>
-<script src="v135-pesquisa-produtor.js?v=149"></script>
-<script src="v137-importacao-segura.js?v=149"></script>
-<script src="v139-pagamentos-organizados.js?v=149"></script>
-<script src="v144-painel-executivo.js?v=149"></script>
-<script src="v149-limpeza-dados.js?v=149"></script>
+<script src="v125-pagamento-corte.js?v=150"></script>
+<script src="v133-galpao-inteligente.js?v=150"></script>
+<script src="v135-pesquisa-produtor.js?v=150"></script>
+<script src="v137-importacao-segura.js?v=150"></script>
+<script src="v139-pagamentos-organizados.js?v=150"></script>
+<script src="v144-painel-executivo.js?v=150"></script>
+<script src="v149-limpeza-dados.js?v=150"></script>
+<script src="v150-saldo-anterior.js?v=150"></script>
 <script id="v126-open-section">window.addEventListener('load',()=>{const id=location.hash.slice(1);if(['pagamentos','pesquisa'].includes(id))setTimeout(()=>{if(typeof go==='function')go(id)},250)});</script>
 </body>
 </html>
