@@ -11,6 +11,7 @@
   const dateBR=value=>typeof brDate==='function'?brDate(value):String(value||'').split('-').reverse().join('/');
   const producer=id=>(Array.isArray(produtores)?produtores:[]).find(item=>String(item.id)===String(id));
   const entryLocal=entry=>String(entry?.local||producer(entry?.prodId)?.local||'').trim();
+  const financialLocal=entry=>String(producer(entry?.prodId)?.local||entryLocal(entry)).trim();
   const turn=entry=>norm(entry?.periodo||entry?.turno).startsWith('m')?'Manhã':'Tarde';
 
   function parseISO(value){const parts=String(value||'').slice(0,10).split('-').map(Number);return parts.length===3&&parts.every(Boolean)?Date.UTC(parts[0],parts[1]-1,parts[2]):NaN}
@@ -22,11 +23,11 @@
     const now=today(),ym=document.getElementById('v144Month')?.value||now.slice(0,7),q=document.getElementById('v144Fortnight')?.value||'mes',local=document.getElementById('v144Locality')?.value||'';
     return {ym,q,local,ini:q==='2'?ym+'-16':ym+'-01',fim:q==='1'?ym+'-15':monthEnd(ym)};
   }
-  function inLocality(entry,local){return !local||norm(entryLocal(entry))===norm(local)}
+  function inLocality(entry,local){return !local||norm(financialLocal(entry))===norm(local)}
   function inPeriod(entry,c){return String(entry?.data||'')>=c.ini&&String(entry?.data||'')<=c.fim&&inLocality(entry,c.local)}
   function producerEnabled(p){const state=norm(p?.statusCadastro||p?.situacaoCadastro||p?.situacao||'');return p?.ativo!==false&&!['inativo','excluido','bloqueado'].includes(state)}
   function allLocalities(){
-    const values=[];(Array.isArray(produtores)?produtores:[]).forEach(p=>{values.push(p.local);if(Array.isArray(p.localidadesConhecidas))values.push(...p.localidadesConhecidas)});(Array.isArray(lancamentos)?lancamentos:[]).forEach(entry=>values.push(entryLocal(entry)));
+    const values=[];(Array.isArray(produtores)?produtores:[]).forEach(p=>values.push(p.local));(Array.isArray(lancamentos)?lancamentos:[]).forEach(entry=>values.push(financialLocal(entry)));
     return [...new Set(values.map(value=>String(value||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
   }
   function openDebitValue(debit){try{return typeof saldoDebito==='function'?N(saldoDebito(debit.id)):N(debit.valor)}catch(_){return N(debit.valor)}}
@@ -62,6 +63,7 @@
     return {c,entries,top,recent,idle:idleProducers(c),pendingPdf:pendingPdf(),latestReport:latestReport(),financial:{liters:entries.reduce((sum,entry)=>sum+N(entry.qtd),0),gross,debtPdv,debtGalpao,debtOther,debtOpen,debtApplied,debtCarry,net:Math.max(0,gross-debtApplied)},kpis:{todayLiters,yesterdayLiters,todayCount:todayEntries.length,yesterdayCount:yesterdayEntries.length,todayPeople:new Set(todayEntries.map(entry=>String(entry.prodId))).size,active,totalProducers:availableProducers.length,monthLiters,monthAverage:monthLiters/monthDays}};
   }
   window.v144DashboardSnapshot=snapshot;
+  window.v153DashboardFinancialLocality=financialLocal;
 
   function pct(current,previous){if(!previous)return current?'+100%':'0%';const value=(current-previous)/previous*100;return `${value>=0?'+':''}${value.toFixed(1).replace('.',',')}%`}
   function periodLabel(c){return c.q==='1'?'1ª quinzena':c.q==='2'?'2ª quinzena':'Mês inteiro'}
@@ -117,7 +119,7 @@
   window.v144OpenList=function(kind){
     const data=snapshot(),title=document.getElementById('v144ModalTitle'),body=document.getElementById('v144ModalBody'),modal=document.getElementById('v144Modal');if(!title||!body||!modal)return;
     if(kind==='top'){title.textContent='🏆 Ranking completo de produtores';body.innerHTML=`<div class="v144-modal-table"><table><thead><tr><th>#</th><th>Produtor</th><th>Localidade</th><th>Litros</th><th>Valor</th></tr></thead><tbody>${data.top.map((item,index)=>`<tr><td><span class="v144-rank">${index+1}</span></td><td><button class="v144-link" onclick="v144CloseModal();v144OpenProducer('${E(item.p.id)}')">${E(item.p.nome)}</button></td><td>${E(item.p.local||'-')}</td><td>${liters(item.liters)} L</td><td>${cash(item.liters*(N(typeof VALOR_LITRO==='undefined'?2.30:VALOR_LITRO)||2.30))}</td></tr>`).join('')||rowEmpty(5,'Nenhum produtor neste período.')}</tbody></table></div>`}
-    else if(kind==='recent'){title.textContent='▤ Entradas do período';body.innerHTML=`<div class="v144-modal-table"><table><thead><tr><th>Data/hora</th><th>Produtor</th><th>Localidade</th><th>Litros</th><th>Turno</th><th>Ação</th></tr></thead><tbody>${data.recent.slice(0,200).map(entry=>`<tr><td>${dateBR(entry.data)}<small>${E(entry.hora||'')}</small></td><td>${E(producer(entry.prodId)?.nome||'Produtor')}</td><td>${E(entryLocal(entry)||'-')}</td><td>${liters(entry.qtd)} L</td><td>${E(turn(entry))}</td><td><button class="v144-edit" onclick="v144CloseModal();v144EditEntry('${E(entry.id)}')">✎</button></td></tr>`).join('')||rowEmpty(6,'Nenhuma entrada neste período.')}</tbody></table></div>`}
+    else if(kind==='recent'){title.textContent='▤ Entradas do período';body.innerHTML=`<div class="v144-modal-table"><table><thead><tr><th>Data/hora</th><th>Produtor</th><th>Localidade principal</th><th>Onde entregou</th><th>Litros</th><th>Turno</th><th>Ação</th></tr></thead><tbody>${data.recent.slice(0,200).map(entry=>`<tr><td>${dateBR(entry.data)}<small>${E(entry.hora||'')}</small></td><td>${E(producer(entry.prodId)?.nome||'Produtor')}</td><td>${E(financialLocal(entry)||'-')}</td><td>${E(entryLocal(entry)||'-')}</td><td>${liters(entry.qtd)} L</td><td>${E(turn(entry))}</td><td><button class="v144-edit" onclick="v144CloseModal();v144EditEntry('${E(entry.id)}')">✎</button></td></tr>`).join('')||rowEmpty(7,'Nenhuma entrada neste período.')}</tbody></table></div>`}
     else{title.textContent='⚠️ Produtores sem entrada';body.innerHTML=`<p class="v144-modal-note">Produtores cadastrados sem entrega há 3 dias ou mais. Cadastros desativados são ignorados.</p><div class="v144-modal-table"><table><thead><tr><th>Produtor</th><th>Localidade</th><th>Última entrada</th><th>Dias</th><th>Contato</th></tr></thead><tbody>${data.idle.map(item=>`<tr><td><button class="v144-link" onclick="v144CloseModal();v144OpenProducer('${E(item.p.id)}')">${E(item.p.nome)}</button></td><td>${E(item.p.local||'-')}</td><td>${item.last?dateBR(item.last.data):'Nunca entregou'}</td><td>${idleBadge(item)}</td><td><button class="v144-whats" onclick="v144Whats('${E(item.p.id)}')">◉ WhatsApp</button></td></tr>`).join('')||rowEmpty(5,'Nenhum produtor sem entrada.')}</tbody></table></div>`}
     modal.classList.add('on');modal.setAttribute('aria-hidden','false');
   };
@@ -151,7 +153,7 @@
   async function syncDashboardDebts(){
     try{if(typeof window.v133AtualizarDebitosServidor==='function'){await window.v133AtualizarDebitosServidor();render()}}catch(error){console.warn('Não foi possível atualizar os débitos do painel agora.',error)}
   }
-  function init(){if(S.initialized)return;S.initialized=true;inject();const hero=document.querySelector('.hero');if(hero&&!hero.querySelector('.v145-hero-user')){let name='Administrador',role='Administrador';try{name=V4?.user?.name||V4?.user?.username||name;role=V4?.user?.role||role}catch(_){}hero.insertAdjacentHTML('beforeend',`<div class="v145-hero-user"><i>♟</i><div><b>${E(name)}</b><small>${E(role)}</small></div><span>⌄</span></div>`)}const footer=document.querySelector('.footer');if(footer){footer.classList.add('v145-footer');footer.innerHTML='<span>♻ Vale da Serra Laticínios &nbsp;|&nbsp; Controle de Leite &nbsp;|&nbsp; Versão 151</span><strong>🌿 Valorizando o produtor rural!</strong>'}const month=document.getElementById('v144Month'),fortnight=document.getElementById('v144Fortnight'),now=today();if(month)month.value=now.slice(0,7);if(fortnight)fortnight.value='mes';render();setTimeout(syncDashboardDebts,450)}
+  function init(){if(S.initialized)return;S.initialized=true;inject();const hero=document.querySelector('.hero');if(hero&&!hero.querySelector('.v145-hero-user')){let name='Administrador',role='Administrador';try{name=V4?.user?.name||V4?.user?.username||name;role=V4?.user?.role||role}catch(_){}hero.insertAdjacentHTML('beforeend',`<div class="v145-hero-user"><i>♟</i><div><b>${E(name)}</b><small>${E(role)}</small></div><span>⌄</span></div>`)}const footer=document.querySelector('.footer');if(footer){footer.classList.add('v145-footer');footer.innerHTML='<span>♻ Vale da Serra Laticínios &nbsp;|&nbsp; Controle de Leite &nbsp;|&nbsp; Versão 153</span><strong>🌿 Valorizando o produtor rural!</strong>'}const month=document.getElementById('v144Month'),fortnight=document.getElementById('v144Fortnight'),now=today();if(month)month.value=now.slice(0,7);if(fortnight)fortnight.value='mes';render();setTimeout(syncDashboardDebts,450)}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(init,180),{once:true});else setTimeout(init,180);
   let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(document.getElementById('painel')?.classList.contains('active'))renderChart(snapshot())},120)});
 })();

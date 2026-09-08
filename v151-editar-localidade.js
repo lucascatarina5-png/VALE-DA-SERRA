@@ -13,7 +13,7 @@
     const values=[];
     (Array.isArray(produtores)?produtores:[]).forEach(item=>{values.push(item.local);if(Array.isArray(item.localidadesConhecidas))values.push(...item.localidadesConhecidas)});
     (Array.isArray(lancamentos)?lancamentos:[]).forEach(item=>values.push(item.local));
-    (Array.isArray(pagamentos)?pagamentos:[]).forEach(item=>{values.push(item.localidade);values.push(item.localidadeCadastroProdutor)});
+    (Array.isArray(pagamentos)?pagamentos:[]).forEach(item=>{values.push(item.localidade);values.push(item.localidadePrincipalPagamento);values.push(item.localidadeCadastroProdutor);if(Array.isArray(item.locaisEntrega))item.locaisEntrega.forEach(local=>values.push(local.local))});
     (Array.isArray(debitos)?debitos:[]).forEach(item=>values.push(item.localidade));
     batches().forEach(item=>{if(Array.isArray(item.localities))values.push(...item.localities);values.push(item.localidade);values.push(item.local)});
     const unique=new Map();values.map(clean).filter(Boolean).forEach(value=>{if(!unique.has(norm(value)))unique.set(norm(value),value)});return [...unique.values()].sort((a,b)=>a.localeCompare(b,'pt-BR'));
@@ -22,7 +22,7 @@
     const oldName=clean(oldValue),newName=clean(newValue),oldKey=norm(oldName),newKey=norm(newName),validOld=!!oldName&&localityValues().some(value=>norm(value)===oldKey),validNew=newName.length>=2&&newName.length<=80&&newName!==oldName;
     const producerRows=(Array.isArray(produtores)?produtores:[]).filter(item=>norm(item.local)===oldKey||(item.localidadesConhecidas||[]).some(value=>norm(value)===oldKey));
     const entryRows=(Array.isArray(lancamentos)?lancamentos:[]).filter(item=>norm(item.local||producer(item.prodId)?.local)===oldKey);
-    const paymentRows=(Array.isArray(pagamentos)?pagamentos:[]).filter(item=>norm(item.localidade)===oldKey||norm(item.localidadeCadastroProdutor)===oldKey);
+    const paymentRows=(Array.isArray(pagamentos)?pagamentos:[]).filter(item=>norm(item.localidade)===oldKey||norm(item.localidadePrincipalPagamento)===oldKey||norm(item.localidadeCadastroProdutor)===oldKey||(item.locaisEntrega||[]).some(local=>norm(local.local)===oldKey));
     const debtRows=(Array.isArray(debitos)?debitos:[]).filter(item=>norm(item.localidade||producer(item.prodId)?.local)===oldKey);
     const batchRows=batches().filter(item=>(item.localities||[]).some(value=>norm(value)===oldKey)||norm(item.localidade)===oldKey||norm(item.local)===oldKey);
     const targetExists=!!newName&&localityValues().some(value=>norm(value)===newKey&&norm(value)!==oldKey);
@@ -37,7 +37,7 @@
   function applyRename(data,importacoesPdf){
     produtores.forEach(item=>{item.local=replaceValue(item.local,data);item.localidadesConhecidas=dedupeKnown((item.localidadesConhecidas||[]).map(value=>replaceValue(value,data)),item.local);if(!item.localidadesConhecidas.length)delete item.localidadesConhecidas});
     lancamentos.forEach(item=>{if(norm(item.local||producer(item.prodId)?.local)===data.oldKey)item.local=data.newName});
-    pagamentos.forEach(item=>{item.localidade=replaceValue(item.localidade,data);item.localidadeCadastroProdutor=replaceValue(item.localidadeCadastroProdutor,data)});
+    pagamentos.forEach(item=>{item.localidade=replaceValue(item.localidade,data);item.localidadePrincipalPagamento=replaceValue(item.localidadePrincipalPagamento,data);item.localidadeCadastroProdutor=replaceValue(item.localidadeCadastroProdutor,data);if(Array.isArray(item.locaisEntrega))item.locaisEntrega.forEach(local=>{local.local=replaceValue(local.local,data)})});
     debitos.forEach(item=>{if(item.localidade!==undefined)item.localidade=replaceValue(item.localidade,data)});
     importacoesPdf.forEach(item=>{if(Array.isArray(item.localities))item.localities=dedupeKnown(item.localities.map(value=>replaceValue(value,data)),'');if(item.localidade!==undefined)item.localidade=replaceValue(item.localidade,data);if(item.local!==undefined)item.local=replaceValue(item.local,data)});
     try{if(typeof V104!=='undefined'&&Array.isArray(V104.entradaRows))V104.entradaRows.forEach(item=>{item.localidade=replaceValue(item.localidade,data)})}catch(_){}

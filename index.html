@@ -1357,7 +1357,7 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
     <div style="display:flex;align-items:center;gap:10px"><span style="font-size:30px">👤</span><div><small>ADMINISTRADOR</small><div style="font-weight:800;margin-top:3px">Nível: Administrador</div></div></div>
   </div>
 <div style="padding:12px 8px 2px;color:#dfe9f8;font-size:11px;line-height:1.55">
-    Versão 152<br>
+    Versão 153<br>
     © Vale da Serra Laticínios<br>
     Todos os direitos reservados
   </div>
@@ -2658,6 +2658,15 @@ function valorDebitoNoComprovante(pg,debito){
   }
   return pg?Number(debito.valor||0):saldoDebito(debito.id);
 }
+function resumoLocaisEntregaPagamento(pg,arr,p){
+  if(Array.isArray(pg?.locaisEntrega)&&pg.locaisEntrega.length)return pg.locaisEntrega.map(x=>({local:String(x.local||'Não informada'),litros:Number(x.litros||0)}));
+  let mapa=new Map();
+  (arr||[]).forEach(x=>{let local=String(x.local||p?.local||'Não informada').trim(),chave=normalizarTextoImportacao(local),item=mapa.get(chave)||{local,litros:0};item.litros+=Number(x.qtd||0);mapa.set(chave,item)});
+  if(!mapa.size&&pg?.localidade)mapa.set(normalizarTextoImportacao(pg.localidade),{local:pg.localidade,litros:Number(pg.litros||0)});
+  return [...mapa.values()].sort((a,b)=>b.litros-a.litros||a.local.localeCompare(b.local,'pt-BR'));
+}
+function localPrincipalPagamento(pg,p){return String(pg?.localidadePrincipalPagamento||pg?.localidadeCadastroProdutor||p?.local||pg?.localidade||'-').trim()}
+function textoLocaisEntregaPagamento(locais){return (locais||[]).map(x=>`${x.local}: ${fmt(x.litros)} L`).join(' • ')||'Não informado'}
 function textoComprovante(prodId){
   let ym=pgMes.value||isoHoje().slice(0,7),q=pgQuinzena.value,per=periodoPagamento(),p=prodById(prodId);
   let pg=pagamentoDo(prodId,ym,q),entryIds=new Set(Array.isArray(pg?.entryIds)?pg.entryIds.map(String):[]),debitIds=new Set(Array.isArray(pg?.debitIds)?pg.debitIds.map(String):[]);
@@ -2665,14 +2674,14 @@ function textoComprovante(prodId){
   let debArr=debitIds.size?debitosProd(prodId).filter(x=>debitIds.has(String(x.id))):debitosProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
   if(pg?.corteData){per={ini:arr.length?arr.reduce((a,x)=>x.data<a?x.data:a,arr[0].data):per.ini,fim:pg.corteData}}
   let litros=pg?Number(pg.litros||0):arr.reduce((s,x)=>s+Number(x.qtd),0),bruto=pg?Number(pg.valorBruto||0):litros*VALOR_LITRO,totalDeb=pg?Number(pg.totalDebitos||0):debArr.reduce((s,x)=>s+saldoDebito(x.id),0),liquido=pg?Number(pg.valorPago||0):Math.max(0,bruto-totalDeb);
-  let localEntrega=pg?.localidade||arr[0]?.local||p?.local||'-',localPrincipal=pg?.localidadeCadastroProdutor||p?.local||'-',foraLocalidade=normalizarTextoImportacao(localEntrega)!==normalizarTextoImportacao(localPrincipal);
+  let localPrincipal=localPrincipalPagamento(pg,p),locaisEntrega=resumoLocaisEntregaPagamento(pg,arr,p),foraLocalidade=locaisEntrega.some(x=>normalizarTextoImportacao(x.local)!==normalizarTextoImportacao(localPrincipal));
   let debTxt=debArr.length?debArr.map(x=>`• ${brDate(x.data)} - ${x.descricao}: ${moeda(valorDebitoNoComprovante(pg,x))}`).join('\n'):'Sem débitos nesta quinzena.';
   return `VALE DA SERRA LATICÍNIOS
 Comprovante de Pagamento - ${q}ª Quinzena
 
 Produtor: ${p?.nome||''}
-Localidade da entrega/pagamento: ${localEntrega}
-${foraLocalidade?`Localidade principal do cadastro: ${localPrincipal}\n`:''}Período: ${brDate(per.ini)} a ${brDate(per.fim)}
+Localidade principal/pagamento: ${localPrincipal}
+${foraLocalidade?`Onde o leite foi entregue: ${textoLocaisEntregaPagamento(locaisEntrega)}\n`:''}Período: ${brDate(per.ini)} a ${brDate(per.fim)}
 Total de leite: ${fmt(litros)} L
 Valor por litro: ${moeda(VALOR_LITRO)}
 Valor bruto: ${moeda(bruto)}
@@ -2692,7 +2701,7 @@ async function gerarComprovantePNG(prodId){
   let debArr=debitIds.size?debitosProd(prodId).filter(x=>debitIds.has(String(x.id))):debitosProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
   if(pg?.corteData){per={ini:arr.length?arr.reduce((a,x)=>x.data<a?x.data:a,arr[0].data):per.ini,fim:pg.corteData}}
   let litros=pg?Number(pg.litros||0):arr.reduce((s,x)=>s+Number(x.qtd),0),bruto=pg?Number(pg.valorBruto||0):litros*VALOR_LITRO,totalDeb=pg?Number(pg.totalDebitos||0):debArr.reduce((s,x)=>s+saldoDebito(x.id),0),liquido=pg?Number(pg.valorPago||0):Math.max(0,bruto-totalDeb);
-  let localEntrega=pg?.localidade||arr[0]?.local||p?.local||'-',localPrincipal=pg?.localidadeCadastroProdutor||p?.local||'-',foraLocalidade=normalizarTextoImportacao(localEntrega)!==normalizarTextoImportacao(localPrincipal);
+  let localPrincipal=localPrincipalPagamento(pg,p),locaisEntrega=resumoLocaisEntregaPagamento(pg,arr,p),foraLocalidade=locaisEntrega.some(x=>normalizarTextoImportacao(x.local)!==normalizarTextoImportacao(localPrincipal)),locaisEntregaTexto=textoLocaisEntregaPagamento(locaisEntrega);
 
   const width=1080, pad=60, rowH=36;
   const debExtra=Math.max(1,debArr.length)*rowH;
@@ -2739,8 +2748,8 @@ async function gerarComprovantePNG(prodId){
   // produtor
   ctx.fillStyle='#10233f';ctx.font='bold 28px Arial';ctx.fillText(p?.nome||'',pad,y);
   y+=38; ctx.fillStyle='#617086';ctx.font='19px Arial';
-  ctx.fillText(`Entrega/pagamento: ${localEntrega}  •  ${q}ª quinzena  •  ${brDate(per.ini)} a ${brDate(per.fim)}`,pad,y);
-  if(foraLocalidade){y+=29;ctx.fillText(`Localidade principal do cadastro: ${localPrincipal}`,pad,y)}
+  ctx.fillText(`Principal/pagamento: ${localPrincipal}  •  ${q}ª quinzena  •  ${brDate(per.ini)} a ${brDate(per.fim)}`,pad,y);
+  if(foraLocalidade){y+=29;ctx.fillText(`Onde entregou: ${locaisEntregaTexto}`,pad,y)}
   if(pg){y+=31;ctx.fillText(`Data do pagamento: ${brDate(pg.dataPagamento)}`,pad,y)}
   y+=48;
 
@@ -2903,11 +2912,11 @@ function imprimirCupom(prodId,formato='80mm'){
   let debArr=debitIds.size?debitosProd(prodId).filter(x=>debitIds.has(String(x.id))):debitosProd(prodId).filter(x=>x.data>=per.ini&&x.data<=per.fim);
   if(pg?.corteData){per={ini:arr.length?arr.reduce((a,x)=>x.data<a?x.data:a,arr[0].data):per.ini,fim:pg.corteData}}
   let litros=pg?Number(pg.litros||0):arr.reduce((s,x)=>s+Number(x.qtd),0),bruto=pg?Number(pg.valorBruto||0):litros*VALOR_LITRO,totalDeb=pg?Number(pg.totalDebitos||0):debArr.reduce((s,x)=>s+saldoDebito(x.id),0),liquido=pg?Number(pg.valorPago||0):Math.max(0,bruto-totalDeb);
-  let localEntrega=pg?.localidade||arr[0]?.local||p?.local||'-',localPrincipal=pg?.localidadeCadastroProdutor||p?.local||'-',foraLocalidade=normalizarTextoImportacao(localEntrega)!==normalizarTextoImportacao(localPrincipal);
+  let localPrincipal=localPrincipalPagamento(pg,p),locaisEntrega=resumoLocaisEntregaPagamento(pg,arr,p),foraLocalidade=locaisEntrega.some(x=>normalizarTextoImportacao(x.local)!==normalizarTextoImportacao(localPrincipal)),locaisEntregaTexto=textoLocaisEntregaPagamento(locaisEntrega);
   let logo=(document.querySelector('.hero-logo')||document.querySelector('.logo-wrap img'))?.src||'';
   let w=window.open('','','width=900,height=900');if(!w)return;
 
-  let rows=arr.map(x=>`<tr><td>${brDate(x.data)}</td><td>${normalizarTextoImportacao(x.turno||x.periodo).startsWith('manha')?'Manhã':'Tarde'}</td><td>${x.local||localEntrega}</td><td style="text-align:right">${fmt(x.qtd)} L</td></tr>`).join('');
+  let rows=arr.map(x=>`<tr><td>${brDate(x.data)}</td><td>${normalizarTextoImportacao(x.turno||x.periodo).startsWith('manha')?'Manhã':'Tarde'}</td><td>${x.local||localPrincipal}</td><td style="text-align:right">${fmt(x.qtd)} L</td></tr>`).join('');
   let debRows=debArr.length?debArr.map(x=>{
     let pago=totalPagoDebito(x.id),saldo=saldoDebito(x.id);
     let hist=pagamentosDoDebito(x.id).map(pg=>`${brDate(pg.data)}: ${moeda(pg.valor)}`).join(' • ')||'-';
@@ -2964,8 +2973,8 @@ function imprimirCupom(prodId,formato='80mm'){
 
       <div class="producer">
         <b>${p.nome}</b><br>
-        <b>Localidade da entrega/pagamento:</b> ${localEntrega}<br>
-        ${foraLocalidade?`<b>Localidade principal:</b> ${localPrincipal}<br>`:''}
+        <b>Localidade principal/pagamento:</b> ${localPrincipal}<br>
+        ${foraLocalidade?`<b>Onde o leite foi entregue:</b> ${locaisEntregaTexto}<br>`:''}
         ${q}ª quinzena • ${brDate(per.ini)} a ${brDate(per.fim)}
         ${pg?`<br>Pagamento em ${brDate(pg.dataPagamento)}`:''}
       </div>
@@ -5337,7 +5346,7 @@ const old=window.renderPainel;if(typeof old==='function')window.renderPainel=fun
    <label>Arquivo PDF<input id="v104EntradaFile" type="file" accept="application/pdf,.pdf"></label>
    <label>Data real das coletas<input id="v104EntradaData" type="date" onchange="if(window.v142HandleDateChange)v142HandleDateChange()"></label>
    <label>Localidade das entradas<input id="v104EntradaLocal" list="v107LocalidadesList" placeholder="Digite ou selecione uma localidade" autocomplete="off"><datalist id="v107LocalidadesList"></datalist></label>
-   <label>Modo de importação<select id="v104EntradaMode" disabled><option value="seguro">V152 — data real das coletas e conferência segura</option></select></label>
+   <label>Modo de importação<select id="v104EntradaMode" disabled><option value="seguro">V153 — local real da entrega e pagamento pela localidade principal</option></select></label>
   </div>
   <div class="v104-note">🛡️ <b>Importação segura:</b> o código do produtor, o total do PDF, a data, o turno e todas as linhas com <b>SIM</b> precisam conferir. Qualquer dúvida bloqueia o lote inteiro e também impede o pagamento até ser resolvida.<br><b>Pesquisa e cadastro rápido:</b> digite nome, apelido ou código. Se o produtor ainda não existir, cadastre-o nesta própria tela; o código do PDF será preservado e a localidade será reutilizada nas próximas entradas.</div>
   <div class="v104-actions"><button class="v104-primary" onclick="v104LerEntradaPDF()">🔎 Ler e distribuir</button><span id="v104EntradaStatus" class="v104-status"></span></div>
@@ -5867,16 +5876,16 @@ body:not(.v112-galpao-admin) #estoque .gal-quick{display:none!important}
   html body .main .hero>.v147-clock-panel strong{color:#fff!important;-webkit-text-fill-color:#fff!important;font-size:12px!important;font-weight:900!important;opacity:1!important}
 }
 </style>
-<script src="v125-pagamento-corte.js?v=152"></script>
-<script src="v133-galpao-inteligente.js?v=152"></script>
-<script src="v135-pesquisa-produtor.js?v=152"></script>
-<script src="v137-importacao-segura.js?v=152"></script>
-<script src="v139-pagamentos-organizados.js?v=152"></script>
-<script src="v144-painel-executivo.js?v=152"></script>
-<script src="v149-limpeza-dados.js?v=152"></script>
-<script src="v150-saldo-anterior.js?v=152"></script>
-<script src="v151-editar-localidade.js?v=152"></script>
-<script src="v152-relatorio-pre-pagamento.js?v=152"></script>
+<script src="v125-pagamento-corte.js?v=153"></script>
+<script src="v133-galpao-inteligente.js?v=153"></script>
+<script src="v135-pesquisa-produtor.js?v=153"></script>
+<script src="v137-importacao-segura.js?v=153"></script>
+<script src="v139-pagamentos-organizados.js?v=153"></script>
+<script src="v144-painel-executivo.js?v=153"></script>
+<script src="v149-limpeza-dados.js?v=153"></script>
+<script src="v150-saldo-anterior.js?v=153"></script>
+<script src="v151-editar-localidade.js?v=153"></script>
+<script src="v152-relatorio-pre-pagamento.js?v=153"></script>
 <script id="v126-open-section">window.addEventListener('load',()=>{const id=location.hash.slice(1);if(['pagamentos','pesquisa'].includes(id))setTimeout(()=>{if(typeof go==='function')go(id)},250)});</script>
 </body>
 </html>

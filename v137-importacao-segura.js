@@ -145,7 +145,7 @@
     if(manualCodes)warnings.push(`${manualCodes} código(s) diferente(s) foram confirmados manualmente e serão guardados no cadastro correto.`);
     if(dateInfo.crosses&&data>=dateInfo.start&&data<=dateInfo.end)warnings.push(`O MilkWork atravessou ${brDate(dateInfo.start)} a ${brDate(dateInfo.end)}. As entradas serão gravadas em ${brDate(data)} com a justificativa informada.`);
     if(variations)warnings.push(`${variations} entrada(s) variam 50% ou mais da média recente do mesmo turno.`);
-    if(localConflicts)warnings.push(`${localConflicts} entrega(s) ocorreram fora da localidade principal. O leite será registrado e pago pela localidade desta entrega; o cadastro principal não será alterado.`);
+    if(localConflicts)warnings.push(`${localConflicts} entrega(s) ocorreram fora da localidade principal. O local real será preservado, mas o leite continuará no pagamento da localidade principal do produtor, sem duplicação.`);
     return {rows,meta,data,total,declared,prepared,issues:[...new Set(issues)],warnings,manual,manualCodes,unresolved,variations,localConflicts,duplicates,dateInfo,dateReason:reason,dateConfirmed:confirmed,dateAdjusted};
   }
 
