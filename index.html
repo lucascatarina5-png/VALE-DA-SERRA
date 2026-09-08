@@ -1357,7 +1357,7 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
     <div style="display:flex;align-items:center;gap:10px"><span style="font-size:30px">👤</span><div><small>ADMINISTRADOR</small><div style="font-weight:800;margin-top:3px">Nível: Administrador</div></div></div>
   </div>
 <div style="padding:12px 8px 2px;color:#dfe9f8;font-size:11px;line-height:1.55">
-    Versão 151<br>
+    Versão 152<br>
     © Vale da Serra Laticínios<br>
     Todos os direitos reservados
   </div>
@@ -1458,6 +1458,17 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
           <div><label>WhatsApp do responsável pelo tanque</label><input id="pWhatsTanqueiro" placeholder="Ex.: 5588999999999"></div>
           <div><label>Caminhão responsável</label><input id="pCaminhao"></div>
           <div><label>WhatsApp do produtor</label><input id="pWhats" placeholder="Ex.: 5588999999999"></div>
+          <div class="full v152-bank-title v152-bank-private"><b>🏦 Dados para pagamento do produtor</b><small>Estas informações serão usadas somente nos relatórios internos de depósito.</small></div>
+          <div class="v152-bank-private"><label>Forma preferida de pagamento</label><select id="pFormaPagamento"><option value="">Não informada</option><option value="pix">PIX</option><option value="transferencia">Transferência bancária</option><option value="dinheiro">Dinheiro</option></select></div>
+          <div class="v152-bank-private"><label>Banco</label><input id="pBanco" placeholder="Ex.: Banco do Brasil"></div>
+          <div class="v152-bank-private"><label>Agência</label><input id="pAgencia" placeholder="Ex.: 1234-5"></div>
+          <div class="v152-bank-private"><label>Conta e dígito</label><input id="pConta" placeholder="Ex.: 12345-6"></div>
+          <div class="v152-bank-private"><label>Tipo de conta</label><select id="pTipoConta"><option value="">Não informado</option><option value="corrente">Conta corrente</option><option value="poupanca">Poupança</option><option value="pagamento">Conta de pagamento</option></select></div>
+          <div class="v152-bank-private"><label>Titular da conta</label><input id="pTitularConta"></div>
+          <div class="v152-bank-private"><label>CPF/CNPJ do titular</label><input id="pDocumentoTitular" inputmode="numeric"></div>
+          <div class="v152-bank-private"><label>Tipo da chave PIX</label><select id="pTipoChavePix"><option value="">Não informado</option><option value="cpf">CPF</option><option value="cnpj">CNPJ</option><option value="telefone">Telefone</option><option value="email">E-mail</option><option value="aleatoria">Chave aleatória</option></select></div>
+          <div class="v152-bank-private"><label>Chave PIX</label><input id="pChavePix"></div>
+          <div class="v152-bank-private"><label>Dados conferidos em</label><input id="pDadosBancariosConferidosEm" type="date"></div>
           <div class="full actions"><button class="btn yellow" type="submit">Salvar produtor</button><button class="btn secondary" type="button" onclick="limparProd()">Limpar</button></div>
         </form>
       </div>
@@ -2057,8 +2068,8 @@ document.addEventListener('keydown',e=>{
   }
 });
 
-document.getElementById('formProd').addEventListener('submit',e=>{e.preventDefault();let eraEdicao=!!editId,anterior=editId?prodById(editId)||{}:{},p={...anterior,id:editId||crypto.randomUUID(),nome:pNome.value.trim(),local:pLocal.value.trim(),tanqueiro:pTanqueiro.value.trim(),whatsTanqueiro:pWhatsTanqueiro.value.trim(),caminhao:pCaminhao.value.trim(),whatsapp:pWhats.value.trim()};if(editId)produtores=produtores.map(x=>x.id===editId?p:x);else produtores.push(p);v25Audit(eraEdicao?'PRODUTOR_EDITADO':'PRODUTOR_CRIADO',{nome:p.nome,local:p.local,tanqueiro:p.tanqueiro,caminhao:p.caminhao});editId=null;e.target.reset();save()});
-function editarProd(id){let p=prodById(id);if(!p)return;editId=id;pNome.value=p.nome;pLocal.value=p.local;pTanqueiro.value=p.tanqueiro;pWhatsTanqueiro.value=p.whatsTanqueiro||'';pCaminhao.value=p.caminhao;pWhats.value=p.whatsapp||'';window.scrollTo({top:0,behavior:'smooth'})}
+document.getElementById('formProd').addEventListener('submit',e=>{e.preventDefault();let eraEdicao=!!editId,anterior=editId?prodById(editId)||{}:{},p={...anterior,id:editId||crypto.randomUUID(),nome:pNome.value.trim(),local:pLocal.value.trim(),tanqueiro:pTanqueiro.value.trim(),whatsTanqueiro:pWhatsTanqueiro.value.trim(),caminhao:pCaminhao.value.trim(),whatsapp:pWhats.value.trim(),formaPagamento:pFormaPagamento.value,banco:pBanco.value.trim(),agencia:pAgencia.value.trim(),conta:pConta.value.trim(),tipoConta:pTipoConta.value,titularConta:pTitularConta.value.trim(),documentoTitular:pDocumentoTitular.value.trim(),tipoChavePix:pTipoChavePix.value,chavePix:pChavePix.value.trim(),dadosBancariosConferidosEm:pDadosBancariosConferidosEm.value};if(editId)produtores=produtores.map(x=>x.id===editId?p:x);else produtores.push(p);v25Audit(eraEdicao?'PRODUTOR_EDITADO':'PRODUTOR_CRIADO',{nome:p.nome,local:p.local,tanqueiro:p.tanqueiro,caminhao:p.caminhao,formaPagamento:p.formaPagamento||'não informada'});editId=null;e.target.reset();save()});
+function editarProd(id){let p=prodById(id);if(!p)return;editId=id;pNome.value=p.nome;pLocal.value=p.local;pTanqueiro.value=p.tanqueiro;pWhatsTanqueiro.value=p.whatsTanqueiro||'';pCaminhao.value=p.caminhao;pWhats.value=p.whatsapp||'';pFormaPagamento.value=p.formaPagamento||'';pBanco.value=p.banco||'';pAgencia.value=p.agencia||'';pConta.value=p.conta||'';pTipoConta.value=p.tipoConta||'';pTitularConta.value=p.titularConta||'';pDocumentoTitular.value=p.documentoTitular||'';pTipoChavePix.value=p.tipoChavePix||'';pChavePix.value=p.chavePix||'';pDadosBancariosConferidosEm.value=p.dadosBancariosConferidosEm||'';window.scrollTo({top:0,behavior:'smooth'})}
 function excluirProd(id){if(lancamentos.some(x=>x.prodId===id)){alert('Este produtor possui lançamentos.');return}let p=prodById(id);if(confirm('Excluir produtor?')){produtores=produtores.filter(x=>x.id!==id);v25Audit('PRODUTOR_EXCLUIDO',{nome:p?.nome||id,local:p?.local||''});save()}}
 function limparProd(){editId=null;formProd.reset()}
 
@@ -5326,7 +5337,7 @@ const old=window.renderPainel;if(typeof old==='function')window.renderPainel=fun
    <label>Arquivo PDF<input id="v104EntradaFile" type="file" accept="application/pdf,.pdf"></label>
    <label>Data real das coletas<input id="v104EntradaData" type="date" onchange="if(window.v142HandleDateChange)v142HandleDateChange()"></label>
    <label>Localidade das entradas<input id="v104EntradaLocal" list="v107LocalidadesList" placeholder="Digite ou selecione uma localidade" autocomplete="off"><datalist id="v107LocalidadesList"></datalist></label>
-   <label>Modo de importação<select id="v104EntradaMode" disabled><option value="seguro">V151 — data real das coletas e conferência segura</option></select></label>
+   <label>Modo de importação<select id="v104EntradaMode" disabled><option value="seguro">V152 — data real das coletas e conferência segura</option></select></label>
   </div>
   <div class="v104-note">🛡️ <b>Importação segura:</b> o código do produtor, o total do PDF, a data, o turno e todas as linhas com <b>SIM</b> precisam conferir. Qualquer dúvida bloqueia o lote inteiro e também impede o pagamento até ser resolvida.<br><b>Pesquisa e cadastro rápido:</b> digite nome, apelido ou código. Se o produtor ainda não existir, cadastre-o nesta própria tela; o código do PDF será preservado e a localidade será reutilizada nas próximas entradas.</div>
   <div class="v104-actions"><button class="v104-primary" onclick="v104LerEntradaPDF()">🔎 Ler e distribuir</button><span id="v104EntradaStatus" class="v104-status"></span></div>
@@ -5856,15 +5867,16 @@ body:not(.v112-galpao-admin) #estoque .gal-quick{display:none!important}
   html body .main .hero>.v147-clock-panel strong{color:#fff!important;-webkit-text-fill-color:#fff!important;font-size:12px!important;font-weight:900!important;opacity:1!important}
 }
 </style>
-<script src="v125-pagamento-corte.js?v=151"></script>
-<script src="v133-galpao-inteligente.js?v=151"></script>
-<script src="v135-pesquisa-produtor.js?v=151"></script>
-<script src="v137-importacao-segura.js?v=151"></script>
-<script src="v139-pagamentos-organizados.js?v=151"></script>
-<script src="v144-painel-executivo.js?v=151"></script>
-<script src="v149-limpeza-dados.js?v=151"></script>
-<script src="v150-saldo-anterior.js?v=151"></script>
-<script src="v151-editar-localidade.js?v=151"></script>
+<script src="v125-pagamento-corte.js?v=152"></script>
+<script src="v133-galpao-inteligente.js?v=152"></script>
+<script src="v135-pesquisa-produtor.js?v=152"></script>
+<script src="v137-importacao-segura.js?v=152"></script>
+<script src="v139-pagamentos-organizados.js?v=152"></script>
+<script src="v144-painel-executivo.js?v=152"></script>
+<script src="v149-limpeza-dados.js?v=152"></script>
+<script src="v150-saldo-anterior.js?v=152"></script>
+<script src="v151-editar-localidade.js?v=152"></script>
+<script src="v152-relatorio-pre-pagamento.js?v=152"></script>
 <script id="v126-open-section">window.addEventListener('load',()=>{const id=location.hash.slice(1);if(['pagamentos','pesquisa'].includes(id))setTimeout(()=>{if(typeof go==='function')go(id)},250)});</script>
 </body>
 </html>

@@ -37,7 +37,7 @@
   function periodLabel(q){return q===1?'1ª quinzena':'2ª quinzena'}
   function orderStatus(v){return ({pendente:'Pendente',separado:'Separado',parcial:'Liberado parcialmente',liberado:'Liberado',cancelado:'Cancelado'})[v]||v||'-'}
   function orderClass(v){return ['liberado'].includes(v)?'ok':['cancelado'].includes(v)?'bad':['separado'].includes(v)?'info':'warn'}
-  function paymentName(v){return ({leite:'Descontar do leite',pix:'PIX',dinheiro:'Dinheiro',cartao:'Cartão',fiado:'Boleto / Fiado',doacao:'Doação'})[String(v||'').toLowerCase()]||v||'-'}
+  function paymentName(v){return ({leite:'Descontar do leite',pix:'PIX',transferencia:'Transferência bancária',dinheiro:'Dinheiro',cartao:'Cartão',fiado:'Boleto / Fiado',doacao:'Doação'})[String(v||'').toLowerCase()]||v||'-'}
 
   function financialSnapshot(d){
     const q=d?.quinzena||{},gross=N(q.valor_bruto),calculated=N(q.descontos),open=(d?.debits||[]).reduce((s,x)=>s+debitBalance(x),0),pg=q.pagamento||null;
@@ -45,6 +45,13 @@
     const includedRemaining=q.pago?Math.max(0,N(pg?.saldoDebitosApos)||0):Math.max(0,calculated-applied);
     const otherOpen=Math.max(0,open-calculated),base=Math.max(open,calculated),carry=q.pago?open:Math.max(0,base-applied);
     return {gross,eligible,open,applied,net,includedRemaining,otherOpen,carry};
+  }
+  function bankingSummary(p){
+    const method=String(p?.formaPagamento||'').toLowerCase();
+    if(method==='pix')return p?.chavePix?`${String(p.tipoChavePix||'Chave').toUpperCase()}: ${p.chavePix}`:'PIX ainda sem chave cadastrada';
+    if(method==='transferencia')return [p?.banco,p?.agencia&&'Ag. '+p.agencia,p?.conta&&'Conta '+p.conta,p?.tipoConta].filter(Boolean).join(' • ')||'Conta bancária ainda incompleta';
+    if(method==='dinheiro')return 'Pagamento em dinheiro';
+    return 'Forma de pagamento ainda não informada';
   }
 
   function isoOffset(iso,days){const d=new Date(String(iso||today())+'T12:00:00');d.setDate(d.getDate()+days);return d.toISOString().slice(0,10)}
@@ -122,6 +129,17 @@
         <label>WhatsApp do tanqueiro<input id="v135PTankerPhone" inputmode="tel"></label>
         <label>Caminhão responsável<input id="v135PTruck"></label>
         <label>WhatsApp do produtor<input id="v135PPhone" inputmode="tel"></label>
+        <div class="wide v152-bank-title v152-bank-private"><b>🏦 Dados bancários e forma de pagamento</b><small>Usados no relatório interno de conferência e depósitos.</small></div>
+        <label class="v152-bank-private">Forma preferida<select id="v135PPaymentMethod"><option value="">Não informada</option><option value="pix">PIX</option><option value="transferencia">Transferência bancária</option><option value="dinheiro">Dinheiro</option></select></label>
+        <label class="v152-bank-private">Banco<input id="v135PBank"></label>
+        <label class="v152-bank-private">Agência<input id="v135PBranch"></label>
+        <label class="v152-bank-private">Conta e dígito<input id="v135PAccount"></label>
+        <label class="v152-bank-private">Tipo de conta<select id="v135PAccountType"><option value="">Não informado</option><option value="corrente">Conta corrente</option><option value="poupanca">Poupança</option><option value="pagamento">Conta de pagamento</option></select></label>
+        <label class="v152-bank-private">Titular<input id="v135PAccountHolder"></label>
+        <label class="v152-bank-private">CPF/CNPJ do titular<input id="v135PHolderDocument" inputmode="numeric"></label>
+        <label class="v152-bank-private">Tipo da chave PIX<select id="v135PPixType"><option value="">Não informado</option><option value="cpf">CPF</option><option value="cnpj">CNPJ</option><option value="telefone">Telefone</option><option value="email">E-mail</option><option value="aleatoria">Chave aleatória</option></select></label>
+        <label class="v152-bank-private">Chave PIX<input id="v135PPixKey"></label>
+        <label class="v152-bank-private">Dados conferidos em<input id="v135PBankChecked" type="date"></label>
         <label class="wide">Observações<textarea id="v135PNotes" rows="3" placeholder="Informações importantes sobre o produtor"></textarea></label>
       </div>
       <div class="v135-dialog-actions"><button type="button" class="v135-btn light" onclick="v135CloseDialog('v135ProducerDialog')">Cancelar</button><button class="v135-btn primary" type="submit">💾 Salvar alterações</button></div>
@@ -229,7 +247,7 @@
     <div class="v135-section-title"><h3>Indicadores do leite nesta quinzena</h3><span class="v136-difference ${m.variation===null?'':m.variation>=0?'up':'down'}">${m.variation===null?'Sem comparação anterior':`${m.variation>=0?'▲':'▼'} ${num(Math.abs(m.variation))}% comparado à quinzena anterior`}</span></div>
     <div class="v136-metrics"><div class="v136-metric"><small>Manhã</small><b>${num(m.morning)} L</b></div><div class="v136-metric"><small>Tarde</small><b>${num(m.afternoon)} L</b></div><div class="v136-metric"><small>Média dos últimos 10 dias</small><b>${num(m.average10)} L/dia</b></div><div class="v136-metric"><small>Média por dia com entrega</small><b>${num(m.average)} L</b></div><div class="v136-metric"><small>Dias com entrega</small><b>${m.days}</b></div><div class="v136-metric"><small>Maior entrada</small><b>${num(m.max)} L</b></div><div class="v136-metric"><small>Menor entrada</small><b>${num(m.min)} L</b></div><div class="v136-metric"><small>Quinzena anterior</small><b>${num(m.previous)} L</b></div></div>
     <div class="v135-two"><div><div class="v135-section-title"><h3>Dados do cadastro</h3></div><div class="v135-list">
-      ${infoRow('Código principal',p.codigo||'-')}${Array.isArray(p.codigosAlternativos)&&p.codigosAlternativos.length?infoRow('Códigos alternativos',p.codigosAlternativos.join(', ')):''}${infoRow('Apelido',p.apelido||'-')}${infoRow('Localidade principal',p.local||'-')}${Array.isArray(p.localidadesConhecidas)&&p.localidadesConhecidas.length?infoRow('Outras localidades de entrega',p.localidadesConhecidas.join(', ')):''}${infoRow('WhatsApp',p.whatsapp||'-')}${infoRow('Tanqueiro',p.tanqueiro||'-')}${infoRow('WhatsApp do tanqueiro',p.whatsTanqueiro||'-')}${infoRow('Caminhão',p.caminhao||'-')}${p.observacoes?infoRow('Observações',p.observacoes):''}
+      ${infoRow('Código principal',p.codigo||'-')}${Array.isArray(p.codigosAlternativos)&&p.codigosAlternativos.length?infoRow('Códigos alternativos',p.codigosAlternativos.join(', ')):''}${infoRow('Apelido',p.apelido||'-')}${infoRow('Localidade principal',p.local||'-')}${Array.isArray(p.localidadesConhecidas)&&p.localidadesConhecidas.length?infoRow('Outras localidades de entrega',p.localidadesConhecidas.join(', ')):''}${infoRow('WhatsApp',p.whatsapp||'-')}${infoRow('Tanqueiro',p.tanqueiro||'-')}${infoRow('WhatsApp do tanqueiro',p.whatsTanqueiro||'-')}${infoRow('Caminhão',p.caminhao||'-')}${admin()?infoRow('Forma de pagamento',paymentName(p.formaPagamento||''))+infoRow('Dados para depósito',bankingSummary(p))+infoRow('Titular da conta',p.titularConta||'-')+infoRow('Dados bancários conferidos em',p.dadosBancariosConferidosEm?date(p.dadosBancariosConferidosEm):'Ainda não conferidos'):''}${p.observacoes?infoRow('Observações',p.observacoes):''}
     </div></div><div><div class="v135-section-title"><h3>Movimentação comercial</h3></div><div class="v135-list">${infoRow('Pedidos do Galpão',String((d.inventory_orders||[]).length))}${infoRow('Pedidos ainda ativos',String(activeOrders.length))}${infoRow('Retiradas no Galpão',String(d.totals?.inventory_items||0))}${infoRow('Valor no Galpão',money(d.totals?.inventory_value))}${infoRow('Compras na loja',String(d.totals?.pdv_sales||0))}${infoRow('Valor na loja',money(d.totals?.pdv_value))}</div></div></div>
     <div class="v135-section-title"><h3>Linha do tempo do produtor</h3><small>Últimas movimentações registradas</small></div>${timelineHtml(d)}`;
   }
@@ -287,14 +305,14 @@
   window.v135EditProducer=function(){
     if(!permitted('produtores'))return alert('Você não possui permissão para editar produtores.');
     const p=S.statement?.producer;if(!p)return;
-    v135PCode.value=p.codigo||'';v135PAlternateCodes.value=Array.isArray(p.codigosAlternativos)?p.codigosAlternativos.join(', '):'';v135PName.value=p.nome||'';v135PAlias.value=p.apelido||'';v135PLocal.value=p.local||'';v135PTanker.value=p.tanqueiro||'';v135PTankerPhone.value=p.whatsTanqueiro||'';v135PTruck.value=p.caminhao||'';v135PPhone.value=p.whatsapp||'';v135PNotes.value=p.observacoes||'';v135ProducerDialog.showModal();
+    v135PCode.value=p.codigo||'';v135PAlternateCodes.value=Array.isArray(p.codigosAlternativos)?p.codigosAlternativos.join(', '):'';v135PName.value=p.nome||'';v135PAlias.value=p.apelido||'';v135PLocal.value=p.local||'';v135PTanker.value=p.tanqueiro||'';v135PTankerPhone.value=p.whatsTanqueiro||'';v135PTruck.value=p.caminhao||'';v135PPhone.value=p.whatsapp||'';v135PPaymentMethod.value=p.formaPagamento||'';v135PBank.value=p.banco||'';v135PBranch.value=p.agencia||'';v135PAccount.value=p.conta||'';v135PAccountType.value=p.tipoConta||'';v135PAccountHolder.value=p.titularConta||'';v135PHolderDocument.value=p.documentoTitular||'';v135PPixType.value=p.tipoChavePix||'';v135PPixKey.value=p.chavePix||'';v135PBankChecked.value=p.dadosBancariosConferidosEm||'';v135PNotes.value=p.observacoes||'';v135ProducerDialog.showModal();
   };
   window.v135SaveProducer=async function(ev){
     ev.preventDefault();const old=produtores.find(x=>String(x.id)===S.id);if(!old)return false;
     const mainCode=v135PCode.value.trim(),alternateCodes=[...new Set(v135PAlternateCodes.value.split(/[,;\n]+/).map(x=>x.trim()).filter(Boolean))].filter(x=>x.toUpperCase()!==mainCode.toUpperCase());
     const requestedCodes=[mainCode,...alternateCodes].filter(Boolean).map(x=>x.toUpperCase()),conflict=produtores.find(p=>String(p.id)!==S.id&&[p.codigo,...(Array.isArray(p.codigosAlternativos)?p.codigosAlternativos:[])].filter(Boolean).some(code=>requestedCodes.includes(String(code).trim().toUpperCase())));
     if(conflict)return alert(`Um dos códigos informados já pertence a ${conflict.nome}.\n\nRemova o código repetido antes de salvar.`),false;
-    const updated={...old,codigo:mainCode,codigosAlternativos:alternateCodes,nome:v135PName.value.trim(),apelido:v135PAlias.value.trim(),local:v135PLocal.value.trim(),tanqueiro:v135PTanker.value.trim(),whatsTanqueiro:v135PTankerPhone.value.trim(),caminhao:v135PTruck.value.trim(),whatsapp:v135PPhone.value.trim(),observacoes:v135PNotes.value.trim()};
+    const updated={...old,codigo:mainCode,codigosAlternativos:alternateCodes,nome:v135PName.value.trim(),apelido:v135PAlias.value.trim(),local:v135PLocal.value.trim(),tanqueiro:v135PTanker.value.trim(),whatsTanqueiro:v135PTankerPhone.value.trim(),caminhao:v135PTruck.value.trim(),whatsapp:v135PPhone.value.trim(),formaPagamento:v135PPaymentMethod.value,banco:v135PBank.value.trim(),agencia:v135PBranch.value.trim(),conta:v135PAccount.value.trim(),tipoConta:v135PAccountType.value,titularConta:v135PAccountHolder.value.trim(),documentoTitular:v135PHolderDocument.value.trim(),tipoChavePix:v135PPixType.value,chavePix:v135PPixKey.value.trim(),dadosBancariosConferidosEm:v135PBankChecked.value,observacoes:v135PNotes.value.trim()};
     if(!updated.nome||!updated.local){alert('Informe o nome e a localidade.');return false}
     produtores=produtores.map(x=>String(x.id)===S.id?updated:x);v25Audit('PRODUTOR_EDITADO',{produtor:updated.nome,motivo:'Atualização pela ficha completa',antes:old,depois:updated});v135ProducerDialog.close();await persistAndReload('Cadastro atualizado com sucesso.');return false;
   };

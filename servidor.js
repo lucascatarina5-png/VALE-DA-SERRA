@@ -541,7 +541,7 @@ app.post('/api/audit/event',auth,async(req,res)=>{
       'PAGAMENTO_QUINZENA_REGISTRADO','PAGAMENTO_QUINZENA_DESFEITO',
       'IMPORTACAO_PDF_CONFIRMADA','IMPORTACAO_PDF_CANCELADA','IMPORTACAO_PDF_BLOQUEADA','IMPORTACAO_PDF_MIGRACAO_TURNO',
       'ENTRADAS_LEITE_PERIODO_EXCLUIDAS',
-      'LOCALIDADE_RENOMEADA',
+      'LOCALIDADE_RENOMEADA','PRODUTOR_DADOS_BANCARIOS_EDITADOS',
       'BACKUP_IMPORTADO','DADOS_APAGADOS'
     ]);
     if(!allowed.has(action)) return res.status(400).json({ok:false,error:'Evento de auditoria inválido'});
