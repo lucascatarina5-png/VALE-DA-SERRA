@@ -3749,9 +3749,10 @@ function importarRelatorioLagoaDosLuiz(){
       produtores.push(existente);
       alterou=true;
     }else{
-      // Atualiza somente os campos necessários deste relatório.
+      // Relatórios antigos servem apenas para completar campos vazios. A localidade
+      // principal escolhida pelo usuário nunca pode ser sobrescrita na inicialização.
       if(!existente.codigo){existente.codigo=item.codigo;alterou=true;}
-      if(existente.local!==local){existente.local=local;alterou=true;}
+      if(!String(existente.local||'').trim()){existente.local=local;alterou=true;}
       if(!existente.tanqueiro){existente.tanqueiro=tanqueiro;alterou=true;}
     }
 
@@ -3827,8 +3828,9 @@ function importarRelatoriosMarcosKlysman(){
         p.tanqueiro='MARCOS KLYSMAN';
         mudou=true;
       }
-      // Produtores dos relatórios de Marcos Klysman pertencem a CATARINA-CE.
-      if(p.local!=='CATARINA-CE'){
+      // A importação histórica só preenche a localidade quando o cadastro ainda
+      // não possui uma principal. Assim, uma edição posterior permanece válida.
+      if(!String(p.local||'').trim()){
         p.local='CATARINA-CE';
         mudou=true;
       }
@@ -3869,7 +3871,10 @@ function importarRelatoriosMarcosKlysman(){
   }
 }
 
-setInterval(clock,1000);lData.value=isoHoje();dData.value=isoHoje();pgMes.value=isoHoje().slice(0,7);importarRelatorioLagoaDosLuiz();corrigirResponsavelLagoaDosLuiz();importarRelatoriosMarcosKlysman();renderAll();renderRelatorioCompleto();restaurarSecao('painel');iniciarAutenticacao();
+setInterval(clock,1000);lData.value=isoHoje();dData.value=isoHoje();pgMes.value=isoHoje().slice(0,7);
+// V154: importações históricas de agosto deixaram de ser executadas na abertura.
+// Elas já cumpriram a migração e não podem recriar testes nem alterar cadastros atuais.
+renderAll();renderRelatorioCompleto();restaurarSecao('painel');iniciarAutenticacao();
 
 function editarRecebimento(id){
   let lanc=lancamentos.find(x=>x.id===id);
@@ -5876,16 +5881,17 @@ body:not(.v112-galpao-admin) #estoque .gal-quick{display:none!important}
   html body .main .hero>.v147-clock-panel strong{color:#fff!important;-webkit-text-fill-color:#fff!important;font-size:12px!important;font-weight:900!important;opacity:1!important}
 }
 </style>
-<script src="v125-pagamento-corte.js?v=153"></script>
-<script src="v133-galpao-inteligente.js?v=153"></script>
-<script src="v135-pesquisa-produtor.js?v=153"></script>
-<script src="v137-importacao-segura.js?v=153"></script>
-<script src="v139-pagamentos-organizados.js?v=153"></script>
-<script src="v144-painel-executivo.js?v=153"></script>
-<script src="v149-limpeza-dados.js?v=153"></script>
-<script src="v150-saldo-anterior.js?v=153"></script>
-<script src="v151-editar-localidade.js?v=153"></script>
-<script src="v152-relatorio-pre-pagamento.js?v=153"></script>
+<script src="v125-pagamento-corte.js?v=154"></script>
+<script src="v133-galpao-inteligente.js?v=154"></script>
+<script src="v135-pesquisa-produtor.js?v=154"></script>
+<script src="v137-importacao-segura.js?v=154"></script>
+<script src="v139-pagamentos-organizados.js?v=154"></script>
+<script src="v144-painel-executivo.js?v=154"></script>
+<script src="v149-limpeza-dados.js?v=154"></script>
+<script src="v150-saldo-anterior.js?v=154"></script>
+<script src="v151-editar-localidade.js?v=154"></script>
+<script src="v152-relatorio-pre-pagamento.js?v=154"></script>
+<script src="v154-localidade-produtor.js?v=154"></script>
 <script id="v126-open-section">window.addEventListener('load',()=>{const id=location.hash.slice(1);if(['pagamentos','pesquisa'].includes(id))setTimeout(()=>{if(typeof go==='function')go(id)},250)});</script>
 </body>
 </html>

@@ -93,6 +93,9 @@
       const r=await fetch('/api/producers/'+encodeURIComponent(id)+'/statement',{headers,cache:'no-store'});
       const j=await r.json();
       if(!r.ok)throw new Error(j.error||'Não foi possível carregar o extrato.');
+      // O cadastro que acabou de ser confirmado em /api/state é a fonte principal.
+      // Isto também evita que uma resposta antiga em trânsito faça a ficha "voltar".
+      j.producer=produtores.find(p=>String(p.id)===String(id))||j.producer;
       j.payments=pagamentos.filter(x=>String(x.prodId)===String(id)).sort((a,b)=>String(b.dataPagamento||'').localeCompare(String(a.dataPagamento||'')));
       return j;
     }catch(e){
@@ -315,12 +318,16 @@
   };
   window.v135SaveProducer=async function(ev){
     ev.preventDefault();const old=produtores.find(x=>String(x.id)===S.id);if(!old)return false;
+    const producerSnapshot=JSON.parse(JSON.stringify(produtores));
     const mainCode=v135PCode.value.trim(),alternateCodes=[...new Set(v135PAlternateCodes.value.split(/[,;\n]+/).map(x=>x.trim()).filter(Boolean))].filter(x=>x.toUpperCase()!==mainCode.toUpperCase());
     const requestedCodes=[mainCode,...alternateCodes].filter(Boolean).map(x=>x.toUpperCase()),conflict=produtores.find(p=>String(p.id)!==S.id&&[p.codigo,...(Array.isArray(p.codigosAlternativos)?p.codigosAlternativos:[])].filter(Boolean).some(code=>requestedCodes.includes(String(code).trim().toUpperCase())));
     if(conflict)return alert(`Um dos códigos informados já pertence a ${conflict.nome}.\n\nRemova o código repetido antes de salvar.`),false;
     const updated={...old,codigo:mainCode,codigosAlternativos:alternateCodes,nome:v135PName.value.trim(),apelido:v135PAlias.value.trim(),local:v135PLocal.value.trim(),tanqueiro:v135PTanker.value.trim(),whatsTanqueiro:v135PTankerPhone.value.trim(),caminhao:v135PTruck.value.trim(),whatsapp:v135PPhone.value.trim(),formaPagamento:v135PPaymentMethod.value,banco:v135PBank.value.trim(),agencia:v135PBranch.value.trim(),conta:v135PAccount.value.trim(),tipoConta:v135PAccountType.value,titularConta:v135PAccountHolder.value.trim(),documentoTitular:v135PHolderDocument.value.trim(),tipoChavePix:v135PPixType.value,chavePix:v135PPixKey.value.trim(),dadosBancariosConferidosEm:v135PBankChecked.value,observacoes:v135PNotes.value.trim()};
     if(!updated.nome||!updated.local){alert('Informe o nome e a localidade.');return false}
-    produtores=produtores.map(x=>String(x.id)===S.id?updated:x);v25Audit('PRODUTOR_EDITADO',{produtor:updated.nome,motivo:'Atualização pela ficha completa',antes:old,depois:updated});v135ProducerDialog.close();await persistAndReload('Cadastro atualizado com sucesso.');return false;
+    produtores=produtores.map(x=>String(x.id)===S.id?updated:x);v135ProducerDialog.close();
+    const confirmed=await persistAndReload(`Cadastro atualizado com sucesso.\n\nLocalidade principal confirmada: ${updated.local}`,{producerSnapshot});
+    if(confirmed)v25Audit('PRODUTOR_EDITADO',{produtor:updated.nome,motivo:'Atualização pela ficha completa',antes:old,depois:updated});
+    return false;
   };
 
   window.v135NewMilk=function(){
@@ -353,7 +360,7 @@
     v135MilkDialog.close();await persistAndReload(mode==='new'?'Entrada registrada com sucesso.':'Correção salva e registrada no histórico.');return false;
   };
 
-  async function persistAndReload(message){
+  async function persistAndReload(message,options={}){
     save();
     try{
       const headers=typeof v4Headers==='function'?v4Headers():{'Content-Type':'application/json'};
@@ -362,7 +369,19 @@
       const r=await fetch('/api/state',{method:'PUT',headers,body:JSON.stringify({data:{produtores,lancamentos,pagamentos,debitos,pagamentosDebitos,importacoesPdf}})});
       if(!r.ok)throw new Error('O servidor não confirmou a sincronização.');
       S.statement=await getStatement(S.id);renderProfile();alert('✅ '+message);
-    }catch(e){S.statement=localStatement(S.id);renderProfile();alert('✅ Alteração salva neste aparelho.\n\n⚠️ '+e.message+' O sistema tentará sincronizar novamente automaticamente.')}
+      return true;
+    }catch(e){
+      if(options.producerSnapshot){
+        produtores=options.producerSnapshot;
+        save();
+        S.statement=localStatement(S.id);
+        renderProfile();
+        alert('❌ A alteração não foi concluída.\n\n'+e.message+'\n\nA localidade anterior foi mantida para evitar divergência nos pagamentos. Tente novamente.');
+        return false;
+      }
+      S.statement=localStatement(S.id);renderProfile();alert('✅ Alteração salva neste aparelho.\n\n⚠️ '+e.message+' O sistema tentará sincronizar novamente automaticamente.');
+      return false;
+    }
   }
 
   window.v135CloseDialog=id=>document.getElementById(id)?.close();
