@@ -28,6 +28,33 @@
   const turnLabel=t=>t==='M'?'Manhã':'Tarde — dia completo';
   const paymentKey=(prodId,ym,q)=>`${prodId}|${ym}|${q}`;
   const clone=v=>JSON.parse(JSON.stringify(v));
+  const producerRef=x=>x?.prodId??x?.produtorId??x?.producerId??x?.producer_id??'';
+  const producerNameRef=x=>x?.produtor??x?.produtorNome??x?.producer_name??x?.nomeProdutor??'';
+  const debitRef=x=>x?.debitoId??x?.debitId??x?.debito_id??x?.debit_id??'';
+  const debitDate=x=>String(x?.data||x?.business_date||x?.created_at||'').slice(0,10);
+  const debitValue=x=>N(x?.valor??x?.amount??x?.total);
+
+  // Compatibilidade entre débitos antigos, PDV, Galpão e pagamentos parciais.
+  // O cálculo não depende de o identificador ter sido salvo como número ou texto.
+  function debtBalance(debitOrId){
+    const d=typeof debitOrId==='object'?debitOrId:(Array.isArray(debitos)?debitos:[]).find(x=>String(x.id)===String(debitOrId));
+    if(!d)return 0;
+    const id=String(d.id),ledger=Array.isArray(pagamentosDebitos)?pagamentosDebitos:[];
+    let paid=ledger.filter(x=>String(debitRef(x))===id).reduce((sum,x)=>sum+N(x.valor??x.amount),0);
+    (Array.isArray(pagamentos)?pagamentos:[]).forEach(pg=>{
+      const apps=Array.isArray(pg.debitApplications)?pg.debitApplications:[];
+      const app=apps.find(x=>String(debitRef(x))===id);
+      const hasLedger=ledger.some(x=>String(debitRef(x))===id&&String(x.pagamentoId??x.paymentId??'')===String(pg.id??''));
+      if(app&&!hasLedger)paid+=N(app.amount??app.amountApplied??app.valor??(N(app.balanceBefore)-N(app.balanceAfter)));
+      else if(!apps.length&&!hasLedger&&Array.isArray(pg.debitIds)&&pg.debitIds.some(x=>String(x)===id))paid+=debitValue(d);
+    });
+    return Math.max(0,debitValue(d)-paid);
+  }
+  window.v157DebtBalance=debtBalance;
+  function debtBelongs(debt,p){
+    const ref=producerRef(debt),name=producerNameRef(debt),owner=ref!==''?prodById(ref):null;
+    return (ref!==''&&String(ref)===String(p.id))||((!ref||!owner)&&name&&norm(name)===norm(p.nome));
+  }
 
   function entryPaid(x){
     return (Array.isArray(pagamentos)?pagamentos:[]).some(pg=>{
@@ -37,7 +64,7 @@
     });
   }
   function debitPaid(x){
-    if(saldoDebito(x.id)<=0)return true;
+    if(debtBalance(x)<=0)return true;
     return (Array.isArray(pagamentos)?pagamentos:[]).some(pg=>{
       if(Array.isArray(pg.debitApplications))return false;
       if(Array.isArray(pg.debitIds))return pg.debitIds.some(id=>String(id)===String(x.id));
@@ -87,10 +114,10 @@
   function pendingEntries(prodId,c,local){
     return entradasProd(prodId).filter(x=>!entryPaid(x)&&beforeCut(x,c)&&(!local||norm(financialLocality(x))===norm(local)));
   }
-  function pendingDebits(prodId,c){return debitosProd(prodId).filter(x=>!debitPaid(x)&&String(x.data||'')<=String(c.date)&&saldoDebito(x.id)>0)}
+  function pendingDebits(prodId,c){const p=prodById(prodId);return (Array.isArray(debitos)?debitos:[]).filter(x=>p&&debtBelongs(x,p)&&!['cancelado','cancelada','excluido','excluida'].includes(norm(x.status||x.situacao))).filter(x=>{const date=debitDate(x);return !date||date<=String(c.date)}).filter(x=>!debitPaid(x)&&debtBalance(x)>0)}
   function splitLiters(rows,ym){return rows.reduce((a,x)=>{const q=N(x.qtd);if(String(x.data||'').startsWith(ym))a.current+=q;else a.previous+=q;return a},{previous:0,current:0})}
   function producerPreview(p,c){
-    const entries=pendingEntries(p.id,c,c.local),parts=splitLiters(entries,c.ym),litersTotal=parts.previous+parts.current,gross=litersTotal*rate(),debits=pendingDebits(p.id,c),debtOpen=debits.reduce((s,x)=>s+saldoDebito(x.id),0),debtApplied=Math.min(gross,debtOpen),net=Math.max(0,gross-debtApplied),carry=Math.max(0,debtOpen-debtApplied);
+    const entries=pendingEntries(p.id,c,c.local),parts=splitLiters(entries,c.ym),litersTotal=parts.previous+parts.current,gross=litersTotal*rate(),debits=pendingDebits(p.id,c),debtOpen=debits.reduce((s,x)=>s+debtBalance(x),0),debtApplied=Math.min(gross,debtOpen),net=Math.max(0,gross-debtApplied),carry=Math.max(0,debtOpen-debtApplied);
     const mainLocal=String(p.local||c.local||'').trim(),deliveryLocations=localityBreakdown(entries),outsideLocations=deliveryLocations.filter(item=>norm(item.local)!==norm(mainLocal)),outsideLiters=outsideLocations.reduce((sum,item)=>sum+N(item.litros),0),crossLocality=outsideLocations.length>0;
     return {p,entries,parts,liters:litersTotal,gross,debits,debtOpen,debtApplied,net,carry,mainLocal,deliveryLocations,outsideLocations,outsideLiters,crossLocality};
   }
@@ -123,7 +150,7 @@
   function createPayment(prodId,c,closure){
     const p=prodById(prodId);if(!p)return null;const preview=producerPreview(p,c);if(!preview.entries.length)return null;
     const applications=[];let available=preview.gross;
-    preview.debits.slice().sort((a,b)=>String(a.data||'').localeCompare(String(b.data||''))).forEach(d=>{const balance=saldoDebito(d.id),amount=Math.min(balance,available);if(amount<=0)return;applications.push({debitId:d.id,amount,balanceBefore:balance,balanceAfter:Math.max(0,balance-amount)});available-=amount});
+    preview.debits.slice().sort((a,b)=>debitDate(a).localeCompare(debitDate(b))).forEach(d=>{const balance=debtBalance(d),amount=Math.min(balance,available);if(amount<=0)return;applications.push({debitId:d.id,amount,balanceBefore:balance,balanceAfter:Math.max(0,balance-amount)});available-=amount});
     const debt=applications.reduce((s,x)=>s+x.amount,0),id=crypto.randomUUID(),closingId=closure.id,baseKey=paymentKey(prodId,c.ym,c.q);
     // Um produtor pode receber de manhã e voltar ao mesmo fechamento depois.
     // Mantemos cada baixa separada para preservar histórico, comprovantes e estornos.
@@ -142,7 +169,7 @@
   function previewDebtApplications(row){
     let available=row.gross;
     return row.debits.slice().sort((a,b)=>String(a.data||'').localeCompare(String(b.data||''))).map(d=>{
-      const balance=saldoDebito(d.id),amount=Math.min(balance,available);available=Math.max(0,available-amount);
+      const balance=debtBalance(d),amount=Math.min(balance,available);available=Math.max(0,available-amount);
       return {...clone(d),balanceBefore:balance,amountApplied:amount,balanceAfter:Math.max(0,balance-amount)};
     });
   }
@@ -180,7 +207,7 @@
   function renderTable(c,rows){
     const body=document.getElementById('tbPag');if(!body)return;const query=norm(document.getElementById('v139ProducerSearch')?.value||''),visible=rows.filter(x=>!query||norm([x.p.nome,x.p.codigo,x.p.apelido].join(' ')).includes(query));
     if(!c.local){body.innerHTML='<tr><td colspan="8"><div class="v139-empty"><b>Escolha uma localidade acima</b><span>Os produtores e valores aparecerão aqui para conferência.</span></div></td></tr>';return}
-    body.innerHTML=visible.map(x=>`<tr class="${S.selected.has(String(x.p.id))?'v139-row-selected':''}"><td><input class="v139-check" type="checkbox" ${S.selected.has(String(x.p.id))?'checked':''} onchange="v139ToggleProducer('${E(x.p.id)}',this.checked)"></td><td><b>${E(x.p.nome)}</b><small>${x.p.codigo?'Código '+E(x.p.codigo)+' • ':''}Principal: ${E(x.mainLocal||c.local||'-')}</small>${x.crossLocality?`<small class="v153-delivery-note">📍 Onde entregou: ${E(localityText(x.deliveryLocations))}</small>`:''}</td><td><b>${liters(x.liters)} L</b><small>${x.parts.previous?`Saldo anterior ${liters(x.parts.previous)} L • `:''}Período atual ${liters(x.parts.current)} L</small></td><td><b>${cash(x.gross)}</b><small>${cash(rate())}/L</small></td><td><b>${cash(x.debtApplied)}</b><small>${x.carry?`Ainda ficará devendo ${cash(x.carry)}`:`Débitos em aberto ${cash(x.debtOpen)}`}</small></td><td><b class="v139-net">${cash(x.net)}</b></td><td><span class="${x.crossLocality?'v141-cross':'v139-ready'}">${x.crossLocality?'ENTREGA FORA':'PRONTO'}</span></td><td><button class="btn secondary" type="button" onclick="v139OpenIndividual('${E(x.p.id)}')">Pagar individual</button></td></tr>`).join('')||'<tr><td colspan="8">Nenhum produtor encontrado nesta pesquisa.</td></tr>';
+    body.innerHTML=visible.map(x=>`<tr class="${S.selected.has(String(x.p.id))?'v139-row-selected':''}"><td><input class="v139-check" type="checkbox" ${S.selected.has(String(x.p.id))?'checked':''} onchange="v139ToggleProducer('${E(x.p.id)}',this.checked)"></td><td><b>${E(x.p.nome)}</b><small>${x.p.codigo?'Código '+E(x.p.codigo)+' • ':''}Principal: ${E(x.mainLocal||c.local||'-')}</small>${x.crossLocality?`<small class="v153-delivery-note">📍 Onde entregou: ${E(localityText(x.deliveryLocations))}</small>`:''}</td><td><b>${liters(x.liters)} L</b><small>${x.parts.previous?`Saldo anterior ${liters(x.parts.previous)} L • `:''}Período atual ${liters(x.parts.current)} L</small></td><td><b>${cash(x.gross)}</b><small>${cash(rate())}/L</small></td><td><b>${cash(x.debtApplied)}</b><small>Saldo total em aberto ${cash(x.debtOpen)}${x.carry?` • restará ${cash(x.carry)}`:''}</small></td><td><b class="v139-net">${cash(x.net)}</b></td><td><span class="${x.crossLocality?'v141-cross':'v139-ready'}">${x.crossLocality?'ENTREGA FORA':'PRONTO'}</span></td><td><button class="btn secondary" type="button" onclick="v139OpenIndividual('${E(x.p.id)}')">Pagar individual</button></td></tr>`).join('')||'<tr><td colspan="8">Nenhum produtor encontrado nesta pesquisa.</td></tr>';
   }
 
   function groupPayments(c){
@@ -240,7 +267,7 @@
 
   async function undoPayments(group,message){
     if(!admin())return alert('Somente o Administrador pode desfazer pagamentos.');if(!group.length)return;if(!confirm(message))return;const old=snapshot(),paymentIds=new Set(group.map(x=>String(x.id||''))),entryIds=new Set(group.flatMap(x=>x.entryIds||[]).map(String)),debitIds=new Set(group.flatMap(x=>x.debitIds||[]).map(String));
-    try{lancamentos.forEach(x=>{if(entryIds.has(String(x.id))){x.situacaoPagamento='Pendente';delete x.pagamentoId;delete x.dataLiquidacao}});pagamentosDebitos=pagamentosDebitos.filter(x=>!paymentIds.has(String(x.pagamentoId||'')));pagamentos=pagamentos.filter(x=>!paymentIds.has(String(x.id||'')));debitos.forEach(x=>{if(debitIds.has(String(x.id))){x.situacaoPagamento=saldoDebito(x.id)<=0?'Liquidado':'Pendente';delete x.pagamentoId}});await syncNow();save();await v25Audit('PAGAMENTO_QUINZENA_DESFEITO',{localidade:group[0].localidade||'',quinzena:group[0].quinzena,mes:group[0].mes,pagamentos:group.length,entryIds:[...entryIds]});S.selectionKey='';renderPagamentos(false);alert('✅ Pagamento desfeito. As entradas voltaram para a lista de pendentes.')}catch(e){restore(old);save();renderPagamentos(false);alert('❌ O servidor não confirmou a alteração. O pagamento foi mantido.\n\n'+e.message)}
+    try{lancamentos.forEach(x=>{if(entryIds.has(String(x.id))){x.situacaoPagamento='Pendente';delete x.pagamentoId;delete x.dataLiquidacao}});pagamentosDebitos=pagamentosDebitos.filter(x=>!paymentIds.has(String(x.pagamentoId||'')));pagamentos=pagamentos.filter(x=>!paymentIds.has(String(x.id||'')));debitos.forEach(x=>{if(debitIds.has(String(x.id))){x.situacaoPagamento=debtBalance(x)<=0?'Liquidado':'Pendente';delete x.pagamentoId}});await syncNow();save();await v25Audit('PAGAMENTO_QUINZENA_DESFEITO',{localidade:group[0].localidade||'',quinzena:group[0].quinzena,mes:group[0].mes,pagamentos:group.length,entryIds:[...entryIds]});S.selectionKey='';renderPagamentos(false);alert('✅ Pagamento desfeito. As entradas voltaram para a lista de pendentes.')}catch(e){restore(old);save();renderPagamentos(false);alert('❌ O servidor não confirmou a alteração. O pagamento foi mantido.\n\n'+e.message)}
   }
   window.desfazerPagamento=function(prodId){const c=choice(),pg=(pagamentos||[]).filter(x=>String(x.prodId)===String(prodId)&&String(x.mes)===String(c.ym)&&String(x.quinzena)===String(c.q)).sort((a,b)=>String(b.fechamentoCriadoEm||b.dataPagamento||'').localeCompare(String(a.fechamentoCriadoEm||a.dataPagamento||'')))[0];if(pg)undoPayments([pg],`Desfazer o pagamento de ${prodById(prodId)?.nome||'produtor'}?\n\nAs entradas voltarão a ficar pendentes.`)};
   window.v130UndoClosure=function(id){const group=(pagamentos||[]).filter(pg=>String(pg.fechamentoId||'')===String(id));if(group.length)undoPayments(group,`Desfazer o fechamento de ${paymentLocality(group[0])||'localidade'}?\n\n${group.length} pagamento(s) voltarão para pendente.`)};

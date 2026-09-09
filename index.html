@@ -1302,9 +1302,9 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
 .sidebar .nav button[hidden]{display:none!important}
 @media(max-width:900px){.v102-report-filters{grid-template-columns:1fr 1fr}.v102-report-summary{grid-template-columns:1fr}.v102-report-table{min-width:780px}}
 </style>
-<link rel="stylesheet" href="v155-conferencia-tanques.css?v=156">
+<link rel="stylesheet" href="v155-conferencia-tanques.css?v=157">
 <script id="v156-embed-mode">if(new URLSearchParams(location.search).get('embed')==='mobile')document.documentElement.classList.add('v156-mobile-embed');</script>
-<link rel="stylesheet" href="v156-mobile-modules.css?v=156">
+<link rel="stylesheet" href="v156-mobile-modules.css?v=157">
 </head>
 <body>
 
@@ -1989,14 +1989,16 @@ function brDate(s){if(!s)return '-';let [y,m,d]=s.split('-');return `${d}/${m}/$
 function fmt(n){return (Number(n)||0).toLocaleString('pt-BR',{maximumFractionDigits:2})}
 function moeda(n){return (Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function daysBetween(a,b){return Math.floor((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000)}
-function prodById(id){return produtores.find(p=>p.id===id)}
-function entradasProd(id){return lancamentos.filter(x=>x.prodId===id).sort((a,b)=>a.data.localeCompare(b.data))}
+function v157ProducerRef(x){return x?.prodId??x?.produtorId??x?.producerId??x?.producer_id??''}
+function v157DebitRef(x){return x?.debitoId??x?.debitId??x?.debito_id??x?.debit_id??''}
+function prodById(id){return produtores.find(p=>String(p.id)===String(id))}
+function entradasProd(id){return lancamentos.filter(x=>String(v157ProducerRef(x))===String(id)).sort((a,b)=>String(a.data||'').localeCompare(String(b.data||'')))}
 function ultimaEntrada(id){let a=entradasProd(id);return a.length?a[a.length-1]:null}
 function statusProd(id){let u=ultimaEntrada(id);if(!u)return 'Inativo';return daysBetween(u.data,isoHoje())>=10?'Inativo':'Ativo'}
 function mediaUltimosDias(id,dias=10){const lim=new Date();lim.setHours(0,0,0,0);lim.setDate(lim.getDate()-(dias-1));let a=entradasProd(id).filter(x=>new Date(x.data+'T12:00:00')>=lim);return a.reduce((s,x)=>s+Number(x.qtd),0)/dias}
 function mediaDiasComEntrega(id,dias=30){const lim=new Date();lim.setDate(lim.getDate()-(dias-1));let a=entradasProd(id).filter(x=>new Date(x.data+'T12:00:00')>=lim);return a.length?a.reduce((s,x)=>s+Number(x.qtd),0)/a.length:0}
 function alertaEntrada(item){let a=entradasProd(item.prodId).filter(x=>x.id!==item.id&&x.data<=item.data);if(a.length<3)return '';let b=a.slice(-10),m=b.reduce((s,x)=>s+Number(x.qtd),0)/b.length;return m&&Math.abs(Number(item.qtd)-m)/m>=.35?'Fora da média':''}
-function debitosProd(id){return debitos.filter(x=>x.prodId===id).sort((a,b)=>a.data.localeCompare(b.data))}
+function debitosProd(id){return debitos.filter(x=>String(v157ProducerRef(x))===String(id)).sort((a,b)=>String(a.data||'').localeCompare(String(b.data||'')))}
 function totalDebitosPeriodo(id,ini,fim){
   return debitosProd(id)
     .filter(x=>x.data>=ini&&x.data<=fim)
@@ -2085,18 +2087,30 @@ document.getElementById('formDeb').addEventListener('submit',e=>{e.preventDefaul
 
 function pagamentosDoDebito(debitoId){
   return pagamentosDebitos
-    .filter(x=>x.debitoId===debitoId)
-    .sort((a,b)=>a.data.localeCompare(b.data));
+    .filter(x=>String(v157DebitRef(x))===String(debitoId))
+    .sort((a,b)=>String(a.data||'').localeCompare(String(b.data||'')));
 }
 
 function totalPagoDebito(debitoId){
-  return pagamentosDoDebito(debitoId).reduce((s,x)=>s+Number(x.valor),0);
+  const id=String(debitoId),ledger=pagamentosDoDebito(id);
+  let total=ledger.reduce((s,x)=>s+Number(x.valor??x.amount??0),0);
+  (Array.isArray(pagamentos)?pagamentos:[]).forEach(pg=>{
+    const apps=Array.isArray(pg.debitApplications)?pg.debitApplications:[];
+    const app=apps.find(x=>String(v157DebitRef(x))===id);
+    const hasLedger=ledger.some(x=>String(x.pagamentoId??x.paymentId??'')===String(pg.id??''));
+    if(app&&!hasLedger)total+=Number(app.amount??app.amountApplied??app.valor??(Number(app.balanceBefore||0)-Number(app.balanceAfter||0)))||0;
+    else if(!apps.length&&!hasLedger&&Array.isArray(pg.debitIds)&&pg.debitIds.some(x=>String(x)===id)){
+      const d=debitos.find(x=>String(x.id)===id);total+=Number(d?.valor??d?.amount??d?.total??0)||0;
+    }
+  });
+  return total;
 }
+totalPagoDebito.__v133=true;
 
 function saldoDebito(debitoId){
-  let deb=debitos.find(x=>x.id===debitoId);
+  let deb=debitos.find(x=>String(x.id)===String(debitoId));
   if(!deb)return 0;
-  return Math.max(0,Number(deb.valor)-totalPagoDebito(debitoId));
+  return Math.max(0,Number(deb.valor??deb.amount??deb.total??0)-totalPagoDebito(debitoId));
 }
 
 function registrarPagamentoDebito(id){
@@ -5891,19 +5905,19 @@ body:not(.v112-galpao-admin) #estoque .gal-quick{display:none!important}
   html body .main .hero>.v147-clock-panel strong{color:#fff!important;-webkit-text-fill-color:#fff!important;font-size:12px!important;font-weight:900!important;opacity:1!important}
 }
 </style>
-<script src="v125-pagamento-corte.js?v=156"></script>
-<script src="v133-galpao-inteligente.js?v=156"></script>
-<script src="v135-pesquisa-produtor.js?v=156"></script>
-<script src="v137-importacao-segura.js?v=156"></script>
-<script src="v139-pagamentos-organizados.js?v=156"></script>
-<script src="v144-painel-executivo.js?v=156"></script>
-<script src="v149-limpeza-dados.js?v=156"></script>
-<script src="v150-saldo-anterior.js?v=156"></script>
-<script src="v151-editar-localidade.js?v=156"></script>
-<script src="v152-relatorio-pre-pagamento.js?v=156"></script>
-<script src="v154-localidade-produtor.js?v=156"></script>
-<script src="v155-tank-core.js?v=156"></script>
-<script src="v155-conferencia-tanques.js?v=156"></script>
+<script src="v125-pagamento-corte.js?v=157"></script>
+<script src="v133-galpao-inteligente.js?v=157"></script>
+<script src="v135-pesquisa-produtor.js?v=157"></script>
+<script src="v137-importacao-segura.js?v=157"></script>
+<script src="v139-pagamentos-organizados.js?v=157"></script>
+<script src="v144-painel-executivo.js?v=157"></script>
+<script src="v149-limpeza-dados.js?v=157"></script>
+<script src="v150-saldo-anterior.js?v=157"></script>
+<script src="v151-editar-localidade.js?v=157"></script>
+<script src="v152-relatorio-pre-pagamento.js?v=157"></script>
+<script src="v154-localidade-produtor.js?v=157"></script>
+<script src="v155-tank-core.js?v=157"></script>
+<script src="v155-conferencia-tanques.js?v=157"></script>
 <script id="v156-open-section">window.addEventListener('load',async()=>{if(typeof v38SincronizarUsuario==='function')await v38SincronizarUsuario();const id=location.hash.slice(1);if(id==='conferenciaTanques')setTimeout(()=>{if(typeof v155Open==='function')v155Open(document.querySelector('.v155-nav-button'))},80);else if(['pagamentos','pesquisa'].includes(id))setTimeout(()=>{if(typeof go==='function')go(id)},80)});</script>
 </body>
 </html>
