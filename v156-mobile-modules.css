@@ -1,0 +1,77 @@
+/* V156 - Pagamentos e Conferencia de Tanques dentro do aplicativo mobile. */
+.v156-native-module{
+  height:calc(100dvh - 90px);
+  min-height:0!important;
+  padding:calc(8px + env(safe-area-inset-top,0px)) 8px calc(92px + env(safe-area-inset-bottom,0px))!important;
+  overflow:hidden;
+  background:#eef4fb;
+}
+.v156-native-module.active{display:flex!important;flex-direction:column}
+.v156-native-module .screen-head{
+  flex:0 0 auto;
+  margin:0 0 8px;
+  padding:4px 2px 7px;
+  background:#eef4fb;
+  backdrop-filter:none;
+}
+.v156-native-module .screen-title{font-size:clamp(18px,5.2vw,23px);line-height:1.1;color:#0b3f78}
+.v156-native-module .v156-reload{font-size:20px;padding:0;width:46px}
+.v156-frame-wrap{
+  position:relative;
+  flex:1 1 auto;
+  min-height:0;
+  overflow:hidden;
+  border:1px solid #c8d8ea;
+  border-radius:18px;
+  background:#fff;
+  box-shadow:0 6px 22px rgba(8,52,105,.09);
+}
+.v156-module-frame{display:block;width:100%;height:100%;border:0;background:#eef4fb}
+.v156-frame-loading{
+  position:absolute;
+  inset:0;
+  z-index:2;
+  display:grid;
+  place-items:center;
+  padding:24px;
+  text-align:center;
+  color:#315b85;
+  background:#fff;
+  font-weight:850;
+}
+.v156-frame-loading span{display:block;margin-top:7px;color:#718096;font-size:12px;font-weight:650}
+.v156-frame-wrap.ready .v156-frame-loading{display:none}
+.v156-frame-error{color:#a92525!important;background:#fff4f3!important}
+
+/* A pagina completa e reaproveitada dentro do quadro mobile, sem o menu desktop. */
+html.v156-mobile-embed,html.v156-mobile-embed body{width:100%;min-height:100%;margin:0;overflow-x:hidden;background:#eef4fb}
+html.v156-mobile-embed .sidebar,
+html.v156-mobile-embed .hero,
+html.v156-mobile-embed .footer,
+html.v156-mobile-embed #vdsInstallApp{display:none!important}
+html.v156-mobile-embed .app{display:block!important;min-height:100dvh!important;width:100%!important}
+html.v156-mobile-embed .main{display:block!important;width:100%!important;min-width:0!important;margin:0!important;padding:0!important}
+html.v156-mobile-embed .content{width:100%!important;max-width:none!important;margin:0!important;padding:6px!important}
+html.v156-mobile-embed .section{margin:0!important}
+html.v156-mobile-embed #pagamentos>.card{padding:6px!important;border:0!important;box-shadow:none!important;background:transparent!important}
+html.v156-mobile-embed .v139-payment-app{margin:0 0 12px!important;border-radius:14px!important}
+html.v156-mobile-embed .v139-head{padding:15px 13px!important}
+html.v156-mobile-embed .v139-head h2{font-size:20px!important}
+html.v156-mobile-embed .v139-head p{font-size:12px!important;line-height:1.35}
+html.v156-mobile-embed .v139-head>span{display:none!important}
+html.v156-mobile-embed .v139-tablewrap{overflow:auto!important;-webkit-overflow-scrolling:touch}
+html.v156-mobile-embed #conferenciaTanques .v155-page{padding:0!important}
+html.v156-mobile-embed #conferenciaTanques .v155-hero{border-radius:14px!important;margin:0 0 10px!important}
+html.v156-mobile-embed #conferenciaTanques .v155-layout{gap:10px!important}
+html.v156-mobile-embed #conferenciaTanques .v155-panel{border-radius:14px!important}
+
+@media(max-width:600px){
+  html.v156-mobile-embed .v139-filter{grid-template-columns:1fr!important}
+  html.v156-mobile-embed .v139-summary{grid-template-columns:1fr 1fr!important}
+  html.v156-mobile-embed .v139-kpi.net{grid-column:1/-1!important}
+  html.v156-mobile-embed .v139-localities{grid-template-columns:1fr!important}
+  html.v156-mobile-embed #conferenciaTanques .v155-hero{padding:14px!important}
+  html.v156-mobile-embed #conferenciaTanques .v155-hero h2{font-size:21px!important}
+  html.v156-mobile-embed #conferenciaTanques .v155-hero-actions{display:grid!important;grid-template-columns:1fr 1fr!important;width:100%}
+  html.v156-mobile-embed #conferenciaTanques .v155-hero-actions .primary{grid-column:1/-1}
+}

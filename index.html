@@ -1302,7 +1302,9 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
 .sidebar .nav button[hidden]{display:none!important}
 @media(max-width:900px){.v102-report-filters{grid-template-columns:1fr 1fr}.v102-report-summary{grid-template-columns:1fr}.v102-report-table{min-width:780px}}
 </style>
-<link rel="stylesheet" href="v155-conferencia-tanques.css?v=155">
+<link rel="stylesheet" href="v155-conferencia-tanques.css?v=156">
+<script id="v156-embed-mode">if(new URLSearchParams(location.search).get('embed')==='mobile')document.documentElement.classList.add('v156-mobile-embed');</script>
+<link rel="stylesheet" href="v156-mobile-modules.css?v=156">
 </head>
 <body>
 
@@ -1966,7 +1968,11 @@ function sairSistema(){
 }
 function iniciarAutenticacao(){
   getAuth();
-  if(sessaoAtiva())mostrarSistema(); else mostrarLogin();
+  const tokenApi=localStorage.getItem('vale_token')||sessionStorage.getItem('vale_token')||localStorage.getItem('token')||sessionStorage.getItem('token');
+  if(sessaoAtiva()||tokenApi){
+    sessionStorage.setItem('vds_logged_v1','1');
+    mostrarSistema();
+  }else mostrarLogin();
 }
 
 const KPROD='vds_produtores_v1', KLANC='vds_lancamentos_v1', KPAG='vds_pagamentos_v1', KDEB='vds_debitos_v1', KDEBPAG='vds_debitos_pagamentos_v1';
@@ -4295,12 +4301,15 @@ async function v38SincronizarUsuario(){
     if(!r.ok||!j.ok) throw new Error(j.error||'Sessão inválida');
     V4.token=t; V4.user=j.user||null;
     localStorage.setItem('vale_user',JSON.stringify(V4.user||{}));
+    sessionStorage.setItem('vds_logged_v1','1');
+    if(typeof mostrarSistema==='function')mostrarSistema();
     v4AplicarVisibilidade();
     return true;
   }catch(e){
     V4.token=null;V4.user=null;
-    localStorage.removeItem('vale_token');sessionStorage.removeItem('vale_token');localStorage.removeItem('vale_user');
+    localStorage.removeItem('vale_token');sessionStorage.removeItem('vale_token');localStorage.removeItem('vale_user');sessionStorage.removeItem('vds_logged_v1');
     v4AplicarVisibilidade();
+    if(typeof mostrarLogin==='function')mostrarLogin();
     return false;
   }
 }
@@ -5882,19 +5891,19 @@ body:not(.v112-galpao-admin) #estoque .gal-quick{display:none!important}
   html body .main .hero>.v147-clock-panel strong{color:#fff!important;-webkit-text-fill-color:#fff!important;font-size:12px!important;font-weight:900!important;opacity:1!important}
 }
 </style>
-<script src="v125-pagamento-corte.js?v=155"></script>
-<script src="v133-galpao-inteligente.js?v=155"></script>
-<script src="v135-pesquisa-produtor.js?v=155"></script>
-<script src="v137-importacao-segura.js?v=155"></script>
-<script src="v139-pagamentos-organizados.js?v=155"></script>
-<script src="v144-painel-executivo.js?v=155"></script>
-<script src="v149-limpeza-dados.js?v=155"></script>
-<script src="v150-saldo-anterior.js?v=155"></script>
-<script src="v151-editar-localidade.js?v=155"></script>
-<script src="v152-relatorio-pre-pagamento.js?v=155"></script>
-<script src="v154-localidade-produtor.js?v=155"></script>
-<script src="v155-tank-core.js?v=155"></script>
-<script src="v155-conferencia-tanques.js?v=155"></script>
-<script id="v126-open-section">window.addEventListener('load',()=>{const id=location.hash.slice(1);if(id==='conferenciaTanques')setTimeout(()=>{if(typeof v155Open==='function')v155Open(document.querySelector('.v155-nav-button'))},250);else if(['pagamentos','pesquisa'].includes(id))setTimeout(()=>{if(typeof go==='function')go(id)},250)});</script>
+<script src="v125-pagamento-corte.js?v=156"></script>
+<script src="v133-galpao-inteligente.js?v=156"></script>
+<script src="v135-pesquisa-produtor.js?v=156"></script>
+<script src="v137-importacao-segura.js?v=156"></script>
+<script src="v139-pagamentos-organizados.js?v=156"></script>
+<script src="v144-painel-executivo.js?v=156"></script>
+<script src="v149-limpeza-dados.js?v=156"></script>
+<script src="v150-saldo-anterior.js?v=156"></script>
+<script src="v151-editar-localidade.js?v=156"></script>
+<script src="v152-relatorio-pre-pagamento.js?v=156"></script>
+<script src="v154-localidade-produtor.js?v=156"></script>
+<script src="v155-tank-core.js?v=156"></script>
+<script src="v155-conferencia-tanques.js?v=156"></script>
+<script id="v156-open-section">window.addEventListener('load',async()=>{if(typeof v38SincronizarUsuario==='function')await v38SincronizarUsuario();const id=location.hash.slice(1);if(id==='conferenciaTanques')setTimeout(()=>{if(typeof v155Open==='function')v155Open(document.querySelector('.v155-nav-button'))},80);else if(['pagamentos','pesquisa'].includes(id))setTimeout(()=>{if(typeof go==='function')go(id)},80)});</script>
 </body>
 </html>
