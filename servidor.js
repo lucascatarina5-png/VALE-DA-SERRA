@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
+const TankCore = require('./v155-tank-core');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -384,6 +385,70 @@ async function initDb() {
   await pool.query(`ALTER TABLE app_store_credit_accounts ADD COLUMN IF NOT EXISTS customer_id TEXT`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_store_credit_customer ON app_store_credit_accounts(customer_id)`);
 
+  // V155 - Conferência de tanques em ciclos operacionais de 48 horas.
+  // Dados separados do app_state para que uma sincronização do programa nunca apague o histórico.
+  await pool.query(`CREATE TABLE IF NOT EXISTS app_milk_tanks (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    locality TEXT NOT NULL,
+    capacity_liters NUMERIC NOT NULL DEFAULT 0,
+    warning_tolerance_liters NUMERIC NOT NULL DEFAULT 10,
+    warning_tolerance_percent NUMERIC NOT NULL DEFAULT 0.5,
+    critical_tolerance_liters NUMERIC NOT NULL DEFAULT 25,
+    critical_tolerance_percent NUMERIC NOT NULL DEFAULT 1,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_milk_tanks_name_locality
+    ON app_milk_tanks(LOWER(name),LOWER(locality)) WHERE active=TRUE`);
+  // Enquanto as entradas são identificadas pela localidade real, apenas um tanque ativo
+  // por localidade evita que o mesmo leite entre em duas conferências diferentes.
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_milk_tanks_active_locality
+    ON app_milk_tanks(LOWER(locality)) WHERE active=TRUE`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS app_tank_conferences (
+    id TEXT PRIMARY KEY,
+    tank_id TEXT NOT NULL,
+    tank_name TEXT NOT NULL,
+    locality TEXT NOT NULL,
+    start_local TEXT NOT NULL,
+    end_local TEXT NOT NULL,
+    cycle_hours NUMERIC NOT NULL DEFAULT 48,
+    opening_balance_liters NUMERIC NOT NULL DEFAULT 0,
+    registered_liters NUMERIC NOT NULL DEFAULT 0,
+    transfers_in_liters NUMERIC NOT NULL DEFAULT 0,
+    truck_collected_liters NUMERIC NOT NULL DEFAULT 0,
+    ending_balance_liters NUMERIC NOT NULL DEFAULT 0,
+    transfers_out_liters NUMERIC NOT NULL DEFAULT 0,
+    discarded_liters NUMERIC NOT NULL DEFAULT 0,
+    available_liters NUMERIC NOT NULL DEFAULT 0,
+    accounted_liters NUMERIC NOT NULL DEFAULT 0,
+    difference_liters NUMERIC NOT NULL DEFAULT 0,
+    warning_limit_liters NUMERIC NOT NULL DEFAULT 0,
+    critical_limit_liters NUMERIC NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'ok',
+    truck TEXT DEFAULT '',
+    driver TEXT DEFAULT '',
+    route TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    pending_pdf_count INTEGER NOT NULL DEFAULT 0,
+    entry_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+    entry_snapshot JSONB NOT NULL DEFAULT '[]'::jsonb,
+    closed_by_id TEXT,
+    closed_by TEXT,
+    closed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    cancelled_by_id TEXT,
+    cancelled_by TEXT,
+    cancelled_at TIMESTAMPTZ,
+    cancel_reason TEXT DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_tank_conferences_tank_end
+    ON app_tank_conferences(tank_id,end_local DESC)`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tank_conferences_active_end
+    ON app_tank_conferences(tank_id,end_local) WHERE status<>'cancelada'`);
+
   console.log('Banco atualizado sem apagar os dados existentes.');
 }
 
@@ -439,6 +504,64 @@ async function audit(user, action, details={}) {
                       VALUES($1,$2,$3,$4::jsonb)`,
       [user?.user_id || null, user?.username || null, action, JSON.stringify(details)]);
   } catch(e) { console.error('Auditoria:', e.message); }
+}
+
+function v155HttpError(message,status=400){const e=new Error(message);e.statusCode=status;return e}
+function v155NowLocal(){
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Fortaleza',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date());
+  const get=type=>parts.find(x=>x.type===type)?.value||'';
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}`;
+}
+function v155ConferenceRow(row){
+  if(!row)return null;
+  const numeric=['cycle_hours','opening_balance_liters','registered_liters','transfers_in_liters','truck_collected_liters','ending_balance_liters','transfers_out_liters','discarded_liters','available_liters','accounted_liters','difference_liters','warning_limit_liters','critical_limit_liters'];
+  const out={...row};numeric.forEach(k=>{if(k in out)out[k]=TankCore.number(out[k])});
+  return out;
+}
+async function v155BuildTankPreview(db,tankId,endLocal,firstStart,lockState=false){
+  const tankResult=await db.query(`SELECT * FROM app_milk_tanks WHERE id=$1 AND active=TRUE LIMIT 1`,[String(tankId||'')]);
+  if(!tankResult.rowCount)throw v155HttpError('Tanque não encontrado ou inativo.',404);
+  const tank={...tankResult.rows[0]};
+  ['capacity_liters','warning_tolerance_liters','warning_tolerance_percent','critical_tolerance_liters','critical_tolerance_percent'].forEach(k=>tank[k]=TankCore.number(tank[k]));
+  const lastResult=await db.query(`SELECT * FROM app_tank_conferences WHERE tank_id=$1 AND status<>'cancelada' ORDER BY end_local DESC,closed_at DESC LIMIT 1`,[tank.id]);
+  const last=v155ConferenceRow(lastResult.rows[0]);
+  const end=String(endLocal||v155NowLocal()).slice(0,16);
+  const start=String(last?.end_local||firstStart||TankCore.addHours(end,-48)).slice(0,16);
+  if(!TankCore.validLocalDateTime(start)||!TankCore.validLocalDateTime(end))throw v155HttpError('Informe o início e o fim corretos da coleta.');
+  if(end<=start)throw v155HttpError('O fim da coleta precisa ser posterior ao início.');
+  const stateResult=await db.query(`SELECT data FROM app_state WHERE id='vale-da-serra'${lockState?' FOR SHARE':''}`);
+  const state=stateResult.rows[0]?.data||{};
+  const producers=Array.isArray(state.produtores)?state.produtores:[];
+  const producerMap=new Map(producers.map(p=>[String(p.id),p]));
+  const entries=(Array.isArray(state.lancamentos)?state.lancamentos:[]).map(entry=>{
+    const producer=producerMap.get(String(entry.prodId||entry.producer_id||''));
+    const moment=TankCore.entryMoment(entry);
+    const locality=TankCore.actualLocality(entry,producer);
+    return {entry,producer,moment,locality};
+  }).filter(x=>x.moment&&x.moment>start&&x.moment<=end&&TankCore.norm(x.locality)===TankCore.norm(tank.locality))
+    .sort((a,b)=>a.moment.localeCompare(b.moment)||String(a.producer?.nome||'').localeCompare(String(b.producer?.nome||''),'pt-BR'))
+    .map(x=>({
+      id:String(x.entry.id||''),data:x.moment.slice(0,10),hora:x.moment.slice(11,16),turno:String(x.entry.turno||x.entry.periodo||''),
+      producer_id:String(x.entry.prodId||x.entry.producer_id||''),producer_code:String(x.producer?.codigo||x.producer?.code||''),
+      producer_name:String(x.producer?.nome||x.producer?.name||'Produtor não identificado'),locality:x.locality,
+      liters:TankCore.number(x.entry.qtd||x.entry.liters),origin:String(x.entry.origem||''),pdf_file:String(x.entry.pdfFileName||'')
+    }));
+  const registered=TankCore.round(entries.reduce((sum,x)=>sum+x.liters,0));
+  const endDate=end.slice(0,10);
+  const pending=(Array.isArray(state.importacoesPdf)?state.importacoesPdf:[]).filter(batch=>{
+    if(String(batch.status||'').toLowerCase()!=='pendente')return false;
+    const effectiveDate=batch.dataEfetiva||batch.data||'';
+    if(effectiveDate&&String(effectiveDate).slice(0,10)>endDate)return false;
+    const locals=Array.isArray(batch.localities)?batch.localities:[batch.localidade].filter(Boolean);
+    return !locals.length||locals.some(local=>TankCore.norm(local)===TankCore.norm(tank.locality));
+  }).map(batch=>({id:String(batch.id||''),fileName:String(batch.fileName||'Relatório PDF'),data:String(batch.dataEfetiva||batch.data||''),total:TankCore.number(batch.totalLido)}));
+  return {
+    tank,last,start_local:start,end_local:end,cycle_hours:TankCore.hoursBetween(start,end),
+    suggested_end_local:TankCore.addHours(start,48),next_due_local:TankCore.addHours(end,48),
+    opening_balance_liters:TankCore.number(last?.ending_balance_liters),registered_liters:registered,
+    entry_signature:crypto.createHash('sha256').update(JSON.stringify(entries.map(x=>[x.id,x.data,x.hora,x.liters]))).digest('hex'),
+    entries,pending_imports:pending
+  };
 }
 
 app.get('/api/health', async (_req,res)=>{
@@ -570,6 +693,138 @@ app.put('/api/state', optionalAuth, async (req,res)=>{
     res.json({ok:true});
   } catch(e){ res.status(500).json({ok:false,error:e.message}); }
 });
+
+// V155 - Cadastro dos tanques e conferência das coletas feitas pelos caminhões.
+app.get('/api/milk-tanks',auth,hasPermission('relatorios'),async(req,res)=>{try{
+  const showAll=isAdminUser(req.user)&&String(req.query.all||'')==='1';
+  const r=await pool.query(`SELECT t.*,c.id AS last_conference_id,c.end_local AS last_end_local,
+    c.ending_balance_liters AS last_ending_balance_liters,c.difference_liters AS last_difference_liters,c.status AS last_status
+    FROM app_milk_tanks t LEFT JOIN LATERAL(
+      SELECT id,end_local,ending_balance_liters,difference_liters,status FROM app_tank_conferences
+      WHERE tank_id=t.id AND status<>'cancelada' ORDER BY end_local DESC,closed_at DESC LIMIT 1
+    ) c ON TRUE WHERE ($1::boolean OR t.active=TRUE) ORDER BY t.locality,t.name`,[showAll]);
+  const tanks=r.rows.map(row=>({
+    ...row,capacity_liters:TankCore.number(row.capacity_liters),warning_tolerance_liters:TankCore.number(row.warning_tolerance_liters),
+    warning_tolerance_percent:TankCore.number(row.warning_tolerance_percent),critical_tolerance_liters:TankCore.number(row.critical_tolerance_liters),
+    critical_tolerance_percent:TankCore.number(row.critical_tolerance_percent),last_ending_balance_liters:TankCore.number(row.last_ending_balance_liters),
+    last_difference_liters:TankCore.number(row.last_difference_liters),next_due_local:row.last_end_local?TankCore.addHours(row.last_end_local,48):''
+  }));
+  res.json({ok:true,tanks,now_local:v155NowLocal()});
+}catch(e){res.status(500).json({ok:false,error:e.message})}});
+
+app.post('/api/milk-tanks',auth,hasPermission('relatorios'),adminOnly,async(req,res)=>{try{
+  const body=req.body||{},name=String(body.name||'').trim(),locality=String(body.locality||'').trim();
+  if(!name||!locality)return res.status(400).json({ok:false,error:'Informe o nome do tanque e a localidade.'});
+  const values={
+    capacity:Math.max(0,TankCore.number(body.capacity_liters)),warningLiters:Math.max(0,TankCore.number(body.warning_tolerance_liters??10)),
+    warningPercent:Math.max(0,TankCore.number(body.warning_tolerance_percent??0.5)),criticalLiters:Math.max(0,TankCore.number(body.critical_tolerance_liters??25)),
+    criticalPercent:Math.max(0,TankCore.number(body.critical_tolerance_percent??1))
+  };
+  if(values.criticalLiters<values.warningLiters||values.criticalPercent<values.warningPercent)return res.status(400).json({ok:false,error:'A tolerância crítica precisa ser igual ou maior que a tolerância de atenção.'});
+  const duplicate=await pool.query(`SELECT id,locality FROM app_milk_tanks WHERE active=TRUE`);
+  if(duplicate.rows.some(x=>TankCore.norm(x.locality)===TankCore.norm(locality)))return res.status(409).json({ok:false,error:'Já existe um tanque ativo para esta localidade.'});
+  const id='tank_'+Date.now()+'_'+crypto.randomBytes(4).toString('hex');
+  const r=await pool.query(`INSERT INTO app_milk_tanks(id,name,locality,capacity_liters,warning_tolerance_liters,warning_tolerance_percent,critical_tolerance_liters,critical_tolerance_percent,created_by)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,[id,name,locality,values.capacity,values.warningLiters,values.warningPercent,values.criticalLiters,values.criticalPercent,req.user.username]);
+  await audit(req.user,'TANQUE_CADASTRADO',{id,name,locality,capacity_liters:values.capacity});
+  res.status(201).json({ok:true,tank:r.rows[0]});
+}catch(e){res.status(e.code==='23505'?409:500).json({ok:false,error:e.code==='23505'?'Já existe um tanque ativo nesta localidade. Edite o tanque existente ou deixe-o inativo.':e.message})}});
+
+app.put('/api/milk-tanks/:id',auth,hasPermission('relatorios'),adminOnly,async(req,res)=>{try{
+  const body=req.body||{},name=String(body.name||'').trim(),locality=String(body.locality||'').trim();
+  if(!name||!locality)return res.status(400).json({ok:false,error:'Informe o nome do tanque e a localidade.'});
+  const current=await pool.query(`SELECT id,locality FROM app_milk_tanks WHERE id=$1`,[req.params.id]);
+  if(!current.rowCount)return res.status(404).json({ok:false,error:'Tanque não encontrado.'});
+  if(TankCore.norm(current.rows[0].locality)!==TankCore.norm(locality)){
+    const used=await pool.query(`SELECT 1 FROM app_tank_conferences WHERE tank_id=$1 LIMIT 1`,[req.params.id]);
+    if(used.rowCount)return res.status(409).json({ok:false,error:'Este tanque já possui histórico. Para preservar as conferências, deixe-o inativo e cadastre outro tanque na nova localidade.'});
+  }
+  const vals=[Math.max(0,TankCore.number(body.capacity_liters)),Math.max(0,TankCore.number(body.warning_tolerance_liters??10)),Math.max(0,TankCore.number(body.warning_tolerance_percent??0.5)),Math.max(0,TankCore.number(body.critical_tolerance_liters??25)),Math.max(0,TankCore.number(body.critical_tolerance_percent??1))];
+  if(vals[3]<vals[1]||vals[4]<vals[2])return res.status(400).json({ok:false,error:'A tolerância crítica precisa ser igual ou maior que a tolerância de atenção.'});
+  if(body.active!==false){
+    const duplicate=await pool.query(`SELECT id,locality FROM app_milk_tanks WHERE active=TRUE AND id<>$1`,[req.params.id]);
+    if(duplicate.rows.some(x=>TankCore.norm(x.locality)===TankCore.norm(locality)))return res.status(409).json({ok:false,error:'Já existe outro tanque ativo para esta localidade.'});
+  }
+  const r=await pool.query(`UPDATE app_milk_tanks SET name=$2,locality=$3,capacity_liters=$4,warning_tolerance_liters=$5,warning_tolerance_percent=$6,critical_tolerance_liters=$7,critical_tolerance_percent=$8,active=$9,updated_at=NOW() WHERE id=$1 RETURNING *`,[req.params.id,name,locality,...vals,body.active!==false]);
+  if(!r.rowCount)return res.status(404).json({ok:false,error:'Tanque não encontrado.'});
+  await audit(req.user,'TANQUE_EDITADO',{id:req.params.id,name,locality,active:body.active!==false});
+  res.json({ok:true,tank:r.rows[0]});
+}catch(e){res.status(e.code==='23505'?409:500).json({ok:false,error:e.code==='23505'?'Já existe um tanque ativo nesta localidade. Edite o tanque existente ou deixe-o inativo.':e.message})}});
+
+app.get('/api/tank-conferences/preview',auth,hasPermission('relatorios'),async(req,res)=>{try{
+  const preview=await v155BuildTankPreview(pool,req.query.tank_id,req.query.end_local,req.query.first_start_local);
+  res.json({ok:true,preview});
+}catch(e){res.status(e.statusCode||500).json({ok:false,error:e.message})}});
+
+app.get('/api/tank-conferences',auth,hasPermission('relatorios'),async(req,res)=>{try{
+  const tankId=String(req.query.tank_id||''),limit=Math.min(500,Math.max(1,Number(req.query.limit)||200));
+  const r=await pool.query(`SELECT * FROM app_tank_conferences WHERE ($1='' OR tank_id=$1) ORDER BY end_local DESC,created_at DESC LIMIT $2`,[tankId,limit]);
+  res.json({ok:true,conferences:r.rows.map(v155ConferenceRow)});
+}catch(e){res.status(500).json({ok:false,error:e.message})}});
+
+app.post('/api/tank-conferences',auth,hasPermission('relatorios'),async(req,res)=>{
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const tankId=String(req.body?.tank_id||'');
+    const lock=await client.query(`SELECT id FROM app_milk_tanks WHERE id=$1 AND active=TRUE FOR UPDATE`,[tankId]);
+    if(!lock.rowCount)throw v155HttpError('Tanque não encontrado ou inativo.',404);
+    const preview=await v155BuildTankPreview(client,tankId,req.body?.end_local,req.body?.first_start_local,true);
+    if(req.body?.expected_start_local&&String(req.body.expected_start_local)!==preview.start_local)throw v155HttpError('Outra conferência foi registrada enquanto esta tela estava aberta. Atualize a prévia.',409);
+    if(req.body?.expected_entry_signature&&String(req.body.expected_entry_signature)!==preview.entry_signature)throw v155HttpError('As entradas de leite mudaram enquanto esta tela estava aberta. Atualize e confira novamente antes de finalizar.',409);
+    if(preview.pending_imports.length&&!(req.body?.force_pending_pdf===true&&isAdminUser(req.user)))throw v155HttpError('Existe relatório PDF pendente nesta localidade. Conclua ou descarte a importação antes de fechar o tanque.',409);
+    const truck=String(req.body?.truck||'').trim();
+    if(!truck)throw v155HttpError('Informe o caminhão ou a placa responsável pela retirada.');
+    const volumes={
+      transfersIn:TankCore.number(req.body?.transfers_in_liters),collected:TankCore.number(req.body?.truck_collected_liters),
+      ending:TankCore.number(req.body?.ending_balance_liters),transfersOut:TankCore.number(req.body?.transfers_out_liters),discarded:TankCore.number(req.body?.discarded_liters)
+    };
+    if(Object.values(volumes).some(value=>value<0))throw v155HttpError('Os volumes da conferência não podem ser negativos.');
+    if(preview.tank.capacity_liters>0&&volumes.ending>preview.tank.capacity_liters)throw v155HttpError(`O saldo final ultrapassa a capacidade cadastrada de ${preview.tank.capacity_liters} L.`);
+    const balance=TankCore.calculateBalance({
+      opening:preview.opening_balance_liters,registered:preview.registered_liters,
+      transfersIn:volumes.transfersIn,collected:volumes.collected,
+      ending:volumes.ending,transfersOut:volumes.transfersOut,discarded:volumes.discarded
+    });
+    const base=Math.max(0,balance.available);
+    const warningLimit=TankCore.round(Math.max(preview.tank.warning_tolerance_liters,base*preview.tank.warning_tolerance_percent/100));
+    const criticalLimit=TankCore.round(Math.max(preview.tank.critical_tolerance_liters,base*preview.tank.critical_tolerance_percent/100));
+    const absolute=Math.abs(balance.difference);
+    const status=absolute<=warningLimit?'ok':absolute<=criticalLimit?'atencao':'critica';
+    const notes=String(req.body?.notes||'').trim();
+    if(status!=='ok'&&!notes)throw v155HttpError('Explique a diferença no campo Observações antes de finalizar a conferência.');
+    const id='conf_'+Date.now()+'_'+crypto.randomBytes(5).toString('hex');
+    const params=[id,preview.tank.id,preview.tank.name,preview.tank.locality,preview.start_local,preview.end_local,preview.cycle_hours,
+      preview.opening_balance_liters,preview.registered_liters,volumes.transfersIn,volumes.collected,
+      volumes.ending,volumes.transfersOut,volumes.discarded,
+      balance.available,balance.accounted,balance.difference,warningLimit,criticalLimit,status,truck,String(req.body?.driver||'').trim(),
+      String(req.body?.route||'').trim(),notes,preview.pending_imports.length,JSON.stringify(preview.entries.map(x=>x.id)),JSON.stringify(preview.entries),
+      req.user.user_id,req.user.username];
+    const insert=await client.query(`INSERT INTO app_tank_conferences(
+      id,tank_id,tank_name,locality,start_local,end_local,cycle_hours,opening_balance_liters,registered_liters,transfers_in_liters,
+      truck_collected_liters,ending_balance_liters,transfers_out_liters,discarded_liters,available_liters,accounted_liters,difference_liters,
+      warning_limit_liters,critical_limit_liters,status,truck,driver,route,notes,pending_pdf_count,entry_ids,entry_snapshot,closed_by_id,closed_by)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26::jsonb,$27::jsonb,$28,$29) RETURNING *`,params);
+    await client.query('COMMIT');
+    const conference=v155ConferenceRow(insert.rows[0]);
+    await audit(req.user,'CONFERENCIA_TANQUE_FINALIZADA',{id,tankId,locality:preview.tank.locality,start:preview.start_local,end:preview.end_local,registered_liters:preview.registered_liters,collected_liters:conference.truck_collected_liters,difference_liters:conference.difference_liters,status});
+    res.status(201).json({ok:true,conference});
+  }catch(e){
+    await client.query('ROLLBACK').catch(()=>{});
+    res.status(e.statusCode||(e.code==='23505'?409:500)).json({ok:false,error:e.code==='23505'?'Esta coleta já foi conferida. Atualize a tela.':e.message});
+  }finally{client.release()}
+});
+
+app.post('/api/tank-conferences/:id/cancel',auth,hasPermission('relatorios'),adminOnly,async(req,res)=>{try{
+  const reason=String(req.body?.reason||'').trim();if(reason.length<5)return res.status(400).json({ok:false,error:'Informe o motivo do cancelamento.'});
+  const found=await pool.query(`SELECT * FROM app_tank_conferences WHERE id=$1 AND status<>'cancelada'`,[req.params.id]);
+  if(!found.rowCount)return res.status(404).json({ok:false,error:'Conferência não encontrada ou já cancelada.'});
+  const latest=await pool.query(`SELECT id FROM app_tank_conferences WHERE tank_id=$1 AND status<>'cancelada' ORDER BY end_local DESC,closed_at DESC LIMIT 1`,[found.rows[0].tank_id]);
+  if(latest.rows[0]?.id!==req.params.id)return res.status(409).json({ok:false,error:'Somente a conferência mais recente deste tanque pode ser cancelada.'});
+  const r=await pool.query(`UPDATE app_tank_conferences SET status='cancelada',cancelled_by_id=$2,cancelled_by=$3,cancelled_at=NOW(),cancel_reason=$4 WHERE id=$1 RETURNING *`,[req.params.id,req.user.user_id,req.user.username,reason]);
+  await audit(req.user,'CONFERENCIA_TANQUE_CANCELADA',{id:req.params.id,tankId:found.rows[0].tank_id,reason});
+  res.json({ok:true,conference:v155ConferenceRow(r.rows[0])});
+}catch(e){res.status(500).json({ok:false,error:e.message})}});
 
 
 app.get('/api/inventory/products',auth,hasPermission('estoque'),async(req,res)=>{

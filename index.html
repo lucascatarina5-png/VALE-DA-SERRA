@@ -1302,6 +1302,7 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
 .sidebar .nav button[hidden]{display:none!important}
 @media(max-width:900px){.v102-report-filters{grid-template-columns:1fr 1fr}.v102-report-summary{grid-template-columns:1fr}.v102-report-table{min-width:780px}}
 </style>
+<link rel="stylesheet" href="v155-conferencia-tanques.css?v=155">
 </head>
 <body>
 
@@ -1357,7 +1358,7 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
     <div style="display:flex;align-items:center;gap:10px"><span style="font-size:30px">👤</span><div><small>ADMINISTRADOR</small><div style="font-weight:800;margin-top:3px">Nível: Administrador</div></div></div>
   </div>
 <div style="padding:12px 8px 2px;color:#dfe9f8;font-size:11px;line-height:1.55">
-    Versão 153<br>
+    Versão 155<br>
     © Vale da Serra Laticínios<br>
     Todos os direitos reservados
   </div>
@@ -5881,17 +5882,19 @@ body:not(.v112-galpao-admin) #estoque .gal-quick{display:none!important}
   html body .main .hero>.v147-clock-panel strong{color:#fff!important;-webkit-text-fill-color:#fff!important;font-size:12px!important;font-weight:900!important;opacity:1!important}
 }
 </style>
-<script src="v125-pagamento-corte.js?v=154"></script>
-<script src="v133-galpao-inteligente.js?v=154"></script>
-<script src="v135-pesquisa-produtor.js?v=154"></script>
-<script src="v137-importacao-segura.js?v=154"></script>
-<script src="v139-pagamentos-organizados.js?v=154"></script>
-<script src="v144-painel-executivo.js?v=154"></script>
-<script src="v149-limpeza-dados.js?v=154"></script>
-<script src="v150-saldo-anterior.js?v=154"></script>
-<script src="v151-editar-localidade.js?v=154"></script>
-<script src="v152-relatorio-pre-pagamento.js?v=154"></script>
-<script src="v154-localidade-produtor.js?v=154"></script>
-<script id="v126-open-section">window.addEventListener('load',()=>{const id=location.hash.slice(1);if(['pagamentos','pesquisa'].includes(id))setTimeout(()=>{if(typeof go==='function')go(id)},250)});</script>
+<script src="v125-pagamento-corte.js?v=155"></script>
+<script src="v133-galpao-inteligente.js?v=155"></script>
+<script src="v135-pesquisa-produtor.js?v=155"></script>
+<script src="v137-importacao-segura.js?v=155"></script>
+<script src="v139-pagamentos-organizados.js?v=155"></script>
+<script src="v144-painel-executivo.js?v=155"></script>
+<script src="v149-limpeza-dados.js?v=155"></script>
+<script src="v150-saldo-anterior.js?v=155"></script>
+<script src="v151-editar-localidade.js?v=155"></script>
+<script src="v152-relatorio-pre-pagamento.js?v=155"></script>
+<script src="v154-localidade-produtor.js?v=155"></script>
+<script src="v155-tank-core.js?v=155"></script>
+<script src="v155-conferencia-tanques.js?v=155"></script>
+<script id="v126-open-section">window.addEventListener('load',()=>{const id=location.hash.slice(1);if(id==='conferenciaTanques')setTimeout(()=>{if(typeof v155Open==='function')v155Open(document.querySelector('.v155-nav-button'))},250);else if(['pagamentos','pesquisa'].includes(id))setTimeout(()=>{if(typeof go==='function')go(id)},250)});</script>
 </body>
 </html>
