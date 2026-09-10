@@ -1,7 +1,7 @@
 (function(){
   'use strict';
   const Bridge=window.V157MobileBridge,Core=window.V155TankCore;
-  if(!Bridge)return console.error('V158: comunicação com o aplicativo não carregada.');
+  if(!Bridge)return console.error('V159: comunicação com o aplicativo não carregada.');
   const E=value=>String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const N=value=>{const n=Number(String(value??0).replace(',','.'));return Number.isFinite(n)?n:0};
   const norm=value=>String(value||'').trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').replace(/\s+/g,' ');
@@ -87,7 +87,7 @@
   function beforeCut(entry,c){return String(entry.data||'')<c.date||(String(entry.data||'')===c.date&&entryTurn(entry)<=(c.turn==='M'?1:2))}
   function pendingEntries(p,c){return (state().lancamentos||[]).filter(x=>String(producerRef(x))===String(p.id)&&!entryPaid(x)&&beforeCut(x,c)&&norm(financialLocality(x))===norm(c.local))}
   function pendingDebts(p,c){
-    return (state().debitos||[]).filter(d=>debtBelongs(d,p)&&!['cancelado','cancelada','excluido','excluida'].includes(norm(d.status||d.situacao))).filter(d=>{const dt=debitDate(d);return !dt||dt<=c.date}).filter(d=>debtBalance(d)>0).sort((a,b)=>debitDate(a).localeCompare(debitDate(b)));
+    return (state().debitos||[]).filter(d=>debtBelongs(d,p)&&![d.status,d.situacao,d.situacaoPagamento].some(value=>['cancelado','cancelada','excluido','excluida'].includes(norm(value)))).filter(d=>{const dt=debitDate(d);return !dt||dt<=c.date}).filter(d=>debtBalance(d)>0).sort((a,b)=>debitDate(a).localeCompare(debitDate(b)));
   }
   function deliveryBreakdown(entries){
     const map=new Map();entries.forEach(x=>{const local=entryLocality(x)||'Não informada',key=norm(local),row=map.get(key)||{local,liters:0};row.liters+=entryQty(x);map.set(key,row)});return [...map.values()];
@@ -163,7 +163,7 @@
         const applied=apps.reduce((sum,x)=>sum+x.amount,0),paymentId=id('pg_leite');
         apps.forEach(a=>s.pagamentosDebitos.push({id:id('pgdeb_leite'),debitoId:a.debitId,prodId:row.p.id,data:today(),valor:a.amount,origem:'pagamento_leite',pagamentoId:paymentId,fechamentoId:closureId}));
         const places=deliveryBreakdown(row.entries),outside=places.filter(x=>norm(x.local)!==norm(row.p.local));
-        s.pagamentos.push({chave:`${row.p.id}|${c.ym}|${c.q}|${closureId}`,id:paymentId,prodId:row.p.id,mes:c.ym,quinzena:c.q,localidade:c.local,localidadePrincipalPagamento:c.local,localidadeCadastroProdutor:row.p.local||c.local,locaisEntrega:places,entregaForaLocalidadePrincipal:outside.length>0,litrosForaLocalidadePrincipal:outside.reduce((sum,x)=>sum+x.liters,0),corteData:c.date,corteTurno:c.turn==='M'?'Manhã':'Tarde',entryIds:row.entries.map(x=>x.id),debitIds:apps.map(x=>x.debitId),debitApplications:apps,debitoAbertoAntes:row.open,saldoDebitosApos:Math.max(0,row.open-applied),litros:row.total,litrosSaldoAnterior:row.previous,litrosQuinzenaAtual:row.current,valorLitro:2.30,valorBruto:row.gross,totalDebitos:applied,valorPago:Math.max(0,row.gross-applied),dataPagamento:today(),modeloPagamento:'fechamento-localidade-v158-mobile',fechamentoId:closureId,fechamentoCriadoEm:createdAt,fechamentoCriadoPor:operator});
+        s.pagamentos.push({chave:`${row.p.id}|${c.ym}|${c.q}|${closureId}`,id:paymentId,prodId:row.p.id,mes:c.ym,quinzena:c.q,localidade:c.local,localidadePrincipalPagamento:c.local,localidadeCadastroProdutor:row.p.local||c.local,locaisEntrega:places,entregaForaLocalidadePrincipal:outside.length>0,litrosForaLocalidadePrincipal:outside.reduce((sum,x)=>sum+x.liters,0),corteData:c.date,corteTurno:c.turn==='M'?'Manhã':'Tarde',entryIds:row.entries.map(x=>x.id),debitIds:apps.map(x=>x.debitId),debitApplications:apps,debitoAbertoAntes:row.open,saldoDebitosApos:Math.max(0,row.open-applied),litros:row.total,litrosSaldoAnterior:row.previous,litrosQuinzenaAtual:row.current,valorLitro:2.30,valorBruto:row.gross,totalDebitos:applied,valorPago:Math.max(0,row.gross-applied),dataPagamento:today(),modeloPagamento:'fechamento-localidade-v159-mobile',fechamentoId:closureId,fechamentoCriadoEm:createdAt,fechamentoCriadoPor:operator});
         row.entries.forEach(x=>{x.situacaoPagamento='Liquidada';x.pagamentoId=paymentId;x.dataLiquidacao=today()});apps.forEach(a=>{const d=s.debitos.find(x=>String(x.id)===String(a.debitId));if(d){d.situacaoPagamento=a.balanceAfter<=0?'Liquidado':'Pendente';if(a.balanceAfter<=0)d.pagamentoId=paymentId}});
       });
       await Bridge.saveState();fetch('/api/audit/event',{method:'POST',headers:{Authorization:'Bearer '+(localStorage.getItem('vale_token')||sessionStorage.getItem('vale_token')||''),'Content-Type':'application/json'},body:JSON.stringify({action:'PAGAMENTO_QUINZENA_REGISTRADO_MOBILE',details:{localidade:c.local,quinzena:c.q,mes:c.ym,produtores:rows.length,litros:totals.liters,valor:totals.net,debitos:totals.debt}})}).catch(()=>{});

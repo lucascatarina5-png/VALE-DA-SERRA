@@ -78,7 +78,7 @@
     const producer=produtores.find(p=>String(p.id)===String(id));
     if(!producer)return null;
     const milk=lancamentos.filter(x=>String(x.prodId)===String(id)).map(x=>({...x,situacaoPagamento:paid(x)?'Liquidada':'Pendente'})).sort(byDate);
-    const ds=debitos.filter(x=>String(x.prodId)===String(id)).sort(byDate);
+    const ds=debitos.filter(x=>![x.status,x.situacao,x.situacaoPagamento].some(value=>['cancelado','cancelada','excluido','excluida'].includes(norm(value)))).filter(x=>String(x.prodId)===String(id)).sort(byDate);
     const ps=pagamentos.filter(x=>String(x.prodId)===String(id)).sort((a,b)=>String(b.dataPagamento||'').localeCompare(String(a.dataPagamento||'')));
     const day=Number(today().slice(8,10)),q=day<=15?1:2,ym=today().slice(0,7),ini=ym+(q===1?'-01':'-16'),fim=ym+(q===1?'-15':'-31');
     const pending=milk.filter(x=>x.situacaoPagamento!=='Liquidada'&&String(x.data||'')<=today());

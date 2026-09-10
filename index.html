@@ -1302,9 +1302,9 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
 .sidebar .nav button[hidden]{display:none!important}
 @media(max-width:900px){.v102-report-filters{grid-template-columns:1fr 1fr}.v102-report-summary{grid-template-columns:1fr}.v102-report-table{min-width:780px}}
 </style>
-<link rel="stylesheet" href="v155-conferencia-tanques.css?v=157">
+<link rel="stylesheet" href="v155-conferencia-tanques.css?v=159">
 <script id="v156-embed-mode">if(new URLSearchParams(location.search).get('embed')==='mobile')document.documentElement.classList.add('v156-mobile-embed');</script>
-<link rel="stylesheet" href="v156-mobile-modules.css?v=157">
+<link rel="stylesheet" href="v156-mobile-modules.css?v=159">
 </head>
 <body>
 
@@ -1991,6 +1991,7 @@ function moeda(n){return (Number(n)||0).toLocaleString('pt-BR',{style:'currency'
 function daysBetween(a,b){return Math.floor((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000)}
 function v157ProducerRef(x){return x?.prodId??x?.produtorId??x?.producerId??x?.producer_id??''}
 function v157DebitRef(x){return x?.debitoId??x?.debitId??x?.debito_id??x?.debit_id??''}
+function v159DebtActive(x){let values=[x?.status,x?.situacao,x?.situacaoPagamento].map(v=>String(v||'').trim().toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,''));return !values.some(v=>['cancelado','cancelada','excluido','excluida'].includes(v))}
 function prodById(id){return produtores.find(p=>String(p.id)===String(id))}
 function entradasProd(id){return lancamentos.filter(x=>String(v157ProducerRef(x))===String(id)).sort((a,b)=>String(a.data||'').localeCompare(String(b.data||'')))}
 function ultimaEntrada(id){let a=entradasProd(id);return a.length?a[a.length-1]:null}
@@ -1998,7 +1999,7 @@ function statusProd(id){let u=ultimaEntrada(id);if(!u)return 'Inativo';return da
 function mediaUltimosDias(id,dias=10){const lim=new Date();lim.setHours(0,0,0,0);lim.setDate(lim.getDate()-(dias-1));let a=entradasProd(id).filter(x=>new Date(x.data+'T12:00:00')>=lim);return a.reduce((s,x)=>s+Number(x.qtd),0)/dias}
 function mediaDiasComEntrega(id,dias=30){const lim=new Date();lim.setDate(lim.getDate()-(dias-1));let a=entradasProd(id).filter(x=>new Date(x.data+'T12:00:00')>=lim);return a.length?a.reduce((s,x)=>s+Number(x.qtd),0)/a.length:0}
 function alertaEntrada(item){let a=entradasProd(item.prodId).filter(x=>x.id!==item.id&&x.data<=item.data);if(a.length<3)return '';let b=a.slice(-10),m=b.reduce((s,x)=>s+Number(x.qtd),0)/b.length;return m&&Math.abs(Number(item.qtd)-m)/m>=.35?'Fora da média':''}
-function debitosProd(id){return debitos.filter(x=>String(v157ProducerRef(x))===String(id)).sort((a,b)=>String(a.data||'').localeCompare(String(b.data||'')))}
+function debitosProd(id){return debitos.filter(v159DebtActive).filter(x=>String(v157ProducerRef(x))===String(id)).sort((a,b)=>String(a.data||'').localeCompare(String(b.data||'')))}
 function totalDebitosPeriodo(id,ini,fim){
   return debitosProd(id)
     .filter(x=>x.data>=ini&&x.data<=fim)
@@ -2256,14 +2257,21 @@ function editarDebito(id){
   alert('Débito alterado com sucesso.');
 }
 
-function excluirDebito(id){
-  if(confirm('Excluir este débito e todo o histórico de pagamentos dele?')){
-    debitos=debitos.filter(x=>x.id!==id);
-    pagamentosDebitos=pagamentosDebitos.filter(x=>x.debitoId!==id);
-    localStorage.setItem(KDEB,JSON.stringify(debitos));
-    localStorage.setItem(KDEBPAG,JSON.stringify(pagamentosDebitos));
-    renderAll();
-  }
+async function excluirDebito(id){
+  let deb=debitos.find(x=>String(x.id)===String(id));if(!deb)return alert('Débito não encontrado.');
+  let p=prodById(v157ProducerRef(deb));
+  if(!confirm(`Excluir este débito?\n\nProdutor: ${p?.nome||deb.produtorNome||'-'}\nDescrição: ${deb.descricao||'-'}\nValor: ${moeda(deb.valor)}\n\nA retirada continuará no histórico do estoque, mas não será mais descontada do produtor.`))return;
+  try{
+    let headers=typeof v4Headers==='function'?v4Headers():{},response=await fetch('/api/debts/'+encodeURIComponent(id),{method:'DELETE',headers,cache:'no-store'}),body={};
+    try{body=await response.json()}catch(_){}
+    if(!response.ok||body.ok===false)throw new Error(body.error||'O servidor não confirmou a exclusão.');
+    if(body.data&&Array.isArray(body.data.debitos))debitos=body.data.debitos;
+    else{deb.status='excluido';deb.situacao='Excluido';deb.situacaoPagamento='Excluido'}
+    if(body.data&&Array.isArray(body.data.pagamentosDebitos))pagamentosDebitos=body.data.pagamentosDebitos;
+    localStorage.setItem(KDEB,JSON.stringify(debitos));localStorage.setItem(KDEBPAG,JSON.stringify(pagamentosDebitos));
+    renderAll();try{if(typeof window.v133RenderMercadorias==='function')window.v133RenderMercadorias()}catch(_){}
+    alert('Débito excluído com sucesso. Ele não voltará após atualizar a página.');
+  }catch(error){alert('❌ Não foi possível excluir o débito.\n\n'+error.message)}
 }
 
 document.getElementById('formLanc').addEventListener('submit',e=>{e.preventDefault();let p=prodById(lProd.value);if(!p)return;let periodo=lTurno.value||'M',l={id:crypto.randomUUID(),data:lData.value,prodId:p.id,qtd:Number(lQtd.value),periodo,turno:periodo==='M'?'Manhã':'Tarde',situacaoPagamento:'Pendente',local:p.local,tanqueiro:p.tanqueiro,caminhao:p.caminhao};lancamentos.push(l);v25Audit('LEITE_ENTRADA_REGISTRADA',{produtor:p.nome,litros:l.qtd,data:l.data,turno:l.turno,local:l.local});e.target.reset();lData.value=isoHoje();save()});
@@ -2521,7 +2529,7 @@ function renderDebitos(){
   let local=document.getElementById('dFiltroLocalidade')?.value||'';
   let nome=textoBuscaDebito(document.getElementById('dFiltroNome')?.value||'');
 
-  let arr=debitos.slice().filter(x=>{
+  let arr=debitos.slice().filter(v159DebtActive).filter(x=>{
     let p=prodById(x.prodId);
     if(!p)return false;
     if(local && (p.local||'')!==local)return false;
@@ -2574,7 +2582,7 @@ function renderDebitos(){
   }).join('') || '<tr><td colspan="9">Nenhum débito encontrado para esta pesquisa.</td></tr>';
 }
 
-function resumoQuinzena(q){let ym=isoHoje().slice(0,7),ini=q===1?ym+'-01':ym+'-16',fim=q===1?ym+'-15':ym+'-31';let arr=lancamentos.filter(x=>x.data>=ini&&x.data<=fim),litros=arr.reduce((s,x)=>s+Number(x.qtd),0),valor=litros*VALOR_LITRO,deb=debitos.filter(x=>x.data>=ini&&x.data<=fim).reduce((s,x)=>s+Number(x.valor),0),liquido=Math.max(0,valor-deb);let ids=[...new Set(arr.map(x=>x.prodId))],pagos=ids.filter(id=>pagamentoDo(id,ym,String(q))).length;return {litros,valor,deb,liquido,pagos,total:ids.length}}
+function resumoQuinzena(q){let ym=isoHoje().slice(0,7),ini=q===1?ym+'-01':ym+'-16',fim=q===1?ym+'-15':ym+'-31';let arr=lancamentos.filter(x=>x.data>=ini&&x.data<=fim),litros=arr.reduce((s,x)=>s+Number(x.qtd),0),valor=litros*VALOR_LITRO,deb=debitos.filter(v159DebtActive).filter(x=>x.data>=ini&&x.data<=fim).reduce((s,x)=>s+Number(x.valor),0),liquido=Math.max(0,valor-deb);let ids=[...new Set(arr.map(x=>x.prodId))],pagos=ids.filter(id=>pagamentoDo(id,ym,String(q))).length;return {litros,valor,deb,liquido,pagos,total:ids.length}}
 
 function abrirDetalhesProdutoresInativos(){
   let arr=produtores
@@ -5760,7 +5768,7 @@ function galVender(id){estMovProd.value=id;galAtualizarVenda();document.getEleme
 function galAtualizarVenda(){const p=EST.produtos.find(x=>String(x.id)===String(estMovProd.value));const q=Number(estMovQtd.value||0),pre=Number(p?.unit_price||0);estMovValor.value=pre;galPrecoTxt.textContent=moeda(pre)+(p?' / '+p.unit:'');galSaldoTxt.textContent=p?fmt(p.balance)+' '+p.unit:'0';galTotal.textContent=moeda(q*pre)}
 function galPagamento(x){GAL.pay=x;document.querySelectorAll('.gal-pay button').forEach(b=>b.classList.toggle('active',b.dataset.pay===x));galDebitoAviso.style.display=x==='leite'?'block':'none';estGerarDebito.checked=x==='leite'}
 function galLimparVenda(){estMovProd.value='';estMovProdutor.value='';estMovQtd.value='1';estMovDestino.value='';galPagamento('dinheiro');galAtualizarVenda()}
-async function galFinalizarVenda(){const p=EST.produtos.find(x=>String(x.id)===String(estMovProd.value));const q=Number(estMovQtd.value||0),producer_id=estMovProdutor.value||null;if(!p||q<=0){alert('Selecione o produto e informe a quantidade.');return}if(GAL.pay==='leite'&&!producer_id){alert('Para descontar do leite, selecione o produtor.');return}const produtorObj=producer_id?prodById(producer_id):null, producer_name=produtorObj?(produtorObj.nome||produtorObj.name||'Produtor'):null;const price=Number(p.unit_price||0),total=q*price;try{await estoqueAPI('/api/inventory/movements',{method:'POST',body:JSON.stringify({product_id:p.id,type:'saida',quantity:q,unit_price:price,producer_id,producer_name,destination:`VENDA GALPÃO • ${GAL.pay.toUpperCase()}${estMovDestino.value.trim()?' • '+estMovDestino.value.trim():''}`})});if(GAL.pay==='leite'&&producer_id){debitos.push({id:'deb_gal_'+Date.now(),prodId:producer_id,data:isoHoje(),descricao:`Galpão: ${p.name} - ${fmt(q)} ${p.unit}`,valor:total});localStorage.setItem(KDEB,JSON.stringify(debitos));save()}estMsg.textContent='✅ Venda registrada. Estoque atualizado automaticamente.';galLimparVenda();await estoqueCarregar()}catch(e){estMsg.textContent='❌ '+e.message}}
+async function galFinalizarVenda(){const p=EST.produtos.find(x=>String(x.id)===String(estMovProd.value));const q=Number(estMovQtd.value||0),producer_id=estMovProdutor.value||null;if(!p||q<=0){alert('Selecione o produto e informe a quantidade.');return}if(GAL.pay==='leite'&&!producer_id){alert('Para descontar do leite, selecione o produtor.');return}const produtorObj=producer_id?prodById(producer_id):null, producer_name=produtorObj?(produtorObj.nome||produtorObj.name||'Produtor'):null;const price=Number(p.unit_price||0);try{await estoqueAPI('/api/inventory/movements',{method:'POST',body:JSON.stringify({product_id:p.id,type:'saida',quantity:q,unit_price:price,producer_id,producer_name,destination:`VENDA GALPÃO • ${GAL.pay.toUpperCase()}${estMovDestino.value.trim()?' • '+estMovDestino.value.trim():''}`})});if(GAL.pay==='leite'&&producer_id&&typeof window.v133AtualizarDebitosServidor==='function')await window.v133AtualizarDebitosServidor().catch(()=>{});estMsg.textContent='✅ Venda registrada. Estoque atualizado automaticamente.';galLimparVenda();await estoqueCarregar()}catch(e){estMsg.textContent='❌ '+e.message}}
 function galAbrirCadastro(){if(typeof v4IsAdmin==='function'&&!v4IsAdmin())return alert('Somente o Administrador pode cadastrar produtos.');galAba('ajustes');estProdNome?.focus()}
 function galAbrirEntrada(){if(typeof v4IsAdmin==='function'&&!v4IsAdmin())return alert('Somente o Administrador pode registrar entrada de mercadoria.');galMovEspecial('entrada')}
 function galFocarVenda(){galAba('produtos');document.getElementById('galSale')?.scrollIntoView({behavior:'smooth'})}
@@ -5855,7 +5863,7 @@ setTimeout(()=>{galPagamento('dinheiro');if(document.getElementById('estoque')?.
     const sale={date:new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date()),product:p.name,quantity:q,unit:p.unit,unit_price:price,total,producer_id,producer_name,payment:GAL.pay==='leite'?'Descontar do leite':GAL.pay==='pix'?'PIX':'Dinheiro',observation:obs};
     try{
       await estoqueAPI('/api/inventory/movements',{method:'POST',body:JSON.stringify({product_id:p.id,type:'saida',quantity:q,unit_price:price,producer_id,producer_name,destination:`VENDA GALPÃO • ${GAL.pay.toUpperCase()}${obs?' • '+obs:''}`})});
-      if(GAL.pay==='leite'&&producer_id){debitos.push({id:'deb_gal_'+Date.now(),prodId:producer_id,data:isoHoje(),descricao:`Galpão: ${p.name} - ${fmt(q)} ${p.unit}`,valor:total});localStorage.setItem(KDEB,JSON.stringify(debitos));save()}
+      if(GAL.pay==='leite'&&producer_id&&typeof window.v133AtualizarDebitosServidor==='function')await window.v133AtualizarDebitosServidor().catch(()=>{});
       estMsg.textContent='✅ Venda registrada. Estoque atualizado automaticamente.';galLimparVenda();await estoqueCarregar();galAbrirCupom(sale);
     }catch(e){estMsg.textContent='❌ '+e.message}
   };
@@ -5905,19 +5913,19 @@ body:not(.v112-galpao-admin) #estoque .gal-quick{display:none!important}
   html body .main .hero>.v147-clock-panel strong{color:#fff!important;-webkit-text-fill-color:#fff!important;font-size:12px!important;font-weight:900!important;opacity:1!important}
 }
 </style>
-<script src="v125-pagamento-corte.js?v=158"></script>
-<script src="v133-galpao-inteligente.js?v=158"></script>
-<script src="v135-pesquisa-produtor.js?v=158"></script>
-<script src="v137-importacao-segura.js?v=158"></script>
-<script src="v139-pagamentos-organizados.js?v=158"></script>
-<script src="v144-painel-executivo.js?v=158"></script>
-<script src="v149-limpeza-dados.js?v=158"></script>
-<script src="v150-saldo-anterior.js?v=158"></script>
-<script src="v151-editar-localidade.js?v=158"></script>
-<script src="v152-relatorio-pre-pagamento.js?v=158"></script>
-<script src="v154-localidade-produtor.js?v=158"></script>
-<script src="v155-tank-core.js?v=158"></script>
-<script src="v155-conferencia-tanques.js?v=158"></script>
+<script src="v125-pagamento-corte.js?v=159"></script>
+<script src="v133-galpao-inteligente.js?v=159"></script>
+<script src="v135-pesquisa-produtor.js?v=159"></script>
+<script src="v137-importacao-segura.js?v=159"></script>
+<script src="v139-pagamentos-organizados.js?v=159"></script>
+<script src="v144-painel-executivo.js?v=159"></script>
+<script src="v149-limpeza-dados.js?v=159"></script>
+<script src="v150-saldo-anterior.js?v=159"></script>
+<script src="v151-editar-localidade.js?v=159"></script>
+<script src="v152-relatorio-pre-pagamento.js?v=159"></script>
+<script src="v154-localidade-produtor.js?v=159"></script>
+<script src="v155-tank-core.js?v=159"></script>
+<script src="v155-conferencia-tanques.js?v=159"></script>
 <script id="v156-open-section">window.addEventListener('load',async()=>{if(typeof v38SincronizarUsuario==='function')await v38SincronizarUsuario();const id=location.hash.slice(1);if(id==='conferenciaTanques')setTimeout(()=>{if(typeof v155Open==='function')v155Open(document.querySelector('.v155-nav-button'))},80);else if(['pagamentos','pesquisa'].includes(id))setTimeout(()=>{if(typeof go==='function')go(id)},80)});</script>
 </body>
 </html>

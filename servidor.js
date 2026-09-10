@@ -673,7 +673,7 @@ app.post('/api/audit/event',auth,async(req,res)=>{
   } catch(e){res.status(500).json({ok:false,error:e.message});}
 });
 
-// V158 - o movimento físico do Galpão é a fonte de verdade do débito.
+// V159 - o movimento físico do Galpão é a fonte de verdade do débito.
 // Versões antigas registravam algumas saídas primeiro no estoque e só depois
 // tentavam salvar o débito pelo navegador. Uma queda ou sincronização concorrente
 // podia deixar a mercadoria baixada sem aparecer no pagamento do produtor.
@@ -683,6 +683,30 @@ function v158DebitDate(value){return String(value?.data||value?.business_date||v
 function v158DebitValue(value){const number=Number(value?.valor??value?.amount??value?.total??0);return Number.isFinite(number)?number:0}
 function v158IsGalpaoDebt(value){const origin=v158Norm(value?.origem),id=String(value?.id||'').toLowerCase(),description=v158Norm(value?.descricao||value?.description);return origin==='galpao'||id.startsWith('deb_gal_')||id.startsWith('deb_ord_gal_')||id.startsWith('deb_est_')||description.startsWith('galpao')||description.startsWith('estoque/galpao')}
 function v158IsMilkWarehouseMovement(destination){const parts=String(destination||'').split('•').map(v158Norm);return parts[0]?.startsWith('venda galpao')&&parts[1]==='leite'}
+function v159DebtExcluded(value){return [value?.status,value?.situacao,value?.situacaoPagamento].map(v158Norm).some(status=>['cancelado','cancelada','excluido','excluida'].includes(status))}
+function v159LegacyBrowserGalpaoDebt(value){return /^deb_gal_\d{11,}$/.test(String(value?.id||''))&&!value?.movementId&&!value?.movement_id&&!value?.releaseId&&!value?.release_id}
+function v159DebtRef(value){return value?.debitoId??value?.debitId??value?.debito_id??value?.debit_id??''}
+function v159MarkDuplicate(state,debt,canonicalId){
+  const duplicateId=String(debt?.id||''),targetId=String(canonicalId||'');
+  if(!duplicateId||!targetId||duplicateId===targetId)return false;
+  debt.status='excluido';debt.situacao='Excluido';debt.situacaoPagamento='Excluido';debt.duplicadoDe=targetId;debt.motivoExclusao='Duplicidade automática corrigida pela V159';debt.excluidoEm=debt.excluidoEm||new Date().toISOString();
+  const ledger=Array.isArray(state.pagamentosDebitos)?state.pagamentosDebitos:[];
+  ledger.forEach(item=>{if(String(v159DebtRef(item))===duplicateId){if(Object.prototype.hasOwnProperty.call(item,'debitoId'))item.debitoId=targetId;else if(Object.prototype.hasOwnProperty.call(item,'debitId'))item.debitId=targetId;else item.debitoId=targetId}});
+  (Array.isArray(state.pagamentos)?state.pagamentos:[]).forEach(payment=>{
+    if(Array.isArray(payment.debitIds))payment.debitIds=[...new Set(payment.debitIds.map(id=>String(id)===duplicateId?targetId:String(id)))];
+    if(Array.isArray(payment.debitApplications))payment.debitApplications.forEach(item=>{if(String(v159DebtRef(item))===duplicateId){if(Object.prototype.hasOwnProperty.call(item,'debitId'))item.debitId=targetId;else item.debitoId=targetId}});
+  });
+  return true;
+}
+function v159PreserveDebtTombstones(currentState,nextState){
+  const current=Array.isArray(currentState?.debitos)?currentState.debitos:[],next=Array.isArray(nextState?.debitos)?nextState.debitos:[];
+  for(const oldDebt of current.filter(v159DebtExcluded)){
+    const index=next.findIndex(item=>String(item?.id||'')===String(oldDebt?.id||''));
+    if(index>=0)next[index]={...next[index],...oldDebt,status:'excluido',situacao:'Excluido',situacaoPagamento:'Excluido'};
+    else next.push(oldDebt);
+  }
+  nextState.debitos=next;return nextState;
+}
 
 async function v158ReconcileGalpaoDebts(externalClient=null){
   const client=externalClient||await pool.connect(),ownsTransaction=!externalClient;
@@ -714,46 +738,73 @@ async function v158ReconcileGalpaoDebts(externalClient=null){
       if(!release){release={releaseId:String(row.release_id),orderId:String(row.order_id),date:String(row.business_date||''),producerId:String(row.producer_id||''),producerName:String(row.producer_name||''),total:Number(row.total||0),items:[]};releases.set(release.releaseId,release)}
       if(row.product_id)release.items.push({movement_id:row.movement_id===null?null:String(row.movement_id),product_id:row.product_id,produto:row.product_name,quantidade:Number(row.quantity||0),unidade:row.unit||'un',valor_unitario:Number(row.unit_price||0),subtotal:Number(row.subtotal||0)});
     }
-    const usedLegacy=new Set();let created=0,enriched=0;
+    // Remove repetições com o mesmo identificador antes de comparar com as
+    // movimentações. Um mesmo ID nunca pode representar duas cobranças.
+    const uniqueDebts=[],seenIds=new Map();let deduplicated=0;
+    for(const candidate of debts){
+      const id=String(candidate?.id||'');
+      if(!id||!seenIds.has(id)){uniqueDebts.push(candidate);if(id)seenIds.set(id,candidate);continue}
+      const saved=seenIds.get(id);
+      if(v159DebtExcluded(candidate)&&!v159DebtExcluded(saved))Object.assign(saved,candidate,{status:'excluido',situacao:'Excluido',situacaoPagamento:'Excluido'});
+      else for(const [key,value] of Object.entries(candidate||{}))if(saved[key]===undefined||saved[key]===null||saved[key]==='')saved[key]=value;
+      deduplicated++;
+    }
+    debts.splice(0,debts.length,...uniqueDebts);
+    const usedLegacy=new Set(),sourceDebts=[];let created=0,enriched=0;
     const sameMoney=(a,b)=>Math.abs(v158DebitValue(a)-Number(b||0))<0.005;
-    const findLegacy=(producerId,date,total,kind)=>debts.find((debt,index)=>{
-      if(usedLegacy.has(index)||!v158IsGalpaoDebt(debt))return false;
+    const findLegacy=(producerId,date,total,kind,productId='',productName='')=>debts.find((debt,index)=>{
+      if(usedLegacy.has(index)||!v158IsGalpaoDebt(debt)||v159DebtExcluded(debt))return false;
       if(String(v158ProducerRef(debt))!==String(producerId)||v158DebitDate(debt)!==String(date)||!sameMoney(debt,total))return false;
       if(kind==='movement'&&(debt.movementId||debt.movement_id||debt.releaseId||debt.release_id))return false;
       if(kind==='release'&&(debt.releaseId||debt.release_id||debt.movementId||debt.movement_id))return false;
+      if(kind==='movement'&&productId){const items=Array.isArray(debt.itens)?debt.itens:[],matchesItem=items.some(item=>String(item.product_id||'')===String(productId)),matchesDescription=v158Norm(debt.descricao||debt.description).includes(v158Norm(productName));if(items.length?!matchesItem:!matchesDescription)return false}
       usedLegacy.add(index);return true;
     });
     for(const movement of movements.rows){
       if(!v158IsMilkWarehouseMovement(movement.destination))continue;
       const movementId=String(movement.id),debtId='deb_gal_'+movementId,total=Number(movement.quantity||0)*Number(movement.unit_price||0);
-      let debt=debts.find(item=>String(item.id)===debtId||String(item.movementId??item.movement_id??'')===movementId);
-      if(!debt)debt=findLegacy(movement.producer_id,movement.business_date,total,'movement');
+      let debt=debts.find(item=>String(item.id)===debtId)||debts.find(item=>String(item.movementId??item.movement_id??'')===movementId);
+      if(!debt)debt=findLegacy(movement.producer_id,movement.business_date,total,'movement',movement.product_id,movement.product_name);
       const item={product_id:movement.product_id,produto:movement.product_name,quantidade:Number(movement.quantity||0),unidade:movement.unit||'un',valor_unitario:Number(movement.unit_price||0),subtotal:total};
       if(debt){
-        if(!debt.movementId){debt.movementId=movementId;debt.origem='galpao';debt.prodId=String(movement.producer_id);debt.produtorNome=debt.produtorNome||movement.producer_name||producerName(movement.producer_id);debt.itens=Array.isArray(debt.itens)&&debt.itens.length?debt.itens:[item];enriched++}
+        if(!debt.movementId&&!debt.movement_id){debt.movementId=movementId;debt.origem='galpao';debt.prodId=String(movement.producer_id);debt.produtorId=String(movement.producer_id);debt.producer_id=String(movement.producer_id);debt.produtorNome=debt.produtorNome||movement.producer_name||producerName(movement.producer_id);debt.itens=Array.isArray(debt.itens)&&debt.itens.length?debt.itens:[item];enriched++}
+        sourceDebts.push({kind:'movement',sourceId:movementId,debtId:String(debt.id),producerId:String(movement.producer_id),date:String(movement.business_date||''),total,productId:String(movement.product_id||''),productName:String(movement.product_name||'')});
         continue;
       }
       const name=String(movement.producer_name||producerName(movement.producer_id)||'Produtor').trim();
-      debts.push({id:debtId,prodId:String(movement.producer_id),produtorId:String(movement.producer_id),producer_id:String(movement.producer_id),produtorNome:name,producer_name:name,data:String(movement.business_date||''),descricao:`Galpão: ${movement.product_name} - ${Number(movement.quantity||0)} ${movement.unit||'un'}`,valor:total,origem:'galpao',situacaoPagamento:'Pendente',movementId,itens:[item]});created++;
+      debts.push({id:debtId,prodId:String(movement.producer_id),produtorId:String(movement.producer_id),producer_id:String(movement.producer_id),produtorNome:name,producer_name:name,data:String(movement.business_date||''),descricao:`Galpão: ${movement.product_name} - ${Number(movement.quantity||0)} ${movement.unit||'un'}`,valor:total,origem:'galpao',situacaoPagamento:'Pendente',movementId,itens:[item]});sourceDebts.push({kind:'movement',sourceId:movementId,debtId,producerId:String(movement.producer_id),date:String(movement.business_date||''),total,productId:String(movement.product_id||''),productName:String(movement.product_name||'')});created++;
     }
     for(const release of releases.values()){
       const debtId='deb_ord_gal_'+release.orderId+'_'+release.releaseId;
-      let debt=debts.find(item=>String(item.id)===debtId||String(item.releaseId??item.release_id??'')===release.releaseId);
+      let debt=debts.find(item=>String(item.id)===debtId)||debts.find(item=>String(item.releaseId??item.release_id??'')===release.releaseId);
       if(!debt)debt=findLegacy(release.producerId,release.date,release.total,'release');
       const description=`Galpão - Pedido #${release.orderId.slice(0,8).toUpperCase()} / Liberação #${release.releaseId.slice(0,8).toUpperCase()}: `+release.items.map(item=>`${item.produto} - ${item.quantidade} ${item.unidade}`).join(' • ');
       if(debt){
-        if(!debt.releaseId){debt.releaseId=release.releaseId;debt.orderId=release.orderId;debt.origem='galpao';debt.prodId=release.producerId;debt.produtorNome=debt.produtorNome||release.producerName||producerName(release.producerId);debt.itens=Array.isArray(debt.itens)&&debt.itens.length?debt.itens:release.items;enriched++}
+        if(!debt.releaseId&&!debt.release_id){debt.releaseId=release.releaseId;debt.orderId=release.orderId;debt.origem='galpao';debt.prodId=release.producerId;debt.produtorId=release.producerId;debt.producer_id=release.producerId;debt.produtorNome=debt.produtorNome||release.producerName||producerName(release.producerId);debt.itens=Array.isArray(debt.itens)&&debt.itens.length?debt.itens:release.items;enriched++}
+        sourceDebts.push({kind:'release',sourceId:release.releaseId,debtId:String(debt.id),producerId:release.producerId,date:release.date,total:release.total});
         continue;
       }
       const name=String(release.producerName||producerName(release.producerId)||'Produtor').trim();
-      debts.push({id:debtId,prodId:release.producerId,produtorId:release.producerId,producer_id:release.producerId,produtorNome:name,producer_name:name,data:release.date,descricao:description,valor:release.total,origem:'galpao',situacaoPagamento:'Pendente',orderId:release.orderId,releaseId:release.releaseId,itens:release.items});created++;
+      debts.push({id:debtId,prodId:release.producerId,produtorId:release.producerId,producer_id:release.producerId,produtorNome:name,producer_name:name,data:release.date,descricao:description,valor:release.total,origem:'galpao',situacaoPagamento:'Pendente',orderId:release.orderId,releaseId:release.releaseId,itens:release.items});sourceDebts.push({kind:'release',sourceId:release.releaseId,debtId,producerId:release.producerId,date:release.date,total:release.total});created++;
     }
-    if(created||enriched||!stateQuery.rowCount){
+    // Corrige a duplicidade produzida por versões antigas do navegador:
+    // o servidor já tinha criado deb_gal_<movimento>, mas o cliente acrescentava
+    // outro deb_gal_<timestamp> para a mesma retirada.
+    for(const candidate of debts){
+      if(v159DebtExcluded(candidate))continue;
+      const movementRef=String(candidate.movementId??candidate.movement_id??''),releaseRef=String(candidate.releaseId??candidate.release_id??'');
+      let owner=null;
+      if(movementRef)owner=sourceDebts.find(item=>item.kind==='movement'&&item.sourceId===movementRef&&item.debtId!==String(candidate.id));
+      else if(releaseRef)owner=sourceDebts.find(item=>item.kind==='release'&&item.sourceId===releaseRef&&item.debtId!==String(candidate.id));
+      else if(v159LegacyBrowserGalpaoDebt(candidate))owner=sourceDebts.find(item=>item.kind==='movement'&&item.debtId!==String(candidate.id)&&item.producerId===String(v158ProducerRef(candidate))&&item.date===v158DebitDate(candidate)&&sameMoney(candidate,item.total)&&((Array.isArray(candidate.itens)&&candidate.itens.length)?candidate.itens.some(part=>String(part.product_id||'')===item.productId):v158Norm(candidate.descricao||candidate.description).includes(v158Norm(item.productName))));
+      if(owner&&v159MarkDuplicate(state,candidate,owner.debtId))deduplicated++;
+    }
+    if(created||enriched||deduplicated||!stateQuery.rowCount){
       state.debitos=debts;
       await client.query(`INSERT INTO app_state(id,data,updated_at) VALUES('vale-da-serra',$1::jsonb,NOW()) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()`,[JSON.stringify(state)]);
     }
     if(ownsTransaction)await client.query('COMMIT');
-    return {state,created,enriched,updatedAt:stateQuery.rows[0]?.updated_at||new Date().toISOString()};
+    return {state,created,enriched,deduplicated,updatedAt:stateQuery.rows[0]?.updated_at||new Date().toISOString()};
   }catch(error){if(ownsTransaction)try{await client.query('ROLLBACK')}catch(_){}throw error}
   finally{if(ownsTransaction)client.release()}
 }
@@ -761,21 +812,52 @@ async function v158ReconcileGalpaoDebts(externalClient=null){
 app.get('/api/state', async (_req,res)=>{
   try {
     const result=await v158ReconcileGalpaoDebts();
-    res.json({ok:true,exists:true,data:result.state,updatedAt:result.updatedAt,reconciledGalpaoDebts:result.created});
+    res.json({ok:true,exists:true,data:result.state,updatedAt:result.updatedAt,reconciledGalpaoDebts:result.created,deduplicatedDebts:result.deduplicated});
   } catch(e){ res.status(500).json({ok:false,error:e.message}); }
 });
 
 app.put('/api/state', optionalAuth, async (req,res)=>{
+  const client=await pool.connect();
   try {
     const data=req.body?.data;
     if(!data || typeof data!=='object') return res.status(400).json({ok:false,error:'Dados inválidos'});
-    await pool.query(`INSERT INTO app_state(id,data,updated_at)
+    await client.query('BEGIN');
+    const currentQuery=await client.query("SELECT data FROM app_state WHERE id='vale-da-serra' FOR UPDATE");
+    const current=(currentQuery.rows[0]?.data&&typeof currentQuery.rows[0].data==='object')?currentQuery.rows[0].data:{};
+    const safeData=v159PreserveDebtTombstones(current,JSON.parse(JSON.stringify(data)));
+    await client.query(`INSERT INTO app_state(id,data,updated_at)
       VALUES('vale-da-serra',$1::jsonb,NOW())
       ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()`,
-      [JSON.stringify(data)]);
-    if(req.user) await audit(req.user,'DADOS_SISTEMA_ATUALIZADOS',{origem:'app_state'});
-    res.json({ok:true});
-  } catch(e){ res.status(500).json({ok:false,error:e.message}); }
+      [JSON.stringify(safeData)]);
+    const reconciled=await v158ReconcileGalpaoDebts(client);
+    await client.query('COMMIT');
+    if(req.user)try{await audit(req.user,'DADOS_SISTEMA_ATUALIZADOS',{origem:'app_state'})}catch(error){console.error('AUDIT DADOS_SISTEMA_ATUALIZADOS',error)}
+    res.json({ok:true,deduplicatedDebts:reconciled.deduplicated||0});
+  } catch(e){try{await client.query('ROLLBACK')}catch(_){}res.status(500).json({ok:false,error:e.message});}
+  finally{client.release();}
+});
+
+// V159 - exclusão persistente. A saída física permanece no histórico do
+// estoque, mas o débito ganha uma marca de cancelamento e não é recriado pela
+// conciliação automática na próxima atualização de tela.
+app.delete('/api/debts/:id',auth,adminOnly,async(req,res)=>{
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const reconciled=await v158ReconcileGalpaoDebts(client),state=reconciled.state||{};
+    const debts=Array.isArray(state.debitos)?state.debitos:[],debt=debts.find(item=>String(item?.id||'')===String(req.params.id));
+    if(!debt){await client.query('ROLLBACK');return res.status(404).json({ok:false,error:'Débito não encontrado.'})}
+    const debitId=String(debt.id),ledger=Array.isArray(state.pagamentosDebitos)?state.pagamentosDebitos:[],payments=Array.isArray(state.pagamentos)?state.pagamentos:[];
+    const used=ledger.some(item=>String(v159DebtRef(item))===debitId&&Number(item.valor??item.amount??0)>0)||payments.some(payment=>(Array.isArray(payment.debitIds)&&payment.debitIds.some(id=>String(id)===debitId))||(Array.isArray(payment.debitApplications)&&payment.debitApplications.some(item=>String(v159DebtRef(item))===debitId)));
+    if(used){await client.query('ROLLBACK');return res.status(409).json({ok:false,error:'Este débito já foi usado em um pagamento. Desfaça primeiro o pagamento da quinzena ou o pagamento do débito para manter o histórico correto.'})}
+    debt.status='excluido';debt.situacao='Excluido';debt.situacaoPagamento='Excluido';debt.excluidoEm=new Date().toISOString();debt.excluidoPor=req.user.username||'Administrador';debt.motivoExclusao='Exclusão manual do débito';
+    state.debitos=debts;
+    await client.query(`INSERT INTO app_state(id,data,updated_at) VALUES('vale-da-serra',$1::jsonb,NOW()) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()`,[JSON.stringify(state)]);
+    await client.query('COMMIT');
+    try{await audit(req.user,'DEBITO_EXCLUIDO',{id:debitId,produtor_id:v158ProducerRef(debt),descricao:debt.descricao||'',valor:v158DebitValue(debt),origem:debt.origem||''})}catch(error){console.error('AUDIT DEBITO_EXCLUIDO',error)}
+    res.json({ok:true,data:state});
+  }catch(e){try{await client.query('ROLLBACK')}catch(_){}res.status(500).json({ok:false,error:e.message})}
+  finally{client.release()}
 });
 
 // V155 - Cadastro dos tanques e conferência das coletas feitas pelos caminhões.
@@ -1510,7 +1592,7 @@ app.get('/api/producers/:id/statement',auth,async(req,res)=>{
     const producerName=String(producer.nome||'').trim();
     const norm=x=>String(x||'').trim().toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     const milk=(Array.isArray(st.lancamentos)?st.lancamentos:[]).filter(x=>String(x.prodId)===producerId).sort((a,b)=>String(b.data||'').localeCompare(String(a.data||'')));
-    const allDebits=(Array.isArray(st.debitos)?st.debitos:[]).filter(x=>String(v158ProducerRef(x))===producerId || (producerName&&norm(x.produtor||x.produtorNome||x.producer_name||x.nomeProdutor)===norm(producerName)));
+    const allDebits=(Array.isArray(st.debitos)?st.debitos:[]).filter(x=>!v159DebtExcluded(x)).filter(x=>String(v158ProducerRef(x))===producerId || (producerName&&norm(x.produtor||x.produtorNome||x.producer_name||x.nomeProdutor)===norm(producerName)));
     const debitPayments=Array.isArray(st.pagamentosDebitos)?st.pagamentosDebitos:[];
     const statePayments=Array.isArray(st.pagamentos)?st.pagamentos:[];
     const debitPaymentRef=x=>x?.debitoId??x?.debitId??x?.debito_id??x?.debit_id??'';
