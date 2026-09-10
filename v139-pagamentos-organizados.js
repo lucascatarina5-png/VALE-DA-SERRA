@@ -1,7 +1,7 @@
 (function(){
   'use strict';
 
-  const S={selectionKey:'',selected:new Set(),review:null,lastClosureId:'',busy:false};
+  const S={selectionKey:'',selected:new Set(),review:null,lastClosureId:'',busy:false,debtSyncing:false,lastDebtSync:0};
   const N=v=>Number(v||0);
   const E=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const norm=v=>String(v||'').trim().toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -227,7 +227,7 @@
 
   function inject(){
     const old=document.getElementById('v125CutBox');if(!old||document.getElementById('v139PaymentApp'))return;
-    old.className='v139-payment-app';old.innerHTML=`<div id="v139PaymentApp"><div class="v139-head"><div><h2>💰 Pagamento pela localidade principal</h2><p>Se o leite for recebido em outro tanque, ele acompanha o produtor e aparece aqui com o local real da entrega, sem duplicação.</p></div><span>V154 • LOCALIDADE PERSISTENTE</span></div><div><h3 class="v139-section-title">Situação das localidades principais</h3><div id="v139LocalityBoard" class="v139-localities"></div></div><div class="v139-filter"><label>Mês de referência<span id="v139MonthSlot"></span></label><label>Quinzena<span id="v139FortnightSlot"></span></label><label>Localidade principal do produtor<select id="v125Local"></select></label><label>Data de corte deste pagamento<input id="v125CutDate" type="date"></label><label>Último turno incluído<select id="v125CutTurn"><option value="M">Manhã — tarde ficará para depois</option><option value="T" selected>Tarde — dia completo</option></select></label></div><div id="v139CurrentStatus"></div><h3 class="v139-section-title">Prévia do pagamento</h3><div id="v139Summary" class="v139-summary"></div><div id="v125Pending" class="v139-included"></div><div id="v128AfterCut" class="v139-after"></div><div class="v139-review-actions"><span>Confira a relação detalhada logo abaixo.</span><div class="v152-prepay-actions"><button id="v152ReportButton" class="v152-report-button" type="button" onclick="v152OpenPrepaymentReport()">🖨️ Relatório pré-pagamento</button><button id="v139ReviewButton" type="button" onclick="v139OpenReview()">Revisar pagamento</button></div></div></div>`;
+    old.className='v139-payment-app';old.innerHTML=`<div id="v139PaymentApp"><div class="v139-head"><div><h2>💰 Pagamento pela localidade principal</h2><p>Se o leite for recebido em outro tanque, ele acompanha o produtor e aparece aqui com o local real da entrega, sem duplicação.</p></div><span>V158 • DÉBITOS INTEGRADOS</span></div><div><h3 class="v139-section-title">Situação das localidades principais</h3><div id="v139LocalityBoard" class="v139-localities"></div></div><div class="v139-filter"><label>Mês de referência<span id="v139MonthSlot"></span></label><label>Quinzena<span id="v139FortnightSlot"></span></label><label>Localidade principal do produtor<select id="v125Local"></select></label><label>Data de corte deste pagamento<input id="v125CutDate" type="date"></label><label>Último turno incluído<select id="v125CutTurn"><option value="M">Manhã — tarde ficará para depois</option><option value="T" selected>Tarde — dia completo</option></select></label></div><div id="v139CurrentStatus"></div><h3 class="v139-section-title">Prévia do pagamento</h3><div id="v139Summary" class="v139-summary"></div><div id="v125Pending" class="v139-included"></div><div id="v128AfterCut" class="v139-after"></div><div class="v139-review-actions"><span>Confira a relação detalhada logo abaixo.</span><div class="v152-prepay-actions"><button id="v152ReportButton" class="v152-report-button" type="button" onclick="v152OpenPrepaymentReport()">🖨️ Relatório pré-pagamento</button><button id="v139ReviewButton" type="button" onclick="v139OpenReview()">Revisar pagamento</button></div></div></div>`;
     const pgMonth=document.getElementById('pgMes'),pgQ=document.getElementById('pgQuinzena');document.getElementById('v139MonthSlot')?.appendChild(pgMonth);document.getElementById('v139FortnightSlot')?.appendChild(pgQ);const oldForm=document.querySelector('#pagamentos .card>form');if(oldForm)oldForm.style.display='none';const notice=document.querySelector('#pagamentos .card>.notice');if(notice)notice.style.display='none';const oldKpis=document.querySelector('#pagamentos .card>.kpis');if(oldKpis)oldKpis.style.display='none';const title=document.querySelector('#pagamentos .card>h3');if(title)title.style.display='none';
     const table=document.getElementById('tbPag')?.closest('.tablewrap');if(table){table.classList.add('v139-tablewrap');const head=table.querySelector('thead');if(head)head.innerHTML='<tr><th>Incluir</th><th>Produtor</th><th>Leite</th><th>Bruto</th><th>Débitos</th><th>Líquido</th><th>Situação</th><th>Ação</th></tr>';table.insertAdjacentHTML('beforebegin','<div class="v139-table-head"><div><h3>Produtores que entrarão no pagamento</h3><p>Todos vêm selecionados. Desmarque somente quem não deve ser pago agora.</p></div><div><input id="v139ProducerSearch" placeholder="Pesquisar nome, apelido ou código" oninput="renderPagamentos(false)"><button onclick="v139ToggleAll(true)">Marcar todos</button><button onclick="v139ToggleAll(false)">Desmarcar todos</button></div></div>');table.insertAdjacentHTML('afterend','<div id="v139PaymentBar" class="v139-payment-bar"></div>')}
     document.querySelector('.v128-clean')?.remove();injectModals();injectMaintenance();['change','input'].forEach(ev=>old.addEventListener(ev,e=>{if(['v125Local','v125CutDate','v125CutTurn','pgMes','pgQuinzena'].includes(e.target?.id)){if(['pgMes','pgQuinzena'].includes(e.target.id))syncCutDate(true);renderPagamentos(false)}}));
@@ -239,8 +239,22 @@
     const card=document.querySelector('#configuracoes .card');if(!card||document.getElementById('v139Maintenance'))return;card.insertAdjacentHTML('beforeend',`<details id="v139Maintenance" class="v139-maintenance"><summary>🛠️ Manutenção de dados de testes</summary><div><b>Limpeza específica de agosto de 2026</b><p>Exclui somente entradas de leite de 01/08/2026 a 29/08/2026. Produtores e outros dados são mantidos.</p><button type="button" onclick="v131ClearAugustRange()">Excluir entradas de teste desse período</button></div></details>`);
   }
 
-  window.renderPagamentos=function(){
+  async function refreshDebtState(force=false){
+    if(S.debtSyncing||(!force&&Date.now()-S.lastDebtSync<4000))return;
+    S.debtSyncing=true;
+    try{
+      const headers=typeof v4Headers==='function'?v4Headers():{},response=await fetch('/api/state?ts='+Date.now(),{headers,cache:'no-store'}),json=await response.json();
+      if(!response.ok||json.ok===false)throw new Error(json.error||'Não foi possível atualizar os débitos.');
+      if(Array.isArray(json.data?.debitos)){debitos=json.data.debitos;localStorage.setItem('vds_debitos_v1',JSON.stringify(debitos))}
+      if(Array.isArray(json.data?.pagamentosDebitos)){pagamentosDebitos=json.data.pagamentosDebitos;localStorage.setItem('vds_debitos_pagamentos_v1',JSON.stringify(pagamentosDebitos))}
+      S.lastDebtSync=Date.now();window.renderPagamentos(true);
+    }catch(error){console.warn('V158: atualização dos débitos do pagamento',error)}finally{S.debtSyncing=false}
+  }
+  window.v158RefreshPaymentDebts=refreshDebtState;
+
+  window.renderPagamentos=function(skipDebtRefresh=false){
     inject();syncLocalitySelect();syncCutDate();const c=choice(),rows=buildRows(c);ensureSelection(rows,c);renderLocalityBoard(c);renderStatus(c,rows);renderSummary(c,rows);renderAfterCut(c);renderTable(c,rows);renderClosed(c);try{if(typeof v137UpdatePaymentGuard==='function')v137UpdatePaymentGuard()}catch(_){}
+    if(!skipDebtRefresh&&document.getElementById('pagamentos')?.classList.contains('active'))refreshDebtState(false);
   };
   window.v139ChooseLocality=function(encoded){const local=decodeURIComponent(encoded),selected=syncLocalitySelect(local),el=document.getElementById('v125Local');if(el)el.value=selected||local;syncCutDate();S.selectionKey='';renderPagamentos(false);document.getElementById('v139Summary')?.scrollIntoView({behavior:'smooth',block:'center'})};
   window.v139ToggleProducer=function(id,checked){checked?S.selected.add(String(id)):S.selected.delete(String(id));renderPagamentos(false)};
@@ -289,5 +303,5 @@
 
   const crossStyle=document.createElement('style');crossStyle.textContent=`.v141-cross{display:inline-block;background:#fff0d5;color:#8a5200;border:1px solid #efc66d;border-radius:999px;padding:5px 7px;font-size:9px;font-weight:900}.v141-cross-warning{display:grid;gap:4px;margin-top:10px;padding:11px 13px;border:1px solid #efc66d;border-radius:9px;background:#fff7e8;color:#815000}.v141-cross-warning span{font-size:11px}.v153-delivery-note{margin-top:5px!important;padding:5px 7px;border-radius:6px;background:#fff5df;color:#865200!important;font-weight:800}`;document.head.appendChild(crossStyle);
 
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{inject();renderPagamentos(false)},140),{once:true});else setTimeout(()=>{inject();renderPagamentos(false)},140);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{inject();renderPagamentos(false);refreshDebtState(true)},140),{once:true});else setTimeout(()=>{inject();renderPagamentos(false);refreshDebtState(true)},140);
 })();

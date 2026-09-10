@@ -9,6 +9,8 @@
   const liters=value=>typeof fmt==='function'?fmt(N(value)):N(value).toLocaleString('pt-BR',{maximumFractionDigits:2});
   const cash=value=>typeof moeda==='function'?moeda(N(value)):N(value).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const dateBR=value=>typeof brDate==='function'?brDate(value):String(value||'').split('-').reverse().join('/');
+  const producerRef=value=>value?.prodId??value?.produtorId??value?.producerId??value?.producer_id??'';
+  const debitDate=value=>String(value?.data||value?.business_date||value?.created_at||'').slice(0,10);
   const producer=id=>(Array.isArray(produtores)?produtores:[]).find(item=>String(item.id)===String(id));
   const entryLocal=entry=>String(entry?.local||producer(entry?.prodId)?.local||'').trim();
   const financialLocal=entry=>String(producer(entry?.prodId)?.local||entryLocal(entry)).trim();
@@ -56,7 +58,11 @@
     const top=[...byProducer.values()].filter(item=>item.p).sort((a,b)=>b.liters-a.liters||String(a.p.nome||'').localeCompare(String(b.p.nome||''),'pt-BR'));
     const recent=entries.slice().sort((a,b)=>(String(b.data||'')+String(b.hora||'')+String(b.id||'')).localeCompare(String(a.data||'')+String(a.hora||'')+String(a.id||'')));
     const producerIds=new Set(entries.map(entry=>String(entry.prodId))),gross=entries.reduce((sum,entry)=>sum+N(entry.qtd),0)*(N(typeof VALOR_LITRO==='undefined'?2.30:VALOR_LITRO)||2.30);
-    const eligibleDebts=(Array.isArray(debitos)?debitos:[]).filter(debit=>producerIds.has(String(debit.prodId))&&String(debit.data||'')<=c.fim).map(debit=>({source:debitSource(debit),value:openDebitValue(debit)})).filter(debit=>debit.value>0);
+    const eligibleDebts=(Array.isArray(debitos)?debitos:[])
+      .filter(debit=>producerIds.has(String(producerRef(debit))))
+      .filter(debit=>!['cancelado','cancelada','excluido','excluida'].includes(norm(debit.status||debit.situacao)))
+      .filter(debit=>!debitDate(debit)||debitDate(debit)<=c.fim)
+      .map(debit=>({source:debitSource(debit),value:openDebitValue(debit)})).filter(debit=>debit.value>0);
     const debtPdv=eligibleDebts.filter(debit=>debit.source==='pdv').reduce((sum,debit)=>sum+debit.value,0),debtGalpao=eligibleDebts.filter(debit=>debit.source==='galpao').reduce((sum,debit)=>sum+debit.value,0),debtOther=eligibleDebts.filter(debit=>debit.source==='outros').reduce((sum,debit)=>sum+debit.value,0),debtOpen=debtPdv+debtGalpao+debtOther,debtApplied=Math.min(gross,debtOpen),debtCarry=Math.max(0,debtOpen-debtApplied);
     const now=today(),todayEntries=(Array.isArray(lancamentos)?lancamentos:[]).filter(entry=>entry.data===now&&inLocality(entry,c.local)),yesterday=addDays(now,-1),yesterdayEntries=(Array.isArray(lancamentos)?lancamentos:[]).filter(entry=>entry.data===yesterday&&inLocality(entry,c.local)),monthEntries=(Array.isArray(lancamentos)?lancamentos:[]).filter(entry=>String(entry.data||'').startsWith(c.ym+'-')&&inLocality(entry,c.local)),availableProducers=(Array.isArray(produtores)?produtores:[]).filter(producerEnabled).filter(p=>!c.local||norm(p.local)===norm(c.local)),active=availableProducers.filter(p=>{try{return typeof statusProd!=='function'||statusProd(p.id)==='Ativo'}catch(_){return true}}).length;
     const monthDays=c.ym===now.slice(0,7)?Math.max(1,N(now.slice(8,10))):N(monthEnd(c.ym).slice(8,10)),todayLiters=todayEntries.reduce((sum,entry)=>sum+N(entry.qtd),0),yesterdayLiters=yesterdayEntries.reduce((sum,entry)=>sum+N(entry.qtd),0),monthLiters=monthEntries.reduce((sum,entry)=>sum+N(entry.qtd),0);
@@ -153,7 +159,7 @@
   async function syncDashboardDebts(){
     try{if(typeof window.v133AtualizarDebitosServidor==='function'){await window.v133AtualizarDebitosServidor();render()}}catch(error){console.warn('Não foi possível atualizar os débitos do painel agora.',error)}
   }
-  function init(){if(S.initialized)return;S.initialized=true;inject();const hero=document.querySelector('.hero');if(hero&&!hero.querySelector('.v145-hero-user')){let name='Administrador',role='Administrador';try{name=V4?.user?.name||V4?.user?.username||name;role=V4?.user?.role||role}catch(_){}hero.insertAdjacentHTML('beforeend',`<div class="v145-hero-user"><i>♟</i><div><b>${E(name)}</b><small>${E(role)}</small></div><span>⌄</span></div>`)}const footer=document.querySelector('.footer');if(footer){footer.classList.add('v145-footer');footer.innerHTML='<span>♻ Vale da Serra Laticínios &nbsp;|&nbsp; Controle de Leite &nbsp;|&nbsp; Versão 153</span><strong>🌿 Valorizando o produtor rural!</strong>'}const month=document.getElementById('v144Month'),fortnight=document.getElementById('v144Fortnight'),now=today();if(month)month.value=now.slice(0,7);if(fortnight)fortnight.value='mes';render();setTimeout(syncDashboardDebts,450)}
+  function init(){if(S.initialized)return;S.initialized=true;inject();const hero=document.querySelector('.hero');if(hero&&!hero.querySelector('.v145-hero-user')){let name='Administrador',role='Administrador';try{name=V4?.user?.name||V4?.user?.username||name;role=V4?.user?.role||role}catch(_){}hero.insertAdjacentHTML('beforeend',`<div class="v145-hero-user"><i>♟</i><div><b>${E(name)}</b><small>${E(role)}</small></div><span>⌄</span></div>`)}const footer=document.querySelector('.footer');if(footer){footer.classList.add('v145-footer');footer.innerHTML='<span>♻ Vale da Serra Laticínios &nbsp;|&nbsp; Controle de Leite &nbsp;|&nbsp; Versão 158</span><strong>🌿 Valorizando o produtor rural!</strong>'}const month=document.getElementById('v144Month'),fortnight=document.getElementById('v144Fortnight'),now=today();if(month)month.value=now.slice(0,7);if(fortnight)fortnight.value='mes';render();setTimeout(syncDashboardDebts,450)}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(init,180),{once:true});else setTimeout(init,180);
   let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(document.getElementById('painel')?.classList.contains('active'))renderChart(snapshot())},120)});
 })();

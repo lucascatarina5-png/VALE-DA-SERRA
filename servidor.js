@@ -673,11 +673,95 @@ app.post('/api/audit/event',auth,async(req,res)=>{
   } catch(e){res.status(500).json({ok:false,error:e.message});}
 });
 
+// V158 - o movimento físico do Galpão é a fonte de verdade do débito.
+// Versões antigas registravam algumas saídas primeiro no estoque e só depois
+// tentavam salvar o débito pelo navegador. Uma queda ou sincronização concorrente
+// podia deixar a mercadoria baixada sem aparecer no pagamento do produtor.
+function v158Norm(value){return String(value||'').trim().toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ')}
+function v158ProducerRef(value){return value?.prodId??value?.produtorId??value?.producerId??value?.producer_id??''}
+function v158DebitDate(value){return String(value?.data||value?.business_date||value?.created_at||'').slice(0,10)}
+function v158DebitValue(value){const number=Number(value?.valor??value?.amount??value?.total??0);return Number.isFinite(number)?number:0}
+function v158IsGalpaoDebt(value){const origin=v158Norm(value?.origem),id=String(value?.id||'').toLowerCase(),description=v158Norm(value?.descricao||value?.description);return origin==='galpao'||id.startsWith('deb_gal_')||id.startsWith('deb_ord_gal_')||id.startsWith('deb_est_')||description.startsWith('galpao')||description.startsWith('estoque/galpao')}
+function v158IsMilkWarehouseMovement(destination){const parts=String(destination||'').split('•').map(v158Norm);return parts[0]?.startsWith('venda galpao')&&parts[1]==='leite'}
+
+async function v158ReconcileGalpaoDebts(externalClient=null){
+  const client=externalClient||await pool.connect(),ownsTransaction=!externalClient;
+  try{
+    if(ownsTransaction)await client.query('BEGIN');
+    const stateQuery=await client.query("SELECT data,updated_at FROM app_state WHERE id='vale-da-serra' FOR UPDATE");
+    const state=(stateQuery.rows[0]?.data&&typeof stateQuery.rows[0].data==='object')?stateQuery.rows[0].data:{};
+    const debts=Array.isArray(state.debitos)?state.debitos.slice():[];
+    const producers=Array.isArray(state.produtores)?state.produtores:[];
+    const producerName=id=>String(producers.find(p=>String(p.id)===String(id))?.nome||'').trim();
+    const movements=await client.query(`SELECT m.id,m.product_id,m.quantity,m.unit_price,m.producer_id,m.producer_name,m.destination,m.created_at,
+      (m.created_at AT TIME ZONE 'America/Sao_Paulo')::date::text AS business_date,
+      COALESCE(p.name,'Produto excluído') AS product_name,COALESCE(p.unit,'un') AS unit
+      FROM app_inventory_movements m LEFT JOIN app_inventory_products p ON p.id=m.product_id
+      WHERE m.type='saida' AND m.producer_id IS NOT NULL AND m.destination IS NOT NULL
+      ORDER BY m.id`);
+    const releaseRows=await client.query(`SELECT rel.id AS release_id,rel.order_id,rel.total,rel.released_at,
+      (rel.released_at AT TIME ZONE 'America/Sao_Paulo')::date::text AS business_date,
+      o.producer_id,o.producer_name,o.payment_method,
+      ri.movement_id,ri.product_id,ri.product_name,ri.unit,ri.quantity,ri.unit_price,ri.subtotal
+      FROM app_inventory_order_releases rel
+      JOIN app_inventory_orders o ON o.id=rel.order_id
+      LEFT JOIN app_inventory_order_release_items ri ON ri.release_id=rel.id
+      WHERE lower(o.payment_method)='leite'
+      ORDER BY rel.released_at,rel.id,ri.id`);
+    const releases=new Map();
+    for(const row of releaseRows.rows){
+      let release=releases.get(String(row.release_id));
+      if(!release){release={releaseId:String(row.release_id),orderId:String(row.order_id),date:String(row.business_date||''),producerId:String(row.producer_id||''),producerName:String(row.producer_name||''),total:Number(row.total||0),items:[]};releases.set(release.releaseId,release)}
+      if(row.product_id)release.items.push({movement_id:row.movement_id===null?null:String(row.movement_id),product_id:row.product_id,produto:row.product_name,quantidade:Number(row.quantity||0),unidade:row.unit||'un',valor_unitario:Number(row.unit_price||0),subtotal:Number(row.subtotal||0)});
+    }
+    const usedLegacy=new Set();let created=0,enriched=0;
+    const sameMoney=(a,b)=>Math.abs(v158DebitValue(a)-Number(b||0))<0.005;
+    const findLegacy=(producerId,date,total,kind)=>debts.find((debt,index)=>{
+      if(usedLegacy.has(index)||!v158IsGalpaoDebt(debt))return false;
+      if(String(v158ProducerRef(debt))!==String(producerId)||v158DebitDate(debt)!==String(date)||!sameMoney(debt,total))return false;
+      if(kind==='movement'&&(debt.movementId||debt.movement_id||debt.releaseId||debt.release_id))return false;
+      if(kind==='release'&&(debt.releaseId||debt.release_id||debt.movementId||debt.movement_id))return false;
+      usedLegacy.add(index);return true;
+    });
+    for(const movement of movements.rows){
+      if(!v158IsMilkWarehouseMovement(movement.destination))continue;
+      const movementId=String(movement.id),debtId='deb_gal_'+movementId,total=Number(movement.quantity||0)*Number(movement.unit_price||0);
+      let debt=debts.find(item=>String(item.id)===debtId||String(item.movementId??item.movement_id??'')===movementId);
+      if(!debt)debt=findLegacy(movement.producer_id,movement.business_date,total,'movement');
+      const item={product_id:movement.product_id,produto:movement.product_name,quantidade:Number(movement.quantity||0),unidade:movement.unit||'un',valor_unitario:Number(movement.unit_price||0),subtotal:total};
+      if(debt){
+        if(!debt.movementId){debt.movementId=movementId;debt.origem='galpao';debt.prodId=String(movement.producer_id);debt.produtorNome=debt.produtorNome||movement.producer_name||producerName(movement.producer_id);debt.itens=Array.isArray(debt.itens)&&debt.itens.length?debt.itens:[item];enriched++}
+        continue;
+      }
+      const name=String(movement.producer_name||producerName(movement.producer_id)||'Produtor').trim();
+      debts.push({id:debtId,prodId:String(movement.producer_id),produtorId:String(movement.producer_id),producer_id:String(movement.producer_id),produtorNome:name,producer_name:name,data:String(movement.business_date||''),descricao:`Galpão: ${movement.product_name} - ${Number(movement.quantity||0)} ${movement.unit||'un'}`,valor:total,origem:'galpao',situacaoPagamento:'Pendente',movementId,itens:[item]});created++;
+    }
+    for(const release of releases.values()){
+      const debtId='deb_ord_gal_'+release.orderId+'_'+release.releaseId;
+      let debt=debts.find(item=>String(item.id)===debtId||String(item.releaseId??item.release_id??'')===release.releaseId);
+      if(!debt)debt=findLegacy(release.producerId,release.date,release.total,'release');
+      const description=`Galpão - Pedido #${release.orderId.slice(0,8).toUpperCase()} / Liberação #${release.releaseId.slice(0,8).toUpperCase()}: `+release.items.map(item=>`${item.produto} - ${item.quantidade} ${item.unidade}`).join(' • ');
+      if(debt){
+        if(!debt.releaseId){debt.releaseId=release.releaseId;debt.orderId=release.orderId;debt.origem='galpao';debt.prodId=release.producerId;debt.produtorNome=debt.produtorNome||release.producerName||producerName(release.producerId);debt.itens=Array.isArray(debt.itens)&&debt.itens.length?debt.itens:release.items;enriched++}
+        continue;
+      }
+      const name=String(release.producerName||producerName(release.producerId)||'Produtor').trim();
+      debts.push({id:debtId,prodId:release.producerId,produtorId:release.producerId,producer_id:release.producerId,produtorNome:name,producer_name:name,data:release.date,descricao:description,valor:release.total,origem:'galpao',situacaoPagamento:'Pendente',orderId:release.orderId,releaseId:release.releaseId,itens:release.items});created++;
+    }
+    if(created||enriched||!stateQuery.rowCount){
+      state.debitos=debts;
+      await client.query(`INSERT INTO app_state(id,data,updated_at) VALUES('vale-da-serra',$1::jsonb,NOW()) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()`,[JSON.stringify(state)]);
+    }
+    if(ownsTransaction)await client.query('COMMIT');
+    return {state,created,enriched,updatedAt:stateQuery.rows[0]?.updated_at||new Date().toISOString()};
+  }catch(error){if(ownsTransaction)try{await client.query('ROLLBACK')}catch(_){}throw error}
+  finally{if(ownsTransaction)client.release()}
+}
+
 app.get('/api/state', async (_req,res)=>{
   try {
-    const r=await pool.query("SELECT data,updated_at FROM app_state WHERE id='vale-da-serra'");
-    if(!r.rowCount) return res.json({ok:true,exists:false,data:null});
-    res.json({ok:true,exists:true,data:r.rows[0].data,updatedAt:r.rows[0].updated_at});
+    const result=await v158ReconcileGalpaoDebts();
+    res.json({ok:true,exists:true,data:result.state,updatedAt:result.updatedAt,reconciledGalpaoDebts:result.created});
   } catch(e){ res.status(500).json({ok:false,error:e.message}); }
 });
 
@@ -929,16 +1013,20 @@ app.post('/api/inventory/movements',auth,hasPermission('estoque'),async(req,res)
         return res.status(409).json({ok:false,error:`Estoque livre insuficiente. Disponível: ${Math.max(0,available)} ${locked.rows[0].unit||''}. Há mercadoria reservada em pedidos.`});
       }
     }
-    await client.query(`INSERT INTO app_inventory_movements
+    const inserted=await client.query(`INSERT INTO app_inventory_movements
       (product_id,type,quantity,unit_price,producer_id,producer_name,destination,user_id,username)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id,created_at`,
       [product_id,type,q,Number(unit_price)||0,producer_id||null,producer_name||null,destination||null,
        req.user.user_id||null,req.user.username||null]);
     if(type==='entrada') await client.query(`UPDATE app_inventory_products SET cost_price=$2,updated_at=NOW() WHERE id=$1`,[product_id,Number(unit_price)||0]);
+    // Também protege o formulário legado de retirada: se a forma for LEITE,
+    // a mesma transação que baixa o estoque confirma o débito no estado central.
+    let debtSync={created:0,enriched:0};
+    if(isGalpaoSale&&producer_id&&v158IsMilkWarehouseMovement(destination))debtSync=await v158ReconcileGalpaoDebts(client);
     await client.query('COMMIT');
     await audit(req.user,type==='entrada'?'ESTOQUE_ENTRADA':'ESTOQUE_SAIDA',
       {product_id,quantity:q,producer_id:producer_id||null,producer_name:producer_name||null,destination:destination||null});
-    res.json({ok:true});
+    res.json({ok:true,movement_id:String(inserted.rows[0]?.id||''),milk_debit:!!(isGalpaoSale&&producer_id&&v158IsMilkWarehouseMovement(destination)),debt_created:debtSync.created>0||debtSync.enriched>0});
   }catch(e){
     try{await client.query('ROLLBACK')}catch(_){}
     res.status(500).json({ok:false,error:e.message});
@@ -1007,7 +1095,8 @@ app.post('/api/inventory/sale',auth,hasPermission('estoque'),async(req,res)=>{
       const debId='deb_gal_'+String(ins.rows[0].id);
       if(!debitos.some(d=>String(d.id)===debId)){
         const dateQ=await client.query("SELECT (NOW() AT TIME ZONE 'America/Sao_Paulo')::date::text AS hoje");
-        debitos.push({id:debId,prodId:String(producerId),data:dateQ.rows[0].hoje,descricao:`Galpão: ${p.name} - ${q} ${p.unit||'un'}`,valor:total,origem:'galpao',movementId:String(ins.rows[0].id),itens:[{product_id:p.id,produto:p.name,quantidade:q,unidade:p.unit||'un',valor_unitario:unitPrice,subtotal:total}]});
+        const ownerName=String(producerName||'Produtor').trim();
+        debitos.push({id:debId,prodId:String(producerId),produtorId:String(producerId),producer_id:String(producerId),produtorNome:ownerName,producer_name:ownerName,data:dateQ.rows[0].hoje,descricao:`Galpão: ${p.name} - ${q} ${p.unit||'un'}`,valor:total,origem:'galpao',situacaoPagamento:'Pendente',movementId:String(ins.rows[0].id),itens:[{product_id:p.id,produto:p.name,quantidade:q,unidade:p.unit||'un',valor_unitario:unitPrice,subtotal:total}]});
         state.debitos=debitos;
         await client.query(`INSERT INTO app_state(id,data,updated_at) VALUES('vale-da-serra',$1::jsonb,NOW()) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()`,[JSON.stringify(state)]);
       }
@@ -1153,7 +1242,8 @@ app.post('/api/inventory/orders/:id/release',auth,hasPermission('estoque'),async
   if(order.payment_method==='leite'){
     const stq=await c.query("SELECT data FROM app_state WHERE id='vale-da-serra' FOR UPDATE"),state=(stq.rows[0]?.data&&typeof stq.rows[0].data==='object')?stq.rows[0].data:{},debitos=Array.isArray(state.debitos)?state.debitos.slice():[],debId='deb_ord_gal_'+order.id+'_'+releaseId;
     const dateQ=await c.query("SELECT (NOW() AT TIME ZONE 'America/Sao_Paulo')::date::text AS hoje"),desc=`Galpão - Pedido #${String(order.id).slice(0,8).toUpperCase()} / Liberação #${String(releaseId).slice(0,8).toUpperCase()}: `+receiptItems.map(x=>`${x.product_name} - ${x.quantity} ${x.unit||'un'}`).join(' • ');
-    debitos.push({id:debId,prodId:String(order.producer_id),data:dateQ.rows[0].hoje,descricao:desc,valor:releaseTotal,origem:'galpao',orderId:order.id,releaseId,itens:receiptItems.map(x=>({product_id:x.product_id,produto:x.product_name,quantidade:x.quantity,unidade:x.unit,valor_unitario:x.unit_price,subtotal:x.subtotal}))});
+    const ownerName=String(order.producer_name||'Produtor').trim();
+    debitos.push({id:debId,prodId:String(order.producer_id),produtorId:String(order.producer_id),producer_id:String(order.producer_id),produtorNome:ownerName,producer_name:ownerName,data:dateQ.rows[0].hoje,descricao:desc,valor:releaseTotal,origem:'galpao',situacaoPagamento:'Pendente',orderId:order.id,releaseId,itens:receiptItems.map(x=>({movement_id:x.movement_id,product_id:x.product_id,produto:x.product_name,quantidade:x.quantity,unidade:x.unit,valor_unitario:x.unit_price,subtotal:x.subtotal}))});
     state.debitos=debitos;await c.query(`INSERT INTO app_state(id,data,updated_at) VALUES('vale-da-serra',$1::jsonb,NOW()) ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()`,[JSON.stringify(state)]);
   }
   const remainingBefore=ir.rows.reduce((s,it)=>s+Math.max(0,Number(it.quantity)-Number(it.released_quantity||0)),0),releasedNow=selected.reduce((s,x)=>s+x.q,0),newStatus=releasedNow+1e-9>=remainingBefore?'liberado':'parcial';
@@ -1410,22 +1500,31 @@ app.get('/api/store/sales',auth,hasPermission('loja'),async(req,res)=>{try{
 app.get('/api/producers/:id/statement',auth,async(req,res)=>{
   try{
     const producerId=String(req.params.id||'').trim();
-    const sr=await pool.query("SELECT data FROM app_state WHERE id='vale-da-serra'");
-    const st=sr.rows[0]?.data||{};
+    // Antes de montar o extrato, recupera qualquer saída do Galpão que tenha
+    // ficado sem o débito correspondente em uma sincronização antiga.
+    const reconciled=await v158ReconcileGalpaoDebts();
+    const st=reconciled.state||{};
     const producers=Array.isArray(st.produtores)?st.produtores:[];
     const producer=producers.find(p=>String(p.id)===producerId);
     if(!producer) return res.status(404).json({ok:false,error:'Produtor não encontrado.'});
     const producerName=String(producer.nome||'').trim();
     const norm=x=>String(x||'').trim().toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     const milk=(Array.isArray(st.lancamentos)?st.lancamentos:[]).filter(x=>String(x.prodId)===producerId).sort((a,b)=>String(b.data||'').localeCompare(String(a.data||'')));
-    const allDebits=(Array.isArray(st.debitos)?st.debitos:[]).filter(x=>String(x.prodId||x.produtorId||'')===producerId || (producerName&&norm(x.produtor||x.produtorNome||x.nomeProdutor)===norm(producerName)));
+    const allDebits=(Array.isArray(st.debitos)?st.debitos:[]).filter(x=>String(v158ProducerRef(x))===producerId || (producerName&&norm(x.produtor||x.produtorNome||x.producer_name||x.nomeProdutor)===norm(producerName)));
     const debitPayments=Array.isArray(st.pagamentosDebitos)?st.pagamentosDebitos:[];
     const statePayments=Array.isArray(st.pagamentos)?st.pagamentos:[];
+    const debitPaymentRef=x=>x?.debitoId??x?.debitId??x?.debito_id??x?.debit_id??'';
     const debitBalance=d=>{
-      if(String(d.situacaoPagamento||'').toLowerCase()==='liquidado')return 0;
-      const legacyPaid=statePayments.some(pg=>!Array.isArray(pg.debitApplications)&&Array.isArray(pg.debitIds)&&pg.debitIds.some(id=>String(id)===String(d.id)));
-      if(legacyPaid)return 0;
-      return Math.max(0,Number(d.valor||0)-debitPayments.filter(x=>String(x.debitoId)===String(d.id)).reduce((a,x)=>a+Number(x.valor||0),0));
+      const debitId=String(d.id||''),original=v158DebitValue(d);
+      let paid=debitPayments.filter(x=>String(debitPaymentRef(x))===debitId).reduce((sum,x)=>sum+Number(x.valor??x.amount??0),0);
+      statePayments.forEach(payment=>{
+        const applications=Array.isArray(payment.debitApplications)?payment.debitApplications:[];
+        const application=applications.find(x=>String(debitPaymentRef(x))===debitId);
+        const ledgerExists=debitPayments.some(x=>String(debitPaymentRef(x))===debitId&&String(x.pagamentoId??x.paymentId??'')===String(payment.id??''));
+        if(application&&!ledgerExists){const amount=application.amount??application.amountApplied??application.valor??(Number(application.balanceBefore||0)-Number(application.balanceAfter||0));paid+=Number(amount)||0}
+        else if(!applications.length&&!ledgerExists&&Array.isArray(payment.debitIds)&&payment.debitIds.some(id=>String(id)===debitId))paid+=original;
+      });
+      return Math.max(0,original-paid);
     };
     const sales=await pool.query(`SELECT s.id,s.created_at,(s.created_at AT TIME ZONE 'America/Sao_Paulo')::date::text AS business_date,s.total,s.payment_method,s.customer_name,s.customer_id,s.username,s.status,
       COALESCE(json_agg(json_build_object('product_id',i.product_id,'product_name',i.product_name,'quantity',i.quantity,'unit_price',i.unit_price,'subtotal',i.subtotal)) FILTER (WHERE i.id IS NOT NULL),'[]') items
@@ -1465,28 +1564,34 @@ app.get('/api/producers/:id/statement',auth,async(req,res)=>{
     const litrosQ=milkQ.reduce((a,x)=>a+Number(x.qtd||0),0), brutoQ=litrosQ*valorLitro;
     const litrosSaldoAnterior=milkQ.filter(x=>String(x.data||'')<ini).reduce((a,x)=>a+Number(x.qtd||0),0);
     const litrosPeriodoAtual=litrosQ-litrosSaldoAnterior;
-    // Débitos manuais da quinzena. Débitos do Galpão são calculados pelas movimentações para
-    // incluir também vendas antigas e evitar duplicidade com deb_gal_* já sincronizados.
-    const manualDebits=allDebits.filter(d=>String(d.data||'')>=ini&&String(d.data||'')<=fim && !String(d.id||'').startsWith('deb_gal_') && !String(d.id||'').startsWith('deb_ord_gal_') && !/^galp[aã]o(?:\s*[:\-]|$)/i.test(String(d.descricao||'')));
+    // Todos os saldos anteriores ainda pendentes acompanham o produtor para a quinzena
+    // atual. Galpão, PDV e lançamentos manuais usam a mesma fonte do pagamento.
+    const eligibleDebits=allDebits.filter(d=>!['cancelado','cancelada','excluido','excluida'].includes(norm(d.status||d.situacao))).filter(d=>!v158DebitDate(d)||v158DebitDate(d)<=fim).filter(d=>debitBalance(d)>0);
+    const galpaoDebits=eligibleDebits.filter(v158IsGalpaoDebt);
+    const pdvDebits=eligibleDebits.filter(d=>{const origin=norm(d.origem),id=String(d.id||'').toLowerCase(),description=norm(d.descricao||d.description);return origin==='pdv'||origin==='loja'||id.startsWith('deb_pdv_')||description.startsWith('pdv:')||description.startsWith('loja:')});
+    const classifiedIds=new Set([...galpaoDebits,...pdvDebits].map(d=>String(d.id)));
+    const manualDebits=eligibleDebits.filter(d=>!classifiedIds.has(String(d.id)));
     const manualTotal=manualDebits.reduce((a,d)=>a+debitBalance(d),0);
     const galpaoLeite=inv.rows.filter(x=>String(x.business_date||'')>=ini&&String(x.business_date||'')<=fim && /(?:VENDA|PEDIDO) GALPÃO.*•\s*LEITE/i.test(String(x.destination||'')));
-    const galpaoTotalQ=galpaoLeite.reduce((a,x)=>a+Number(x.quantity||0)*Number(x.unit_price||0),0);
+    const galpaoTotalQ=galpaoDebits.reduce((a,d)=>a+debitBalance(d),0);
+    const pdvStateTotal=pdvDebits.reduce((a,d)=>a+debitBalance(d),0);
     // Vendas fiado/boleto do PDV vinculadas ao produtor entram como desconto pendente da quinzena.
     const credit=await pool.query(`SELECT a.id,a.sale_id,a.original_amount,a.paid_amount,a.status,a.created_at,(a.created_at AT TIME ZONE 'America/Sao_Paulo')::date::text AS business_date
       FROM app_store_credit_accounts a WHERE a.status<>'cancelada' AND (a.customer_id=$1 OR lower(trim(COALESCE(a.customer_name,'')))=lower(trim($2)))`,[producerId,producerName]);
     const creditQ=credit.rows.filter(x=>String(x.business_date||'')>=ini&&String(x.business_date||'')<=fim && Number(x.original_amount||0)-Number(x.paid_amount||0)>0);
     const pdvFiadoTotal=creditQ.reduce((a,x)=>a+Math.max(0,Number(x.original_amount||0)-Number(x.paid_amount||0)),0);
-    const descontos=manualTotal+galpaoTotalQ+pdvFiadoTotal, liquido=Math.max(0,brutoQ-descontos);
+    const descontos=manualTotal+galpaoTotalQ+pdvStateTotal+pdvFiadoTotal, liquido=Math.max(0,brutoQ-descontos);
     const totalMilk=milk.reduce((a,x)=>a+(Number(x.qtd)||0),0);
     const pdvTotal=sales.rows.reduce((a,x)=>a+(Number(x.total)||0),0);
     const galpaoTotal=inv.rows.reduce((a,x)=>a+(Number(x.quantity)||0)*(Number(x.unit_price)||0),0);
     const deductionItems=[
       ...manualDebits.map(d=>({tipo:'Débito',data:d.data,descricao:d.descricao||'Débito',valor:debitBalance(d)})),
-      ...galpaoLeite.map(x=>({tipo:'Galpão',data:x.business_date,descricao:`${x.product_name} - ${x.quantity} ${x.unit||''}`,valor:Number(x.quantity||0)*Number(x.unit_price||0)})),
+      ...galpaoDebits.map(d=>({tipo:'Galpão',data:v158DebitDate(d),descricao:d.descricao||'Mercadoria retirada no Galpão',valor:debitBalance(d)})),
+      ...pdvDebits.map(d=>({tipo:'Loja / PDV',data:v158DebitDate(d),descricao:d.descricao||'Compra no PDV',valor:debitBalance(d)})),
       ...creditQ.map(x=>({tipo:'PDV / Fiado',data:x.business_date,descricao:'Compra no PDV a descontar',valor:Math.max(0,Number(x.original_amount||0)-Number(x.paid_amount||0))}))
     ].sort((a,b)=>String(b.data||'').localeCompare(String(a.data||'')));
     res.set('Cache-Control','no-store, no-cache, must-revalidate');
-    res.json({ok:true,producer,milk,pdv_sales:sales.rows,inventory:inv.rows,inventory_orders:orders.rows,debits:allDebits,totals:{milk_liters:totalMilk,pdv_value:pdvTotal,inventory_value:galpaoTotal,milk_entries:milk.length,pdv_sales:sales.rows.length,inventory_items:inv.rows.length,orders:orders.rows.length},quinzena:{numero:q,mes:ym,inicio:milkQ.length?milkQ.reduce((a,x)=>String(x.data||'')<a?String(x.data||''):a,String(milkQ[0].data||ini)):ini,fim,valor_litro:valorLitro,litros:litrosQ,litros_saldo_anterior:litrosSaldoAnterior,litros_periodo_atual:litrosPeriodoAtual,valor_bruto:brutoQ,descontos,valor_liquido:liquido,manual_debits:manualTotal,galpao_debits:galpaoTotalQ,pdv_debits:pdvFiadoTotal,deductions:deductionItems,pago:!!pagamento,pagamento}});
+    res.json({ok:true,producer,milk,pdv_sales:sales.rows,inventory:inv.rows,inventory_orders:orders.rows,debits:allDebits,totals:{milk_liters:totalMilk,pdv_value:pdvTotal,inventory_value:galpaoTotal,milk_entries:milk.length,pdv_sales:sales.rows.length,inventory_items:inv.rows.length,orders:orders.rows.length},quinzena:{numero:q,mes:ym,inicio:milkQ.length?milkQ.reduce((a,x)=>String(x.data||'')<a?String(x.data||''):a,String(milkQ[0].data||ini)):ini,fim,valor_litro:valorLitro,litros:litrosQ,litros_saldo_anterior:litrosSaldoAnterior,litros_periodo_atual:litrosPeriodoAtual,valor_bruto:brutoQ,descontos,valor_liquido:liquido,manual_debits:manualTotal,galpao_debits:galpaoTotalQ,pdv_debits:pdvStateTotal+pdvFiadoTotal,deductions:deductionItems,pago:!!pagamento,pagamento}});
   }catch(e){console.error('GET /api/producers/:id/statement',e);res.status(500).json({ok:false,error:e.message});}
 });
 

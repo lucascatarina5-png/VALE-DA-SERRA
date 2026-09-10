@@ -4,7 +4,7 @@
   "short_name": "Vale da Serra",
   "description": "Controle de leite, produtores, estoque e Loja/PDV Vale da Serra, com vendas mobile.",
   "lang": "pt-BR",
-  "start_url": "/app?mobile=1&v=157",
+  "start_url": "/app?mobile=1&v=158",
   "scope": "/",
   "display": "standalone",
   "display_override": [
