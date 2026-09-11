@@ -1,3 +1,4 @@
+const v162DebtCore=require('./v162-debt-core');
 const v161Thumbnail=require('./v161-photos');
 const express = require('express');
 const path = require('path');
@@ -817,6 +818,21 @@ app.get('/api/state', async (_req,res)=>{
   } catch(e){ res.status(500).json({ok:false,error:e.message}); }
 });
 
+// V162: gravação individual confirmada, sem substituir dados de outras telas.
+app.get('/api/debts',auth,hasPermission('debitos'),async(req,res)=>{try{
+ const result=await v158ReconcileGalpaoDebts();res.set('Cache-Control','no-store');res.json({ok:true,debitos:result.state.debitos||[]});
+}catch(e){res.status(500).json({ok:false,error:e.message})}});
+app.post('/api/debts',auth,hasPermission('debitos'),async(req,res)=>{
+ const client=await pool.connect();try{
+ await client.query('BEGIN');
+ await client.query("INSERT INTO app_state(id,data,updated_at) VALUES('vale-da-serra','{}'::jsonb,NOW()) ON CONFLICT(id) DO NOTHING");
+ const row=await client.query("SELECT data FROM app_state WHERE id='vale-da-serra' FOR UPDATE");
+ const state=row.rows[0].data||{},debt=v162DebtCore.insert(state,req.body||{},req.user);
+ await client.query("UPDATE app_state SET data=$1::jsonb,updated_at=NOW() WHERE id='vale-da-serra'",[JSON.stringify(state)]);
+ await client.query('COMMIT');res.json({ok:true,debt});
+ }catch(e){try{await client.query('ROLLBACK')}catch(_){}res.status(400).json({ok:false,error:e.message})}finally{client.release()}
+});
+
 app.put('/api/state', optionalAuth, async (req,res)=>{
   const client=await pool.connect();
   try {
@@ -825,7 +841,7 @@ app.put('/api/state', optionalAuth, async (req,res)=>{
     await client.query('BEGIN');
     const currentQuery=await client.query("SELECT data FROM app_state WHERE id='vale-da-serra' FOR UPDATE");
     const current=(currentQuery.rows[0]?.data&&typeof currentQuery.rows[0].data==='object')?currentQuery.rows[0].data:{};
-    const safeData=v159PreserveDebtTombstones(current,JSON.parse(JSON.stringify(data)));
+    const safeData=v159PreserveDebtTombstones(current,v162DebtCore.preserve(current,JSON.parse(JSON.stringify(data))));
     await client.query(`INSERT INTO app_state(id,data,updated_at)
       VALUES('vale-da-serra',$1::jsonb,NOW())
       ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()`,

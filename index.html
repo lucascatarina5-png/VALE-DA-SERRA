@@ -2084,7 +2084,7 @@ function editarProd(id){let p=prodById(id);if(!p)return;editId=id;pNome.value=p.
 function excluirProd(id){if(lancamentos.some(x=>x.prodId===id)){alert('Este produtor possui lançamentos.');return}let p=prodById(id);if(confirm('Excluir produtor?')){produtores=produtores.filter(x=>x.id!==id);v25Audit('PRODUTOR_EXCLUIDO',{nome:p?.nome||id,local:p?.local||''});save()}}
 function limparProd(){editId=null;formProd.reset()}
 
-document.getElementById('formDeb').addEventListener('submit',e=>{e.preventDefault();let p=prodById(dProd.value);if(!p)return;let d={id:crypto.randomUUID(),data:dData.value,prodId:p.id,descricao:dDesc.value.trim(),valor:Number(dValor.value)};debitos.push(d);v25Audit('DEBITO_CRIADO',{produtor:p.nome,descricao:d.descricao,valor:d.valor,data:d.data});e.target.reset();dData.value=isoHoje();save()});
+// V162: registro de débito tratado por v162-debitos.js, com confirmação do servidor.
 
 
 function pagamentosDoDebito(debitoId){
@@ -5929,5 +5929,5 @@ body:not(.v112-galpao-admin) #estoque .gal-quick{display:none!important}
 <script src="v155-conferencia-tanques.js?v=160"></script>
 <script src="v160-ui.js?v=160"></script>
 <script id="v156-open-section">window.addEventListener('load',async()=>{if(typeof v38SincronizarUsuario==='function')await v38SincronizarUsuario();const id=location.hash.slice(1);if(id==='conferenciaTanques')setTimeout(()=>{if(typeof v155Open==='function')v155Open(document.querySelector('.v155-nav-button'))},80);else if(['pagamentos','pesquisa'].includes(id))setTimeout(()=>{if(typeof go==='function')go(id)},80)});</script>
-</body>
+<script src="/v162-debitos.js?v=162"></script></body>
 </html>
