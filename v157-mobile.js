@@ -27,6 +27,7 @@
   async function reloadSharedState(){
     const result=await Bridge.api('/api/state');
     if(!result.data||typeof result.data!=='object')throw new Error('O servidor não retornou os dados do sistema.');
+    if(window.V163DebtView)result.data.debitos=window.V163DebtView.merge(state().debitos,result.data.debitos||[]);
     Object.assign(state(),result.data);
     for(const key of ['produtores','lancamentos','pagamentos','debitos','pagamentosDebitos'])if(!Array.isArray(state()[key]))state()[key]=[];
     return state();

@@ -16,6 +16,7 @@ if (!process.env.DATABASE_URL) {
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  connectionTimeoutMillis: 10000,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
 });
 
@@ -683,7 +684,7 @@ function v158Norm(value){return String(value||'').trim().toLocaleLowerCase('pt-B
 function v158ProducerRef(value){return value?.prodId??value?.produtorId??value?.producerId??value?.producer_id??''}
 function v158DebitDate(value){return String(value?.data||value?.business_date||value?.created_at||'').slice(0,10)}
 function v158DebitValue(value){const number=Number(value?.valor??value?.amount??value?.total??0);return Number.isFinite(number)?number:0}
-function v158IsGalpaoDebt(value){const origin=v158Norm(value?.origem),id=String(value?.id||'').toLowerCase(),description=v158Norm(value?.descricao||value?.description);return origin==='galpao'||id.startsWith('deb_gal_')||id.startsWith('deb_ord_gal_')||id.startsWith('deb_est_')||description.startsWith('galpao')||description.startsWith('estoque/galpao')}
+function v158IsGalpaoDebt(value){if(value?.origem==='manual')return false;const origin=v158Norm(value?.origem),id=String(value?.id||'').toLowerCase(),description=v158Norm(value?.descricao||value?.description);return origin==='galpao'||id.startsWith('deb_gal_')||id.startsWith('deb_ord_gal_')||id.startsWith('deb_est_')||description.startsWith('galpao')||description.startsWith('estoque/galpao')}
 function v158IsMilkWarehouseMovement(destination){const parts=String(destination||'').split('•').map(v158Norm);return parts[0]?.startsWith('venda galpao')&&parts[1]==='leite'}
 function v159DebtExcluded(value){return [value?.status,value?.situacao,value?.situacaoPagamento].map(v158Norm).some(status=>['cancelado','cancelada','excluido','excluida'].includes(status))}
 function v159LegacyBrowserGalpaoDebt(value){return /^deb_gal_\d{11,}$/.test(String(value?.id||''))&&!value?.movementId&&!value?.movement_id&&!value?.releaseId&&!value?.release_id}
@@ -811,26 +812,26 @@ async function v158ReconcileGalpaoDebts(externalClient=null){
   finally{if(ownsTransaction)client.release()}
 }
 
+// V163: leituras comuns não bloqueiam o estado nem varrem o histórico do Galpão.
 app.get('/api/state', async (_req,res)=>{
-  try {
-    const result=await v158ReconcileGalpaoDebts();
-    res.json({ok:true,exists:true,data:result.state,updatedAt:result.updatedAt,reconciledGalpaoDebts:result.created,deduplicatedDebts:result.deduplicated});
-  } catch(e){ res.status(500).json({ok:false,error:e.message}); }
+ try{const r=await pool.query("SELECT data,updated_at FROM app_state WHERE id='vale-da-serra'");res.json({ok:true,exists:!!r.rowCount,data:r.rows[0]?.data||{},updatedAt:r.rows[0]?.updated_at});}
+ catch(e){res.status(500).json({ok:false,error:e.message})}
 });
-
-// V162: gravação individual confirmada, sem substituir dados de outras telas.
 app.get('/api/debts',auth,hasPermission('debitos'),async(req,res)=>{try{
- const result=await v158ReconcileGalpaoDebts();res.set('Cache-Control','no-store');res.json({ok:true,debitos:result.state.debitos||[]});
+ const r=await pool.query("SELECT data->'debitos' AS debitos,data->'pagamentosDebitos' AS ledger,data->'pagamentos' AS pagamentos,updated_at FROM app_state WHERE id='vale-da-serra'");
+ const row=r.rows[0]||{};res.json({ok:true,debitos:row.debitos||[],pagamentosDebitos:row.ledger||[],pagamentos:row.pagamentos||[],updatedAt:row.updated_at});
 }catch(e){res.status(500).json({ok:false,error:e.message})}});
 app.post('/api/debts',auth,hasPermission('debitos'),async(req,res)=>{
- const client=await pool.connect();try{
+ let client;try{client=await pool.connect();
  await client.query('BEGIN');
+ await client.query("SET LOCAL lock_timeout='5s'");
+ await client.query("SET LOCAL statement_timeout='10s'");
  await client.query("INSERT INTO app_state(id,data,updated_at) VALUES('vale-da-serra','{}'::jsonb,NOW()) ON CONFLICT(id) DO NOTHING");
- const row=await client.query("SELECT data FROM app_state WHERE id='vale-da-serra' FOR UPDATE");
- const state=row.rows[0].data||{},debt=v162DebtCore.insert(state,req.body||{},req.user);
- await client.query("UPDATE app_state SET data=$1::jsonb,updated_at=NOW() WHERE id='vale-da-serra'",[JSON.stringify(state)]);
+ const row=await client.query("SELECT data->'produtores' AS produtores,data->'debitos' AS debitos FROM app_state WHERE id='vale-da-serra' FOR UPDATE");
+ const state={produtores:row.rows[0]?.produtores||[],debitos:row.rows[0]?.debitos||[]},debt=v162DebtCore.insert(state,req.body||{},req.user);
+ await client.query("UPDATE app_state SET data=jsonb_set(data,'{debitos}',$1::jsonb),updated_at=NOW() WHERE id='vale-da-serra'",[JSON.stringify(state.debitos)]);
  await client.query('COMMIT');res.json({ok:true,debt});
- }catch(e){try{await client.query('ROLLBACK')}catch(_){}res.status(400).json({ok:false,error:e.message})}finally{client.release()}
+ }catch(e){try{await client?.query('ROLLBACK')}catch(_){}res.status(400).json({ok:false,error:e.message})}finally{client?.release()}
 });
 
 app.put('/api/state', optionalAuth, async (req,res)=>{
@@ -846,10 +847,11 @@ app.put('/api/state', optionalAuth, async (req,res)=>{
       VALUES('vale-da-serra',$1::jsonb,NOW())
       ON CONFLICT(id) DO UPDATE SET data=EXCLUDED.data,updated_at=NOW()`,
       [JSON.stringify(safeData)]);
-    const reconciled=await v158ReconcileGalpaoDebts(client);
+    // Only old browser-created Galpão rows require a history reconciliation.
+    if(safeData.debitos.some(d=>v159LegacyBrowserGalpaoDebt(d)&&!v159DebtExcluded(d)))await v158ReconcileGalpaoDebts(client);
     await client.query('COMMIT');
     if(req.user)try{await audit(req.user,'DADOS_SISTEMA_ATUALIZADOS',{origem:'app_state'})}catch(error){console.error('AUDIT DADOS_SISTEMA_ATUALIZADOS',error)}
-    res.json({ok:true,deduplicatedDebts:reconciled.deduplicated||0});
+    res.json({ok:true});
   } catch(e){try{await client.query('ROLLBACK')}catch(_){}res.status(500).json({ok:false,error:e.message});}
   finally{client.release();}
 });
@@ -857,11 +859,27 @@ app.put('/api/state', optionalAuth, async (req,res)=>{
 // V159 - exclusão persistente. A saída física permanece no histórico do
 // estoque, mas o débito ganha uma marca de cancelamento e não é recriado pela
 // conciliação automática na próxima atualização de tela.
+app.put('/api/debts/:id',auth,adminOnly,async(req,res)=>{
+ let client;try{client=await pool.connect();await client.query('BEGIN');await client.query("SET LOCAL lock_timeout='5s'");
+ const r=await client.query("SELECT data FROM app_state WHERE id='vale-da-serra' FOR UPDATE"),state=r.rows[0]?.data||{};
+ const debt=(state.debitos||[]).find(d=>String(d.id)===String(req.params.id));if(!debt||v159DebtExcluded(debt))throw Error('Débito não encontrado ou excluído.');
+ const id=String(debt.id),used=(state.pagamentosDebitos||[]).some(x=>String(v159DebtRef(x))===id&&Number(x.valor??x.amount)>0)||(state.pagamentos||[]).some(x=>(x.debitIds||[]).some(v=>String(v)===id)||(x.debitApplications||[]).some(v=>String(v159DebtRef(v))===id));
+ if(used)throw Error('Este débito já foi usado em pagamento. Desfaça o pagamento antes de alterar o valor.');
+ const b=req.body||{},expected=b.expected||{};
+ if(expected.data!==debt.data||expected.descricao!==debt.descricao||Number(expected.valor)!==Number(debt.valor))throw Error('O débito foi alterado em outra tela. Atualize e confira os dados.');
+ const data=String(b.data||''),descricao=String(b.descricao||'').trim(),valor=Number(b.valor);
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(data)||!Number.isFinite(Date.parse(data))||new Date(data).toISOString().slice(0,10)!==data||!descricao||descricao.length>2000||!Number.isFinite(valor)||valor<=0)throw Error('Informe data, descrição e valor válidos.');
+ Object.assign(debt,{data,descricao,valor,serverSavedV162:true,alteradoEm:new Date().toISOString(),alteradoPor:req.user.username});
+ await client.query("UPDATE app_state SET data=jsonb_set(data,'{debitos}',$1::jsonb),updated_at=NOW() WHERE id='vale-da-serra'",[JSON.stringify(state.debitos)]);
+ await client.query('COMMIT');res.json({ok:true,debt});
+ }catch(e){try{await client?.query('ROLLBACK')}catch(_){}res.status(409).json({ok:false,error:e.message})}finally{client?.release()}
+});
+
 app.delete('/api/debts/:id',auth,adminOnly,async(req,res)=>{
   const client=await pool.connect();
   try{
     await client.query('BEGIN');
-    const reconciled=await v158ReconcileGalpaoDebts(client),state=reconciled.state||{};
+    const current=await client.query("SELECT data FROM app_state WHERE id='vale-da-serra' FOR UPDATE"),state=current.rows[0]?.data||{};
     const debts=Array.isArray(state.debitos)?state.debitos:[],debt=debts.find(item=>String(item?.id||'')===String(req.params.id));
     if(!debt){await client.query('ROLLBACK');return res.status(404).json({ok:false,error:'Débito não encontrado.'})}
     const debitId=String(debt.id),ledger=Array.isArray(state.pagamentosDebitos)?state.pagamentosDebitos:[],payments=Array.isArray(state.pagamentos)?state.pagamentos:[];
@@ -1602,8 +1620,8 @@ app.get('/api/producers/:id/statement',auth,async(req,res)=>{
     const producerId=String(req.params.id||'').trim();
     // Antes de montar o extrato, recupera qualquer saída do Galpão que tenha
     // ficado sem o débito correspondente em uma sincronização antiga.
-    const reconciled=await v158ReconcileGalpaoDebts();
-    const st=reconciled.state||{};
+    const stateQuery=await pool.query("SELECT data FROM app_state WHERE id='vale-da-serra'");
+    const st=stateQuery.rows[0]?.data||{};
     const producers=Array.isArray(st.produtores)?st.produtores:[];
     const producer=producers.find(p=>String(p.id)===producerId);
     if(!producer) return res.status(404).json({ok:false,error:'Produtor não encontrado.'});
@@ -1751,8 +1769,9 @@ app.get(['/','/index.html'],(req,res)=>sendUi(req,res));
 app.get(['/mobile','/mobile.html','/app','/app/'],(req,res)=>sendUi(req,res,true));
 app.get('/desktop.html',(req,res)=>sendUi(req,res,false));
 app.use(express.static(__dirname,{maxAge:'15m',setHeaders(res,filePath){if(/(?:index|mobile)\.html$/i.test(filePath))res.setHeader('Cache-Control','no-store');}}));
-app.get('*',(req,res)=>sendUi(req,res));
+app.get('*',(req,res)=>{if(/\.(?:js|css|png|jpe?g|webp|svg|ico|webmanifest)$/i.test(req.path)){res.set('Cache-Control','no-store');return res.status(404).send('Arquivo não encontrado.')}return sendUi(req,res)});
 
 initDb()
+  .then(()=>v158ReconcileGalpaoDebts())
   .then(()=>app.listen(PORT,'0.0.0.0',()=>console.log(`Vale da Serra online na porta ${PORT}`)))
   .catch(err=>{ console.error('Falha ao iniciar banco:',err); process.exit(1); });

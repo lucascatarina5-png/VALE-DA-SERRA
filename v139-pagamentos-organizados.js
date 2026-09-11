@@ -245,7 +245,7 @@
     try{
       const headers=typeof v4Headers==='function'?v4Headers():{},response=await fetch('/api/state?ts='+Date.now(),{headers,cache:'no-store'}),json=await response.json();
       if(!response.ok||json.ok===false)throw new Error(json.error||'Não foi possível atualizar os débitos.');
-      if(Array.isArray(json.data?.debitos)){debitos=json.data.debitos;localStorage.setItem('vds_debitos_v1',JSON.stringify(debitos))}
+      if(Array.isArray(json.data?.debitos)){debitos=window.V163DebtView?window.V163DebtView.merge(debitos,json.data.debitos):json.data.debitos;localStorage.setItem('vds_debitos_v1',JSON.stringify(debitos))}
       if(Array.isArray(json.data?.pagamentosDebitos)){pagamentosDebitos=json.data.pagamentosDebitos;localStorage.setItem('vds_debitos_pagamentos_v1',JSON.stringify(pagamentosDebitos))}
       S.lastDebtSync=Date.now();window.renderPagamentos(true);
     }catch(error){console.warn('V159: atualização dos débitos do pagamento',error)}finally{S.debtSyncing=false}
