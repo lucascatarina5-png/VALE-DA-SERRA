@@ -1,3 +1,4 @@
+const v161Thumbnail=require('./v161-photos');
 const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
@@ -1367,7 +1368,8 @@ app.get('/api/store/products/:id/photo',auth,hasPermission('loja'),async(req,res
   const r=await pool.query(`SELECT photo,updated_at FROM app_store_products WHERE id=$1 AND (COALESCE(active,TRUE)=TRUE OR NOT EXISTS (SELECT 1 FROM app_store_products WHERE COALESCE(active,TRUE)=TRUE)) LIMIT 1`,[req.params.id]);
   if(!r.rowCount) return res.status(404).json({ok:false,error:'Produto não encontrado'});
   res.set('Cache-Control','private, max-age=3600');
-  res.json({ok:true,photo:r.rows[0].photo||null,updated_at:r.rows[0].updated_at});
+  const row=r.rows[0];const photo=req.query.thumb==='1'?await v161Thumbnail(req.params.id,String(row.updated_at),row.photo):row.photo;
+  res.json({ok:true,photo:photo||null,updated_at:row.updated_at});
 }catch(e){res.status(500).json({ok:false,error:e.message})}});
 
 app.get('/api/store/products/:id',auth,hasPermission('loja'),async(req,res)=>{try{
