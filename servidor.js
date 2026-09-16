@@ -1737,6 +1737,94 @@ app.post('/api/store/sales/:id/cancel',auth,adminOnly,async(req,res)=>{const c=a
  await c.query('BEGIN'); const s=await c.query(`SELECT * FROM app_store_sales WHERE id=$1 FOR UPDATE`,[req.params.id]); if(!s.rowCount||s.rows[0].status==='cancelada') throw new Error('Venda inválida ou já cancelada'); const its=await c.query(`SELECT * FROM app_store_sale_items WHERE sale_id=$1`,[req.params.id]); for(const i of its.rows) await c.query(`UPDATE app_store_products SET stock=stock+$2,updated_at=NOW() WHERE id=$1`,[i.product_id,i.quantity]); await c.query(`UPDATE app_store_sales SET status='cancelada',cancelled_at=NOW(),cancelled_by=$2,cancel_reason=$3 WHERE id=$1`,[req.params.id,req.user.username,reason]); await c.query('COMMIT'); await audit(req.user,'LOJA_VENDA_CANCELADA',{id:req.params.id,reason,total:s.rows[0].total,payment_method:s.rows[0].payment_method}); res.json({ok:true});
 }catch(e){try{await c.query('ROLLBACK')}catch(_){} res.status(400).json({ok:false,error:e.message})}finally{c.release()}});
 
+// V168 - Assistente local da vaquinha. Interpreta intenções conhecidas e
+// consulta somente dados permitidos para a sessão autenticada.
+function v168Norm(value){return String(value||'').trim().toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ')}
+function v168Allowed(user,permission){return isAdminUser(user)||(Array.isArray(user?.permissions)&&user.permissions.includes(permission))}
+function v168Money(value){return Number(value||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function v168Number(value,digits=2){return Number(value||0).toLocaleString('pt-BR',{minimumFractionDigits:digits,maximumFractionDigits:digits})}
+function v168PaymentLabel(value){return ({pix:'Pix',dinheiro:'dinheiro',cartao:'cartão',fiado:'boleto',doacao:'doação',leite:'desconto no leite'})[String(value||'').toLowerCase()]||String(value||'pagamento')}
+function v168Period(question){
+  const q=v168Norm(question);
+  if(q.includes('ontem'))return {label:'Ontem',sql:"(s.created_at AT TIME ZONE 'America/Sao_Paulo')::date=((NOW() AT TIME ZONE 'America/Sao_Paulo')::date-1)"};
+  if(q.includes('mes passado'))return {label:'No mês passado',sql:"date_trunc('month',s.created_at AT TIME ZONE 'America/Sao_Paulo')=date_trunc('month',(NOW() AT TIME ZONE 'America/Sao_Paulo')-INTERVAL '1 month')"};
+  if(q.includes('este mes')||q.includes('nesse mes')||q.includes('no mes')||q.includes('mes atual'))return {label:'Neste mês',sql:"date_trunc('month',s.created_at AT TIME ZONE 'America/Sao_Paulo')=date_trunc('month',NOW() AT TIME ZONE 'America/Sao_Paulo')"};
+  if(q.includes('semana')||q.includes('7 dias'))return {label:'Nos últimos sete dias',sql:"(s.created_at AT TIME ZONE 'America/Sao_Paulo')::date>=((NOW() AT TIME ZONE 'America/Sao_Paulo')::date-6)"};
+  return {label:'Hoje',sql:"(s.created_at AT TIME ZONE 'America/Sao_Paulo')::date=(NOW() AT TIME ZONE 'America/Sao_Paulo')::date"};
+}
+function v168RequestedPayments(question){
+  const q=v168Norm(question),out=[];
+  if(q.includes('pix'))out.push('pix');
+  if(q.includes('dinheiro')||q.includes('especie'))out.push('dinheiro');
+  if(q.includes('cartao')||q.includes('credito')||q.includes('debito'))out.push('cartao');
+  if(q.includes('boleto')||q.includes('fiado'))out.push('fiado');
+  if(q.includes('doacao'))out.push('doacao');
+  if(q.includes('descont')&&q.includes('leite'))out.push('leite');
+  return [...new Set(out)];
+}
+async function v168SalesAnswer(req,question){
+  if(!v168Allowed(req.user,'loja'))throw Object.assign(new Error('Seu usuário não possui permissão para consultar as vendas.'),{statusCode:403});
+  const period=v168Period(question),methods=v168RequestedPayments(question),conditions=["s.status<>'cancelada'",period.sql],params=[];
+  if(methods.length){params.push(methods);conditions.push(`s.payment_method=ANY($${params.length}::text[])`)}
+  if(!isAdminUser(req.user)){params.push(String(req.user.username||''));conditions.push(`s.username=$${params.length}`)}
+  const where=conditions.join(' AND ');
+  const grouped=await pool.query(`SELECT s.payment_method,COUNT(*)::int AS quantity,COALESCE(SUM(s.total),0)::numeric AS total FROM app_store_sales s WHERE ${where} GROUP BY s.payment_method ORDER BY s.payment_method`,params);
+  const sales=await pool.query(`SELECT s.id,s.total,s.payment_method,s.customer_name,s.username,to_char(s.created_at AT TIME ZONE 'America/Sao_Paulo','HH24:MI') AS time,COALESCE(json_agg(json_build_object('name',i.product_name,'quantity',i.quantity)) FILTER(WHERE i.id IS NOT NULL),'[]') items FROM app_store_sales s LEFT JOIN app_store_sale_items i ON i.sale_id=s.id WHERE ${where} GROUP BY s.id ORDER BY s.created_at DESC LIMIT 25`,params);
+  const quantity=grouped.rows.reduce((sum,row)=>sum+Number(row.quantity||0),0),total=grouped.rows.reduce((sum,row)=>sum+Number(row.total||0),0);
+  let answer=quantity?`${period.label}, foram ${quantity} ${quantity===1?'venda':'vendas'}, totalizando ${v168Money(total)}.`:`${period.label}, não encontrei vendas nas formas de pagamento solicitadas.`;
+  if(quantity)grouped.rows.forEach(row=>{answer+=` Em ${v168PaymentLabel(row.payment_method)}, ${row.quantity} ${Number(row.quantity)===1?'venda':'vendas'}, no total de ${v168Money(row.total)}.`});
+  const details=sales.rows.map(row=>({title:`${row.time} • ${v168PaymentLabel(row.payment_method)} • ${v168Money(row.total)}`,subtitle:[row.customer_name||'',(row.items||[]).map(item=>`${item.name} × ${v168Number(item.quantity,Number(item.quantity)%1?2:0)}`).join(', '),isAdminUser(req.user)?row.username||'':''].filter(Boolean).join(' • ')}));
+  return {intent:'sales',answer,details,period:period.label};
+}
+async function v168CashAnswer(req){
+  if(!v168Allowed(req.user,'loja'))throw Object.assign(new Error('Seu usuário não possui permissão para consultar o caixa.'),{statusCode:403});
+  const params=[],conditions=["status='aberto'"];
+  if(!isAdminUser(req.user)){params.push(String(req.user.username||''));conditions.push(`opened_by=$${params.length}`)}
+  const sessions=await pool.query(`SELECT * FROM app_store_cash_sessions WHERE ${conditions.join(' AND ')} ORDER BY opened_at DESC LIMIT 5`,params);
+  if(!sessions.rowCount)return {intent:'cash',answer:'Não existe caixa aberto para o seu usuário neste momento.',details:[]};
+  const details=[];let expectedTotal=0;
+  for(const session of sessions.rows){
+    const sales=await pool.query(`SELECT payment_method,COUNT(*)::int quantity,COALESCE(SUM(total),0) total FROM app_store_sales WHERE cash_session_id=$1 AND status<>'cancelada' GROUP BY payment_method`,[session.id]);
+    const cash=Number((sales.rows.find(x=>x.payment_method==='dinheiro')||{}).total||0);
+    const mov=await pool.query(`SELECT COALESCE(SUM(CASE WHEN movement_type='suprimento' THEN amount ELSE -amount END),0) net FROM app_store_cash_movements WHERE session_id=$1`,[session.id]);
+    const expected=Number(session.opening_amount||0)+cash+Number(mov.rows[0]?.net||0);expectedTotal+=expected;
+    details.push({title:`Caixa de ${session.opened_by} • esperado ${v168Money(expected)}`,subtitle:sales.rows.map(x=>`${v168PaymentLabel(x.payment_method)}: ${x.quantity} venda(s), ${v168Money(x.total)}`).join(' • ')});
+  }
+  return {intent:'cash',answer:sessions.rowCount===1?`O caixa está aberto. O valor esperado em dinheiro na gaveta é ${v168Money(expectedTotal)}.`:`Existem ${sessions.rowCount} caixas abertos, com ${v168Money(expectedTotal)} esperados em dinheiro.`,details};
+}
+async function v168StockAnswer(req){
+  if(!v168Allowed(req.user,'loja')&&!v168Allowed(req.user,'estoque'))throw Object.assign(new Error('Seu usuário não possui permissão para consultar estoques.'),{statusCode:403});
+  const details=[];
+  if(v168Allowed(req.user,'loja')){const store=await pool.query(`SELECT name,stock,min_stock,unit FROM app_store_products WHERE COALESCE(active,TRUE)=TRUE AND stock<=min_stock ORDER BY stock ASC,name LIMIT 20`);store.rows.forEach(x=>details.push({title:`Loja • ${x.name}: ${v168Number(x.stock)} ${x.unit||'un'}`,subtitle:`Estoque mínimo: ${v168Number(x.min_stock)} ${x.unit||'un'}`}))}
+  if(v168Allowed(req.user,'estoque')){const warehouse=await pool.query(`SELECT p.name,p.unit,p.min_stock,COALESCE(SUM(CASE WHEN m.type='entrada' THEN m.quantity ELSE -m.quantity END),0) stock FROM app_inventory_products p LEFT JOIN app_inventory_movements m ON m.product_id=p.id WHERE p.active=TRUE GROUP BY p.id HAVING COALESCE(SUM(CASE WHEN m.type='entrada' THEN m.quantity ELSE -m.quantity END),0)<=p.min_stock ORDER BY stock ASC,p.name LIMIT 20`);warehouse.rows.forEach(x=>details.push({title:`Galpão • ${x.name}: ${v168Number(x.stock)} ${x.unit||'un'}`,subtitle:`Estoque mínimo: ${v168Number(x.min_stock)} ${x.unit||'un'}`}))}
+  return {intent:'stock',answer:details.length?`Existem ${details.length} ${details.length===1?'produto com estoque baixo':'produtos com estoque baixo'}. O detalhamento está na tela.`:'Não encontrei produtos com estoque baixo.',details};
+}
+async function v168MilkAnswer(req,question){
+  if(!v168Allowed(req.user,'relatorios'))throw Object.assign(new Error('Seu usuário não possui permissão para consultar relatórios de leite.'),{statusCode:403});
+  const stateResult=await pool.query("SELECT data FROM app_state WHERE id='vale-da-serra'"),state=stateResult.rows[0]?.data||{},producers=Array.isArray(state.produtores)?state.produtores:[],entries=Array.isArray(state.lancamentos)?state.lancamentos:[];
+  const todayResult=await pool.query("SELECT (NOW() AT TIME ZONE 'America/Sao_Paulo')::date::text today,to_char(NOW() AT TIME ZONE 'America/Sao_Paulo','YYYY-MM') month"),today=todayResult.rows[0].today,month=todayResult.rows[0].month,q=v168Norm(question),map=new Map(producers.map(p=>[String(p.id),p]));
+  if(q.includes('nao entreg')||q.includes('sem entreg')||q.includes('nao colocou')||q.includes('sem leite')){const delivered=new Set(entries.filter(x=>String(x.data||'').slice(0,10)===today).map(x=>String(x.prodId||x.producer_id||''))),missing=producers.filter(p=>p.ativo!==false&&!['inativo','inactive'].includes(v168Norm(p.status||p.situacao))&&!delivered.has(String(p.id)));return {intent:'milk-missing',answer:missing.length?`${missing.length} ${missing.length===1?'produtor ainda não entregou':'produtores ainda não entregaram'} leite hoje. O detalhamento está na tela.`:'Todos os produtores ativos possuem entrega registrada hoje.',details:missing.slice(0,50).map(p=>({title:p.nome||p.name||'Produtor',subtitle:p.local||p.localidade||'Sem localidade'}))}}
+  let filtered;if(q.includes('quinzena')){const day=Number(today.slice(8,10)),start=day<=15?month+'-01':month+'-16',end=day<=15?month+'-15':month+'-31';filtered=entries.filter(x=>String(x.data||'')>=start&&String(x.data||'')<=end)}else if(q.includes('mes'))filtered=entries.filter(x=>String(x.data||'').startsWith(month));else filtered=entries.filter(x=>String(x.data||'').slice(0,10)===today);
+  const totals=new Map();filtered.forEach(x=>{const id=String(x.prodId||x.producer_id||''),liters=Number(x.qtd??x.liters??0)||0;totals.set(id,(totals.get(id)||0)+liters)});const ranked=[...totals.entries()].map(([id,liters])=>({id,liters,producer:map.get(id)})).sort((a,b)=>b.liters-a.liters),liters=ranked.reduce((sum,x)=>sum+x.liters,0);
+  if(q.includes('mais leite')||q.includes('top')||q.includes('maior produtor')){const top=ranked[0];return {intent:'milk-top',answer:top?`${top.producer?.nome||top.producer?.name||'O maior produtor'} lidera o período com ${v168Number(top.liters)} litros.`:'Não encontrei entradas de leite nesse período.',details:ranked.slice(0,10).map((x,index)=>({title:`${index+1}º • ${x.producer?.nome||x.producer?.name||'Produtor'} • ${v168Number(x.liters)} litros`,subtitle:x.producer?.local||x.producer?.localidade||''}))}}
+  return {intent:'milk',answer:`Foram registrados ${v168Number(liters)} litros de leite em ${filtered.length} ${filtered.length===1?'entrada':'entradas'}, de ${ranked.length} ${ranked.length===1?'produtor':'produtores'}.`,details:ranked.slice(0,15).map(x=>({title:`${x.producer?.nome||x.producer?.name||'Produtor'} • ${v168Number(x.liters)} litros`,subtitle:x.producer?.local||x.producer?.localidade||''}))};
+}
+async function v168TankAnswer(req){
+  if(!v168Allowed(req.user,'relatorios'))throw Object.assign(new Error('Seu usuário não possui permissão para consultar a conferência de tanques.'),{statusCode:403});
+  const result=await pool.query(`SELECT tank_name,locality,difference_liters,status,end_local FROM app_tank_conferences WHERE status<>'cancelada' ORDER BY end_local DESC,closed_at DESC LIMIT 20`),divergent=result.rows.filter(x=>Math.abs(Number(x.difference_liters||0))>0.001);
+  return {intent:'tanks',answer:divergent.length?`Encontrei ${divergent.length} ${divergent.length===1?'conferência com diferença':'conferências com diferença'} entre as últimas verificadas. O detalhamento está na tela.`:'Não encontrei divergência nas últimas conferências de tanque.',details:divergent.map(x=>({title:`${x.tank_name} • ${x.locality}`,subtitle:`Diferença: ${v168Number(x.difference_liters)} litros • ${String(x.status||'').toUpperCase()}`}))};
+}
+app.post('/api/mascot/query',auth,async(req,res)=>{try{
+  const question=String(req.body?.question||'').trim().slice(0,300),q=v168Norm(question);if(!question)return res.status(400).json({ok:false,error:'Faça uma pergunta para a vaquinha.'});let result;
+  if((q.includes('venda')||q.includes('vendeu')||q.includes('fatur'))&&!q.includes('galpao'))result=await v168SalesAnswer(req,question);
+  else if(q.includes('caixa')||q.includes('gaveta'))result=await v168CashAnswer(req);
+  else if(q.includes('estoque')||q.includes('acabando')||q.includes('baixo'))result=await v168StockAnswer(req);
+  else if(q.includes('tanque')||q.includes('conferencia')||q.includes('divergencia'))result=await v168TankAnswer(req);
+  else if(q.includes('leite')||q.includes('produtor')||q.includes('entreg'))result=await v168MilkAnswer(req,question);
+  else result={intent:'help',answer:'Eu posso consultar vendas por Pix, dinheiro, cartão, boleto ou leite; situação do caixa; estoque baixo; entradas de leite; produtores sem entrega; maiores produtores e divergências dos tanques.',details:[]};
+  await audit(req.user,'MASCOTE_CONSULTA',{intent:result.intent,question});res.json({ok:true,question,user:{name:req.user.name,role:req.user.role},...result,generated_at:new Date().toISOString()});
+}catch(e){console.error('POST /api/mascot/query',e);res.status(e.statusCode||500).json({ok:false,error:e.message||'Não foi possível consultar os dados.'})}});
+
 // PWA: tipos corretos e atualização imediata do manifest/service worker
 app.get('/manifest.webmanifest',(_req,res)=>{
   res.type('application/manifest+json');
