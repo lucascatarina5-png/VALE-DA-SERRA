@@ -4,7 +4,8 @@
   "private": true,
   "main": "servidor.js",
   "scripts": {
-    "start": "node servidor.js"
+    "start": "node servidor.js",
+    "test:v172": "node test-v172-understanding.js"
   },
   "engines": {
     "node": ">=20"
