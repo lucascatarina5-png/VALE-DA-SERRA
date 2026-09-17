@@ -60,7 +60,7 @@
   }
 
   async function loadBase(){
-    const [p,s]=await Promise.all([api('/api/inventory/products?ts='+Date.now()),api('/api/state?ts='+Date.now())]);
+    const [p,s]=await Promise.all([api('/api/inventory/products?ts='+Date.now()),api('/api/state?sections=produtores&ts='+Date.now())]);
     S.products=p.products||[];S.producers=Array.isArray(s.data?.produtores)?s.data.produtores:[];
   }
   function producerOptions(filter=''){

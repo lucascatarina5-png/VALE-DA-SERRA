@@ -1,6 +1,7 @@
 const v162DebtCore=require('./v162-debt-core');
 const v161Thumbnail=require('./v161-photos');
 const express = require('express');
+const compression = require('compression');
 const path = require('path');
 const crypto = require('crypto');
 const { Pool } = require('pg');
@@ -18,10 +19,15 @@ if (!process.env.DATABASE_URL) {
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   connectionTimeoutMillis: 10000,
+  max: Number(process.env.PG_POOL_MAX || 12),
+  idleTimeoutMillis: 30000,
+  keepAlive: true,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
 });
 
+app.use(compression({ threshold: 1024, level: 6 }));
 app.use(express.json({ limit: '20mb' }));
+app.use((req,res,next)=>{const start=process.hrtime.bigint();res.on('finish',()=>{const duration=Number(process.hrtime.bigint()-start)/1e6;if(duration>1500)console.warn('REQUISICAO_LENTA',req.method,req.originalUrl,Math.round(duration)+'ms')});next()});
 // V36: respostas da API nunca devem vir do cache do navegador/PWA.
 app.use('/api',(req,res,next)=>{res.set('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');res.set('Pragma','no-cache');res.set('Expires','0');next();});
 
@@ -361,6 +367,17 @@ async function initDb() {
     reason TEXT DEFAULT '', note TEXT DEFAULT '', user_id TEXT, username TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   )`);
   await pool.query(`ALTER TABLE app_store_sales ADD COLUMN IF NOT EXISTS cash_session_id TEXT`);
+
+  // V173 - índices aditivos para consultas frequentes. Não alteram nem apagam dados.
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_store_sales_created_status ON app_store_sales(created_at DESC,status)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_store_sales_payment_created ON app_store_sales(payment_method,created_at DESC)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_store_sales_username_created ON app_store_sales(username,created_at DESC)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_inventory_movements_product_created ON app_inventory_movements(product_id,created_at DESC)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_inventory_movements_producer_created ON app_inventory_movements(producer_id,created_at DESC)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_inventory_orders_status_created ON app_inventory_orders(status,created_at DESC)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_inventory_order_items_order ON app_inventory_order_items(order_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_audit_created ON app_audit(created_at DESC)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_audit_username_created ON app_audit(username,created_at DESC)`);
 
   // V31 - lotes/validade e contas fiado (migração aditiva)
   await pool.query(`CREATE TABLE IF NOT EXISTS app_store_lots (
@@ -814,8 +831,15 @@ async function v158ReconcileGalpaoDebts(externalClient=null){
 }
 
 // V163: leituras comuns não bloqueiam o estado nem varrem o histórico do Galpão.
-app.get('/api/state', async (_req,res)=>{
- try{const r=await pool.query("SELECT data,updated_at FROM app_state WHERE id='vale-da-serra'");res.json({ok:true,exists:!!r.rowCount,data:r.rows[0]?.data||{},updatedAt:r.rows[0]?.updated_at});}
+app.get('/api/state', async (req,res)=>{
+ try{
+  const allowed=new Set(['produtores','lancamentos','pagamentos','debitos','pagamentosDebitos','importacoesPdf']),requested=String(req.query.sections||'').split(',').map(x=>x.trim()).filter(x=>allowed.has(x));
+  const expression=requested.length?`jsonb_build_object(${requested.map(key=>`'${key}',COALESCE(data->'${key}','[]'::jsonb)`).join(',')})`:'data';
+  const r=await pool.query(`SELECT ${expression} AS data,updated_at FROM app_state WHERE id='vale-da-serra'`),updated=r.rows[0]?.updated_at,etag=updated?`W/\"state-${new Date(updated).getTime()}-${requested.join('.')||'all'}\"`:'';
+  if(etag)res.set('ETag',etag);res.set('X-Vale-State-Sections',requested.join(',')||'all');
+  if(etag&&req.headers['if-none-match']===etag)return res.status(304).end();
+  res.json({ok:true,exists:!!r.rowCount,data:r.rows[0]?.data||{},updatedAt:updated});
+ }
  catch(e){res.status(500).json({ok:false,error:e.message})}
 });
 app.get('/api/debts',auth,hasPermission('debitos'),async(req,res)=>{try{

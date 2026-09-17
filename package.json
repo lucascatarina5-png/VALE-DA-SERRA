@@ -5,12 +5,14 @@
   "main": "servidor.js",
   "scripts": {
     "start": "node servidor.js",
-    "test:v172": "node test-v172-understanding.js"
+    "test:v172": "node test-v172-understanding.js",
+    "test:v173": "node test-v172-understanding.js && node test-v173-performance.js"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
+    "compression": "^1.7.5",
     "express": "^4.21.2",
     "pg": "^8.13.1",
     "sharp": "0.34.3"
