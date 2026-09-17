@@ -1841,11 +1841,13 @@ async function v169StockAnswer(req,question,context={}){
     const result=await pool.query(`SELECT p.id,p.name,p.unit,COALESCE(m.balance,0) AS physical,COALESCE(r.reserved,0) AS reserved,GREATEST(COALESCE(m.balance,0)-COALESCE(r.reserved,0),0) AS available,p.min_stock,p.unit_price,p.cost_price,p.updated_at,'galpao'::text AS source FROM app_inventory_products p LEFT JOIN LATERAL (SELECT COALESCE(SUM(CASE WHEN type='entrada' THEN quantity ELSE -quantity END),0) balance FROM app_inventory_movements WHERE product_id=p.id) m ON TRUE LEFT JOIN LATERAL (SELECT COALESCE(SUM(GREATEST(i.quantity-COALESCE(i.released_quantity,0),0)),0) reserved FROM app_inventory_order_items i JOIN app_inventory_orders o ON o.id=i.order_id WHERE i.product_id=p.id AND o.status IN ('pendente','separado','parcial')) r ON TRUE WHERE COALESCE(p.active,TRUE)=TRUE ORDER BY p.name`);
     products.push(...result.rows);
   }
-  const previous=context&&context.intent==='stock'?context.entity:null,matched=v169MatchProduct(question,products,previous);
+  const previous=context&&['stock','stock-clarification','stock-forecast'].includes(context.intent)?context.entity:null,matched=v169MatchProduct(question,products,previous);
   let selected=matched?products.filter(x=>String(x.id)===String(matched.id)&&x.source===matched.source):products;
   if(onlyLow)selected=selected.filter(x=>Number(x.available||0)<=Number(x.min_stock||0));
   const detail=x=>({title:`${x.source==='loja'?'Loja':'Galpão'} • ${x.name}: ${v168Number(x.available)} ${x.unit||'un'} disponíveis`,subtitle:x.source==='galpao'?`Físico: ${v168Number(x.physical)} • Reservado: ${v168Number(x.reserved)} • Mínimo: ${v168Number(x.min_stock)} ${x.unit||'un'}`:`Físico: ${v168Number(x.physical)} • Mínimo: ${v168Number(x.min_stock)} ${x.unit||'un'}`});
   if(matched){
+    const sameName=products.filter(x=>v168Norm(x.name)===v168Norm(matched.name));
+    if(sameName.length>1&&!wantsStore&&!wantsWarehouse)return {intent:'stock-clarification',entity:matched.name,needs_clarification:true,answer:`Encontrei ${matched.name} na Loja e no Galpão. Sobre qual estoque você quer saber?`,details:sameName.map(detail)};
     const place=matched.source==='loja'?'na Loja':'no Galpão',available=Number(matched.available||0),physical=Number(matched.physical||0),reserved=Number(matched.reserved||0),unit=matched.unit||'un';
     let answer=`${matched.name}: existem ${v168Number(physical)} ${unit} fisicamente ${place}.`;
     if(matched.source==='galpao')answer+=` ${v168Number(reserved)} ${unit} estão reservados e ${v168Number(available)} ${unit} estão disponíveis.`;
@@ -1939,8 +1941,31 @@ async function v170AnomalyAnswer(req){
   return {intent:'anomalies',answer:details.length?`Encontrei ${details.length} situações que merecem conferência. Nenhum registro foi alterado.`:'Não encontrei situações fora dos critérios analisados.',calculation:'Produção fora do normal: diferença de 30% ou mais em relação à média dos dez dias anteriores. Também verifico possíveis duplicidades e diferenças recentes de caixa.',details,action:{type:'report',target:'relatorios',mobileTarget:'historico',label:'Imprimir análise'}};
 }
 function v170AsReport(result){if(!result)return result;result.action={type:'report',target:result.action?.target||'relatorios',mobileTarget:result.action?.mobileTarget||'historico',label:'Imprimir relatório'};return result}
+
+function v171RewriteQuestion(question,context){
+  const q=v168Norm(question),lastIntent=String(context?.intent||''),entity=String(context?.entity||'').trim();
+  if(!/^(nao|não|quis dizer|estou falando|do |da )/.test(String(question||'').trim().toLocaleLowerCase('pt-BR')))return question;
+  if(['stock','stock-clarification','stock-forecast'].includes(lastIntent)){
+    if(q.includes('galpao')||q.includes('deposito'))return `estoque do galpão${entity?' de '+entity:''}`;
+    if(q.includes('loja')||q.includes('pdv'))return `estoque da loja${entity?' de '+entity:''}`;
+  }
+  if(lastIntent==='sales'||lastIntent==='sales-comparison'){
+    if(q.includes('ontem'))return 'vendas de ontem comparadas com hoje';
+    if(q.includes('pix'))return 'vendas de hoje no Pix';
+    if(q.includes('dinheiro'))return 'vendas de hoje em dinheiro';
+  }
+  return question;
+}
+function v171SocialAnswer(req,question,context){
+  const q=v168Norm(question),name=String(req.user?.name||req.user?.username||'').trim().split(/\s+/)[0];
+  if(/^(oi|ola|bom dia|boa tarde|boa noite|tudo bem|como voce esta)[!.? ]*$/.test(q))return {intent:'conversation',answer:`${q.includes('tudo bem')||q.includes('como voce')?'Estou muito bem':'Oi'}${name?', '+name:''}! Estou pronta para conversar e ajudar com o Vale da Serra. O que você gostaria de saber?`,details:[]};
+  if(q.includes('quem e voce')||q.includes('se apresente'))return {intent:'conversation',answer:`Sou a Vaquinha Inteligente do Vale da Serra${name?', '+name:''}. Posso conversar com você e consultar os dados permitidos da empresa sem inventar valores.`,details:[]};
+  if(q.includes('o que voce faz')||q.includes('como pode ajudar'))return {intent:'conversation',answer:'Posso conversar sobre produtores, leite, vendas, caixa, estoque, débitos, pagamentos, tanques, previsões e situações fora do normal. Também preparo relatórios e abro as telas do programa.',details:[]};
+  if(/^(sim|claro|pode|pode sim|quero)$/.test(q)&&['stock','stock-clarification'].includes(String(context?.intent||''))&&context?.entity)return {intent:'conversation-followup',rewrite:`Para quantos dias dá ${context.entity}?`};
+  return null;
+}
 app.post('/api/mascot/query',auth,async(req,res)=>{try{
-  const question=String(req.body?.question||'').trim().slice(0,500),q=v168Norm(question),context=req.body?.context&&typeof req.body.context==='object'?req.body.context:{},wantsReport=q.includes('relatorio')||q.includes('imprimir')||q.includes('prepare uma lista')||q.includes('faca uma lista');if(!question)return res.status(400).json({ok:false,error:'Faça uma pergunta para a vaquinha.'});let result=v169Navigation(question);
+  const originalQuestion=String(req.body?.question||'').trim().slice(0,500),context=req.body?.context&&typeof req.body.context==='object'?req.body.context:{};if(!originalQuestion)return res.status(400).json({ok:false,error:'Faça uma pergunta para a vaquinha.'});let question=v171RewriteQuestion(originalQuestion,context),q=v168Norm(question),result=null;const social=v171SocialAnswer(req,question,context);if(social?.rewrite){question=social.rewrite;q=v168Norm(question)}else if(social)result=social;const wantsReport=q.includes('relatorio')||q.includes('imprimir')||q.includes('prepare uma lista')||q.includes('faca uma lista');if(!result)result=v169Navigation(question);
   if(!result&&(q.includes('registrar')||q.includes('lancar'))&&(q.includes('entrada')||q.includes('leite')))result={intent:'safe-draft',answer:'Vou abrir Nova Entrada. Confira o produtor, a data, o turno e a quantidade antes de confirmar manualmente. Por segurança, a vaquinha não salva nem altera registros sem sua confirmação na tela.',details:[],action:{type:'navigate',target:'lancamentos',mobileTarget:'entrada',label:'Abrir Nova Entrada'}};
   else if(!result&&(q.includes('como esta a empresa')||q.includes('resumo da empresa')||q.includes('resumo de hoje')||q.includes('situacao da empresa')||q.includes('como estamos hoje')))result=await v170CompanySummary(req);
   else if(!result&&(q.includes('previs')||q.includes('quantos dias')||q.includes('vai durar')||q.includes('lista de compra')||q.includes('preciso comprar')))result=await v170ForecastAnswer(req,question,context);
@@ -1948,14 +1973,14 @@ app.post('/api/mascot/query',auth,async(req,res)=>{try{
   else if(!result&&(q.includes('compar')||q.includes('ontem'))&&(q.includes('venda')||q.includes('fatur')))result=await v169SalesComparisonAnswer(req);
   else if(!result&&(q.includes('venda')||q.includes('vendeu')||q.includes('fatur'))&&!q.includes('galpao'))result=await v168SalesAnswer(req,question);
   else if(!result&&(q.includes('caixa')||q.includes('gaveta')))result=await v168CashAnswer(req);
-  else if(!result&&(q.includes('estoque')||q.includes('produto')||q.includes('disponivel')||/quanto(?:s)? (?:eu )?tenho de /.test(q)||/quanto(?:s)? temos de /.test(q)||q.includes('milho')||q.includes('racao')||q.includes('soja')||context.intent==='stock'))result=await v169StockAnswer(req,question,context);
+  else if(!result&&(q.includes('estoque')||q.includes('produto')||q.includes('disponivel')||/quanto(?:s)? (?:eu )?tenho de /.test(q)||/quanto(?:s)? temos de /.test(q)||q.includes('milho')||q.includes('racao')||q.includes('soja')||['stock','stock-clarification','stock-forecast'].includes(context.intent)))result=await v169StockAnswer(req,question,context);
   else if(!result&&(q.includes('tanque')||q.includes('conferencia')||q.includes('divergencia')))result=await v168TankAnswer(req);
   if(!result){const producerResult=await v170ProducerAnswer(req,question);if(producerResult)result=producerResult}
   if(!result&&(q.includes('debito')||q.includes('divida')||q.includes('para receber')))result=await v169DebtAnswer(req);
   if(!result&&(q.includes('leite')||q.includes('produtor')||q.includes('entreg')))result=await v168MilkAnswer(req,question);
   if(!result)result={intent:'help',answer:'Posso pesquisar produtores mesmo com nome incompleto, resumir a empresa, prever a duração do estoque, encontrar situações fora do normal, explicar cálculos, preparar relatórios, consultar vendas, caixa, débitos, leite, tanques e abrir telas.',details:[{title:'Experimente perguntar',subtitle:'Como está a empresa hoje? • Quanto José receberá? • Para quantos dias dá o milho? • O que está fora do normal? • Prepare o relatório das vendas de hoje.'}]};
   if(wantsReport)result=v170AsReport(result);
-  await audit(req.user,'MASCOTE_CONSULTA',{intent:result.intent,question});res.json({ok:true,question,user:{name:req.user.name,role:req.user.role},...result,generated_at:new Date().toISOString()});
+  await audit(req.user,'MASCOTE_CONSULTA',{intent:result.intent,question:originalQuestion,understood:question});res.json({ok:true,question:originalQuestion,understood_question:question,user:{name:req.user.name,role:req.user.role},...result,generated_at:new Date().toISOString()});
 }catch(e){console.error('POST /api/mascot/query',e);res.status(e.statusCode||500).json({ok:false,error:e.message||'Não foi possível consultar os dados.'})}});
 app.get('/api/mascot/alerts',auth,async(req,res)=>{try{const alerts=await v169Alerts(req);res.json({ok:true,alerts,answer:alerts.length?`Você possui ${alerts.length} ${alerts.length===1?'aviso importante':'avisos importantes'} no programa.`:'Não há avisos importantes neste momento.',generated_at:new Date().toISOString()})}catch(e){console.error('GET /api/mascot/alerts',e);res.status(500).json({ok:false,error:'Não foi possível verificar os avisos.'})}});
 
