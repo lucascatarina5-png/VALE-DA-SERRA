@@ -1814,16 +1814,94 @@ async function v168TankAnswer(req){
   const result=await pool.query(`SELECT tank_name,locality,difference_liters,status,end_local FROM app_tank_conferences WHERE status<>'cancelada' ORDER BY end_local DESC,closed_at DESC LIMIT 20`),divergent=result.rows.filter(x=>Math.abs(Number(x.difference_liters||0))>0.001);
   return {intent:'tanks',answer:divergent.length?`Encontrei ${divergent.length} ${divergent.length===1?'conferência com diferença':'conferências com diferença'} entre as últimas verificadas. O detalhamento está na tela.`:'Não encontrei divergência nas últimas conferências de tanque.',details:divergent.map(x=>({title:`${x.tank_name} • ${x.locality}`,subtitle:`Diferença: ${v168Number(x.difference_liters)} litros • ${String(x.status||'').toUpperCase()}`}))};
 }
+
+// V169 - inteligência operacional: estoque completo, contexto, comparações,
+// alertas e navegação. Os números continuam vindo exclusivamente do banco.
+const V169_STOP_WORDS=new Set('a ao aos as o os de da das do dos e em no na nos nas meu minha meus minhas tenho tem quanto quantos quantas estoque produto produtos item itens loja galpao disponivel disponíveis fisico físico reservado reservados quero saber me diga mostre qual quais'.split(' '));
+function v169Terms(value){return v168Norm(value).split(/[^a-z0-9]+/).filter(x=>x.length>1&&!V169_STOP_WORDS.has(x))}
+function v169MatchProduct(question,products,previousEntity){
+  const q=v168Norm(question),terms=v169Terms(question);
+  let ranked=(products||[]).map(product=>{const name=v168Norm(product.name),nameTerms=v169Terms(name);let score=q.includes(name)?100:0;for(const term of terms){if(name.includes(term))score+=12;if(nameTerms.some(x=>x.startsWith(term)||term.startsWith(x)))score+=5}return {product,score}}).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
+  if(ranked.length)return ranked[0].product;
+  if(previousEntity){const previous=v168Norm(previousEntity);return (products||[]).find(x=>v168Norm(x.name)===previous)||null}
+  return null;
+}
+async function v169StockAnswer(req,question,context={}){
+  const canStore=v168Allowed(req.user,'loja'),canWarehouse=v168Allowed(req.user,'estoque');
+  if(!canStore&&!canWarehouse)throw Object.assign(new Error('Seu usuário não possui permissão para consultar estoques.'),{statusCode:403});
+  const q=v168Norm(question),wantsStore=/\b(loja|pdv)\b/.test(q),wantsWarehouse=/\b(galpao|deposito|armazem)\b/.test(q),onlyLow=q.includes('baixo')||q.includes('acabando')||q.includes('repor')||q.includes('minimo');
+  if(wantsStore&&!canStore)throw Object.assign(new Error('Seu usuário não possui permissão para consultar o estoque da Loja.'),{statusCode:403});
+  if(wantsWarehouse&&!canWarehouse)throw Object.assign(new Error('Seu usuário não possui permissão para consultar o estoque do Galpão.'),{statusCode:403});
+  const products=[];
+  if(canStore&&(!wantsWarehouse||wantsStore)){
+    const result=await pool.query(`SELECT id,name,unit,stock AS physical,0::numeric AS reserved,stock AS available,min_stock,sale_price AS unit_price,cost_price,updated_at,'loja'::text AS source FROM app_store_products WHERE COALESCE(active,TRUE)=TRUE ORDER BY name`);
+    products.push(...result.rows);
+  }
+  if(canWarehouse&&(!wantsStore||wantsWarehouse)){
+    const result=await pool.query(`SELECT p.id,p.name,p.unit,COALESCE(m.balance,0) AS physical,COALESCE(r.reserved,0) AS reserved,GREATEST(COALESCE(m.balance,0)-COALESCE(r.reserved,0),0) AS available,p.min_stock,p.unit_price,p.cost_price,p.updated_at,'galpao'::text AS source FROM app_inventory_products p LEFT JOIN LATERAL (SELECT COALESCE(SUM(CASE WHEN type='entrada' THEN quantity ELSE -quantity END),0) balance FROM app_inventory_movements WHERE product_id=p.id) m ON TRUE LEFT JOIN LATERAL (SELECT COALESCE(SUM(GREATEST(i.quantity-COALESCE(i.released_quantity,0),0)),0) reserved FROM app_inventory_order_items i JOIN app_inventory_orders o ON o.id=i.order_id WHERE i.product_id=p.id AND o.status IN ('pendente','separado','parcial')) r ON TRUE WHERE COALESCE(p.active,TRUE)=TRUE ORDER BY p.name`);
+    products.push(...result.rows);
+  }
+  const previous=context&&context.intent==='stock'?context.entity:null,matched=v169MatchProduct(question,products,previous);
+  let selected=matched?products.filter(x=>String(x.id)===String(matched.id)&&x.source===matched.source):products;
+  if(onlyLow)selected=selected.filter(x=>Number(x.available||0)<=Number(x.min_stock||0));
+  const detail=x=>({title:`${x.source==='loja'?'Loja':'Galpão'} • ${x.name}: ${v168Number(x.available)} ${x.unit||'un'} disponíveis`,subtitle:x.source==='galpao'?`Físico: ${v168Number(x.physical)} • Reservado: ${v168Number(x.reserved)} • Mínimo: ${v168Number(x.min_stock)} ${x.unit||'un'}`:`Físico: ${v168Number(x.physical)} • Mínimo: ${v168Number(x.min_stock)} ${x.unit||'un'}`});
+  if(matched){
+    const place=matched.source==='loja'?'na Loja':'no Galpão',available=Number(matched.available||0),physical=Number(matched.physical||0),reserved=Number(matched.reserved||0),unit=matched.unit||'un';
+    let answer=`${matched.name}: existem ${v168Number(physical)} ${unit} fisicamente ${place}.`;
+    if(matched.source==='galpao')answer+=` ${v168Number(reserved)} ${unit} estão reservados e ${v168Number(available)} ${unit} estão disponíveis.`;
+    else answer+=` A quantidade disponível é ${v168Number(available)} ${unit}.`;
+    if(available<=Number(matched.min_stock||0))answer+=` Atenção: o produto está no estoque mínimo ou abaixo dele.`;
+    return {intent:'stock',entity:matched.name,answer,details:[detail(matched)],action:{type:'navigate',target:matched.source==='loja'?'loja':'estoque',mobileTarget:matched.source==='loja'?'pdv':'estoque',label:matched.source==='loja'?'Abrir Loja / PDV':'Abrir Estoque / Galpão'}};
+  }
+  const availableTotal=selected.reduce((sum,x)=>sum+Number(x.available||0),0),reservedTotal=selected.reduce((sum,x)=>sum+Number(x.reserved||0),0),low=selected.filter(x=>Number(x.available||0)<=Number(x.min_stock||0));
+  let answer=onlyLow?(selected.length?`Existem ${selected.length} ${selected.length===1?'produto com estoque baixo':'produtos com estoque baixo'}.`:'Não encontrei produtos com estoque baixo.'):`Existem ${selected.length} produtos cadastrados nos estoques permitidos para seu usuário. A soma das quantidades disponíveis é ${v168Number(availableTotal)} e existem ${v168Number(reservedTotal)} unidades reservadas no Galpão.`;
+  if(!onlyLow&&low.length)answer+=` ${low.length} ${low.length===1?'produto precisa':'produtos precisam'} de atenção.`;
+  return {intent:'stock',answer,details:selected.slice(0,60).map(detail),action:{type:'navigate',target:wantsStore?'loja':'estoque',mobileTarget:wantsStore?'pdv':'estoque',label:wantsStore?'Abrir Loja / PDV':'Abrir Estoque / Galpão'}};
+}
+async function v169SalesComparisonAnswer(req){
+  if(!v168Allowed(req.user,'loja'))throw Object.assign(new Error('Seu usuário não possui permissão para consultar as vendas.'),{statusCode:403});
+  const params=[],userFilter=isAdminUser(req.user)?'':` AND username=$1`;
+  if(!isAdminUser(req.user))params.push(String(req.user.username||''));
+  const result=await pool.query(`SELECT COALESCE(SUM(total) FILTER(WHERE (created_at AT TIME ZONE 'America/Sao_Paulo')::date=(NOW() AT TIME ZONE 'America/Sao_Paulo')::date),0) today,COUNT(*) FILTER(WHERE (created_at AT TIME ZONE 'America/Sao_Paulo')::date=(NOW() AT TIME ZONE 'America/Sao_Paulo')::date)::int today_count,COALESCE(SUM(total) FILTER(WHERE (created_at AT TIME ZONE 'America/Sao_Paulo')::date=((NOW() AT TIME ZONE 'America/Sao_Paulo')::date-1)),0) yesterday,COUNT(*) FILTER(WHERE (created_at AT TIME ZONE 'America/Sao_Paulo')::date=((NOW() AT TIME ZONE 'America/Sao_Paulo')::date-1))::int yesterday_count FROM app_store_sales WHERE status<>'cancelada'${userFilter}`,params);
+  const row=result.rows[0]||{},today=Number(row.today||0),yesterday=Number(row.yesterday||0),difference=today-yesterday,percent=yesterday?difference/yesterday*100:null;
+  const direction=difference>0?'a mais':difference<0?'a menos':'sem diferença';
+  const comparison=difference===0?'O valor está igual ao de ontem.':`Isso representa ${v168Money(Math.abs(difference))} ${direction}${percent===null?'':`, uma variação de ${v168Number(Math.abs(percent),1)}%`}.`;
+  return {intent:'sales-comparison',answer:`Hoje foram ${row.today_count||0} vendas, totalizando ${v168Money(today)}. Ontem foram ${row.yesterday_count||0} vendas, totalizando ${v168Money(yesterday)}. ${comparison}`,details:[{title:`Hoje • ${v168Money(today)}`,subtitle:`${row.today_count||0} venda(s)`},{title:`Ontem • ${v168Money(yesterday)}`,subtitle:`${row.yesterday_count||0} venda(s)`}],action:{type:'navigate',target:'loja',mobileTarget:'pdvrel',label:'Abrir Relatório do PDV'}};
+}
+async function v169DebtAnswer(req){
+  if(!v168Allowed(req.user,'debitos')&&!v168Allowed(req.user,'pagamentos'))throw Object.assign(new Error('Seu usuário não possui permissão para consultar débitos.'),{statusCode:403});
+  const stateResult=await pool.query("SELECT data,updated_at FROM app_state WHERE id='vale-da-serra'"),state=stateResult.rows[0]?.data||{},debts=(Array.isArray(state.debitos)?state.debitos:[]).filter(x=>!v159DebtExcluded(x));
+  const ledger=Array.isArray(state.pagamentosDebitos)?state.pagamentosDebitos:[],payments=Array.isArray(state.pagamentos)?state.pagamentos:[];
+  const balance=debt=>{const id=String(debt.id||''),original=v158DebitValue(debt);let paid=ledger.filter(x=>String(v159DebtRef(x))===id).reduce((sum,x)=>sum+Number(x.valor??x.amount??0),0);payments.forEach(payment=>{const applications=Array.isArray(payment.debitApplications)?payment.debitApplications:[],application=applications.find(x=>String(v159DebtRef(x))===id),hasLedger=ledger.some(x=>String(v159DebtRef(x))===id&&String(x.pagamentoId??x.paymentId??'')===String(payment.id??''));if(application&&!hasLedger)paid+=Number(application.amount??application.amountApplied??application.valor??(Number(application.balanceBefore||0)-Number(application.balanceAfter||0)))||0;else if(!applications.length&&!hasLedger&&Array.isArray(payment.debitIds)&&payment.debitIds.some(value=>String(value)===id))paid+=original});return Math.max(0,original-paid)};
+  const open=debts.map(x=>({...x,pending:balance(x)})).filter(x=>x.pending>0.005),total=open.reduce((sum,x)=>sum+x.pending,0),bySource={};open.forEach(x=>{const source=v158IsGalpaoDebt(x)?'Galpão':v168Norm(x.origem)==='pdv'||v168Norm(x.origem)==='loja'?'Loja / PDV':'Manual';bySource[source]=(bySource[source]||0)+x.pending});
+  return {intent:'debts',answer:open.length?`Existem ${open.length} débitos pendentes, totalizando ${v168Money(total)}.`:'Não encontrei débitos pendentes.',details:Object.entries(bySource).map(([source,value])=>({title:`${source}: ${v168Money(value)}`,subtitle:'Saldo pendente registrado'})),action:{type:'navigate',target:'debitos',mobileTarget:'historico',label:'Abrir Débitos'}};
+}
+function v169Navigation(question){
+  const q=v168Norm(question);if(!/^(abra|abrir|va para|ir para|leve me|mostre a tela|acessar)/.test(q))return null;
+  const routes=[['estoque',['estoque','galpao'],'estoque'],['loja',['loja','pdv','venda'],'pdv'],['produtores',['produtor','produtores'],'produtores'],['lancamentos',['entrada','leite'],'entrada'],['pagamentos',['pagamento','quinzena','comprovante'],'historico'],['debitos',['debito','divida'],'historico'],['relatorios',['relatorio'],'historico'],['painel',['painel','inicio'],'home']];
+  const found=routes.find(([,words])=>words.some(word=>q.includes(word)));if(!found)return null;
+  return {intent:'navigate',answer:`Vou abrir ${found[0]==='lancamentos'?'Nova Entrada':found[0]==='loja'?'Loja / PDV':found[0]==='estoque'?'Estoque / Galpão':found[0]}.`,details:[],action:{type:'navigate',target:found[0],mobileTarget:found[2],label:'Abrir agora'}};
+}
+async function v169Alerts(req){
+  const alerts=[];
+  if(v168Allowed(req.user,'loja')){const r=await pool.query(`SELECT name,stock,min_stock,unit FROM app_store_products WHERE COALESCE(active,TRUE)=TRUE AND stock<=min_stock ORDER BY stock ASC LIMIT 10`);r.rows.forEach(x=>alerts.push({severity:Number(x.stock)<=0?'critical':'warning',title:`Loja: ${x.name}`,message:`${v168Number(x.stock)} ${x.unit||'un'} disponíveis; mínimo ${v168Number(x.min_stock)}.` ,target:'loja',mobileTarget:'pdv'}))}
+  if(v168Allowed(req.user,'estoque')){const r=await pool.query(`SELECT p.name,p.unit,p.min_stock,GREATEST(COALESCE(m.balance,0)-COALESCE(o.reserved,0),0) available FROM app_inventory_products p LEFT JOIN LATERAL(SELECT COALESCE(SUM(CASE WHEN type='entrada' THEN quantity ELSE -quantity END),0) balance FROM app_inventory_movements WHERE product_id=p.id)m ON TRUE LEFT JOIN LATERAL(SELECT COALESCE(SUM(GREATEST(i.quantity-COALESCE(i.released_quantity,0),0)),0) reserved FROM app_inventory_order_items i JOIN app_inventory_orders x ON x.id=i.order_id WHERE i.product_id=p.id AND x.status IN('pendente','separado','parcial'))o ON TRUE WHERE COALESCE(p.active,TRUE)=TRUE AND GREATEST(COALESCE(m.balance,0)-COALESCE(o.reserved,0),0)<=p.min_stock ORDER BY available LIMIT 10`);r.rows.forEach(x=>alerts.push({severity:Number(x.available)<=0?'critical':'warning',title:`Galpão: ${x.name}`,message:`${v168Number(x.available)} ${x.unit||'un'} livres; mínimo ${v168Number(x.min_stock)}.`,target:'estoque',mobileTarget:'estoque'}));const orders=await pool.query(`SELECT COUNT(*)::int count FROM app_inventory_orders WHERE status IN('pendente','separado','parcial')`);if(Number(orders.rows[0]?.count)>0)alerts.push({severity:'info',title:'Pedidos do Galpão',message:`${orders.rows[0].count} pedido(s) aguardando conclusão.`,target:'estoque',mobileTarget:'estoque'})}
+  if(v168Allowed(req.user,'relatorios')){const r=await pool.query(`SELECT COUNT(*)::int count FROM (SELECT id FROM app_tank_conferences WHERE status<>'cancelada' ORDER BY end_local DESC,closed_at DESC LIMIT 20)t JOIN app_tank_conferences c ON c.id=t.id WHERE ABS(COALESCE(c.difference_liters,0))>0.001`);if(Number(r.rows[0]?.count)>0)alerts.push({severity:'warning',title:'Conferência de tanques',message:`${r.rows[0].count} conferência(s) recente(s) com divergência.`,target:'relatorios',mobileTarget:'historico'})}
+  return alerts;
+}
 app.post('/api/mascot/query',auth,async(req,res)=>{try{
-  const question=String(req.body?.question||'').trim().slice(0,300),q=v168Norm(question);if(!question)return res.status(400).json({ok:false,error:'Faça uma pergunta para a vaquinha.'});let result;
-  if((q.includes('venda')||q.includes('vendeu')||q.includes('fatur'))&&!q.includes('galpao'))result=await v168SalesAnswer(req,question);
-  else if(q.includes('caixa')||q.includes('gaveta'))result=await v168CashAnswer(req);
-  else if(q.includes('estoque')||q.includes('acabando')||q.includes('baixo'))result=await v168StockAnswer(req);
-  else if(q.includes('tanque')||q.includes('conferencia')||q.includes('divergencia'))result=await v168TankAnswer(req);
-  else if(q.includes('leite')||q.includes('produtor')||q.includes('entreg'))result=await v168MilkAnswer(req,question);
-  else result={intent:'help',answer:'Eu posso consultar vendas por Pix, dinheiro, cartão, boleto ou leite; situação do caixa; estoque baixo; entradas de leite; produtores sem entrega; maiores produtores e divergências dos tanques.',details:[]};
+  const question=String(req.body?.question||'').trim().slice(0,300),q=v168Norm(question),context=req.body?.context&&typeof req.body.context==='object'?req.body.context:{};if(!question)return res.status(400).json({ok:false,error:'Faça uma pergunta para a vaquinha.'});let result=v169Navigation(question);
+  if(!result&&(q.includes('compar')||q.includes('ontem'))&&(q.includes('venda')||q.includes('fatur')))result=await v169SalesComparisonAnswer(req);
+  else if(!result&&(q.includes('venda')||q.includes('vendeu')||q.includes('fatur'))&&!q.includes('galpao'))result=await v168SalesAnswer(req,question);
+  else if(!result&&(q.includes('caixa')||q.includes('gaveta')))result=await v168CashAnswer(req);
+  else if(!result&&(q.includes('estoque')||q.includes('produto')||q.includes('disponivel')||/quanto(?:s)? (?:eu )?tenho de /.test(q)||/quanto(?:s)? temos de /.test(q)||q.includes('milho')||q.includes('racao')||q.includes('soja')||context.intent==='stock'))result=await v169StockAnswer(req,question,context);
+  else if(!result&&(q.includes('debito')||q.includes('divida')||q.includes('para receber')))result=await v169DebtAnswer(req);
+  else if(!result&&(q.includes('tanque')||q.includes('conferencia')||q.includes('divergencia')))result=await v168TankAnswer(req);
+  else if(!result&&(q.includes('leite')||q.includes('produtor')||q.includes('entreg')))result=await v168MilkAnswer(req,question);
+  else if(!result)result={intent:'help',answer:'Posso consultar quantidades de qualquer produto, estoque físico, reservado e disponível; vendas e comparações; caixa; débitos; entradas de leite; produtores sem entrega; maiores produtores; tanques e alertas. Também posso abrir as telas do programa.',details:[{title:'Experimente perguntar',subtitle:'Quanto tenho de milho no Galpão? • Compare as vendas de hoje com ontem • Abra o PDV • Quais produtos estão acabando?'}]};
   await audit(req.user,'MASCOTE_CONSULTA',{intent:result.intent,question});res.json({ok:true,question,user:{name:req.user.name,role:req.user.role},...result,generated_at:new Date().toISOString()});
 }catch(e){console.error('POST /api/mascot/query',e);res.status(e.statusCode||500).json({ok:false,error:e.message||'Não foi possível consultar os dados.'})}});
+app.get('/api/mascot/alerts',auth,async(req,res)=>{try{const alerts=await v169Alerts(req);res.json({ok:true,alerts,answer:alerts.length?`Você possui ${alerts.length} ${alerts.length===1?'aviso importante':'avisos importantes'} no programa.`:'Não há avisos importantes neste momento.',generated_at:new Date().toISOString()})}catch(e){console.error('GET /api/mascot/alerts',e);res.status(500).json({ok:false,error:'Não foi possível verificar os avisos.'})}});
 
 // PWA: tipos corretos e atualização imediata do manifest/service worker
 app.get('/manifest.webmanifest',(_req,res)=>{
