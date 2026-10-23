@@ -1053,6 +1053,8 @@ app.post('/api/tank-conferences/:id/cancel',auth,hasPermission('relatorios'),adm
 }catch(e){res.status(500).json({ok:false,error:e.message})}});
 
 
+require('./industry-transfers').register(app,{pool,auth,hasPermission,adminOnly});
+
 app.get('/api/inventory/products',auth,hasPermission('estoque'),async(req,res)=>{
   try{
     const r=await pool.query(`SELECT p.*,
@@ -2072,6 +2074,7 @@ app.use(express.static(__dirname,{maxAge:'15m',setHeaders(res,filePath){if(/(?:i
 app.get('*',(req,res)=>{if(/\.(?:js|css|png|jpe?g|webp|svg|ico|webmanifest)$/i.test(req.path)){res.set('Cache-Control','no-store');return res.status(404).send('Arquivo não encontrado.')}return sendUi(req,res)});
 
 initDb()
+  .then(()=>require('./industry-transfers').init(pool))
   .then(()=>v158ReconcileGalpaoDebts())
   .then(()=>app.listen(PORT,'0.0.0.0',()=>console.log(`Vale da Serra online na porta ${PORT}`)))
   .catch(err=>{ console.error('Falha ao iniciar banco:',err); process.exit(1); });
