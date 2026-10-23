@@ -1,4 +1,4 @@
-const CACHE='vale-da-serra-industria-v1';
+const CACHE='vale-da-serra-industria-pdv-v2';
 const ASSETS=['/industry-transfers-ui.js','/v173-performance.js','/v163-debt-view.js','/v166-mobile.js','/v167-mascot-events.js','/v172-mascot-assistant.js','/manifest.webmanifest','/icon-192.png','/icon-512.png','/icon-maskable-192.png','/icon-maskable-512.png','/mobile-hero-v82.png','/icon-estoque-realista.png','/icon-produtor-leite-realista.png','/v155-tank-core.js','/v157-mobile.css','/v157-mobile.js','/v133-galpao-inteligente.js','/v160-ui.css','/v160-ui.js'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});
