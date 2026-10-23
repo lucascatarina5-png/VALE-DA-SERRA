@@ -35,10 +35,12 @@ async function init(pool) {
     receipt_notes TEXT NOT NULL DEFAULT '', revision INTEGER NOT NULL DEFAULT 0,
     history JSONB NOT NULL DEFAULT '[]'::jsonb
   ); CREATE INDEX IF NOT EXISTS app_industry_transfers_date ON app_industry_transfers(created_at DESC)`);
+  // Registros anteriores continuam identificados como Galpão; nunca reinterpretar seus produtos como PDV.
+  await pool.query("ALTER TABLE app_industry_transfers ADD COLUMN IF NOT EXISTS target_scope TEXT NOT NULL DEFAULT 'galpao'");
 }
 function register(app, {pool, auth, hasPermission, adminOnly}) {
   const base = '/api/industry-transfers';
-  const access = [auth, hasPermission('estoque')];
+  const access = [auth, hasPermission('loja')];
   const actor = u => ({id: u.user_id, name: u.name || u.username, username: u.username});
   const transaction = handler => async (req, res) => {
     let c;
@@ -57,13 +59,13 @@ function register(app, {pool, auth, hasPermission, adminOnly}) {
     try {
       const limit = Math.min(200,Math.max(1,parseInt(req.query.limit,10)||50));
       const before = /^\d+$/.test(String(req.query.before || '')) ? req.query.before : null;
-      const r = await pool.query(`SELECT * FROM app_industry_transfers WHERE ($1::bigint IS NULL OR number<$1) ORDER BY number DESC LIMIT $2`,[before,limit]);
+      const r = await pool.query(`SELECT * FROM app_industry_transfers WHERE target_scope='pdv' AND ($1::bigint IS NULL OR number<$1) ORDER BY number DESC LIMIT $2`,[before,limit]);
       res.json({ok:true,transfers:r.rows,next_before:r.rows.length===limit?r.rows.at(-1).number:null});
     } catch(e) { res.status(500).json({ok:false,error:'Falha ao consultar transferências.'}); }
   });
   app.get(base+'/:id', ...access, async (req,res) => {
     try {
-      const r = await pool.query('SELECT * FROM app_industry_transfers WHERE id=$1',[req.params.id]);
+      const r = await pool.query("SELECT * FROM app_industry_transfers WHERE id=$1 AND target_scope='pdv'",[req.params.id]);
       if (!r.rowCount) return res.status(404).json({ok:false,error:'Transferência não encontrada.'});
       res.json({ok:true,transfer:r.rows[0]});
     } catch(e) { res.status(500).json({ok:false,error:'Falha ao consultar transferência.'}); }
@@ -75,6 +77,7 @@ function register(app, {pool, auth, hasPermission, adminOnly}) {
     await c.query('SELECT pg_advisory_xact_lock(hashtext($1))',[key]);
     const existing=await c.query('SELECT * FROM app_industry_transfers WHERE request_key=$1',[key]);
     if (existing.rowCount) {
+      if(existing.rows[0].target_scope!=='pdv') throw fail('Identificação pertence a um registro anterior do Galpão. Reabra o formulário.',409);
       if(existing.rows[0].created_by_id!==req.user.user_id) throw fail('Identificação de envio já utilizada.',409);
       return existing.rows[0];
     }
@@ -83,18 +86,18 @@ function register(app, {pool, auth, hasPermission, adminOnly}) {
     if(new Set(b.items.map(i=>i.product_id)).size!==b.items.length) throw fail('O mesmo produto não pode aparecer duas vezes.');
     const items=[];
     for(const item of [...b.items].sort((a,b)=>String(a.product_id).localeCompare(String(b.product_id)))) {
-      const r=await c.query('SELECT id,name,unit FROM app_inventory_products WHERE id=$1 AND active=TRUE FOR SHARE',[text(item.product_id,'o produto')]);
+      const r=await c.query('SELECT id,name,unit,variant,package_value,package_unit FROM app_store_products WHERE id=$1 AND COALESCE(active,TRUE)=TRUE FOR SHARE',[text(item.product_id,'o produto')]);
       if(!r.rowCount) throw fail('Produto não encontrado ou inativo. Atualize a lista.',409);
-      items.push({product_id:r.rows[0].id,name:r.rows[0].name,unit:r.rows[0].unit,sent:quantity(item.sent),received:null,difference:null});
+      items.push({product_id:r.rows[0].id,name:[r.rows[0].name,r.rows[0].variant,Number(r.rows[0].package_value)>0?Number(r.rows[0].package_value).toLocaleString('pt-BR')+' '+(r.rows[0].package_unit||''):''].filter(Boolean).join(' • '),unit:r.rows[0].unit,sent:quantity(item.sent),received:null,difference:null});
     }
     const who=actor(req.user), event={action:'envio',at:new Date().toISOString(),actor:who,sender,carrier,notes,items};
-    const r=await c.query(`INSERT INTO app_industry_transfers(id,request_key,created_by_id,sender,carrier,notes,items,history)
-      VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb) RETURNING *`,[crypto.randomUUID(),key,who.id,sender,carrier,notes,JSON.stringify(items),JSON.stringify([event])]);
+    const r=await c.query(`INSERT INTO app_industry_transfers(id,request_key,created_by_id,sender,carrier,notes,items,history,target_scope)
+      VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,'pdv') RETURNING *`,[crypto.randomUUID(),key,who.id,sender,carrier,notes,JSON.stringify(items),JSON.stringify([event])]);
     await audit(c,req.user,'INDUSTRIA_ENVIO',{id:r.rows[0].id,number:r.rows[0].number,items});
     return r.rows[0];
   }));
   const receive = correcting => transaction(async (c,req) => {
-    const r=await c.query('SELECT * FROM app_industry_transfers WHERE id=$1 FOR UPDATE',[req.params.id]);
+    const r=await c.query("SELECT * FROM app_industry_transfers WHERE id=$1 AND target_scope='pdv' FOR UPDATE",[req.params.id]);
     if(!r.rowCount) throw fail('Transferência não encontrada.',404);
     const t=r.rows[0], b=req.body||{};
     if(Number(b.revision)!==t.revision || (correcting ? t.status==='pendente' : t.status!=='pendente')) throw fail('Esta transferência já foi alterada. Reabra e confira novamente.',409);
@@ -105,18 +108,17 @@ function register(app, {pool, auth, hasPermission, adminOnly}) {
     if(correcting&&reason.length<5) throw fail('Descreva o motivo da correção (mínimo de 5 caracteres).');
     const movements=[];
     for(const i of [...items].sort((a,b)=>a.product_id.localeCompare(b.product_id))) {
-      const p=await c.query('SELECT id,active,unit FROM app_inventory_products WHERE id=$1 FOR UPDATE',[i.product_id]);
-      if(!p.rowCount||!p.rows[0].active) throw fail(`O produto ${i.name} está inativo. Peça ao administrador para regularizar o cadastro.`,409);
+      const p=await c.query('SELECT id,name,active,unit,stock FROM app_store_products WHERE id=$1 FOR UPDATE',[i.product_id]);
+      if(!p.rowCount||p.rows[0].active===false) throw fail(`O produto ${i.name} está inativo. Peça ao administrador para regularizar o cadastro.`,409);
       if(p.rows[0].unit!==i.unit) throw fail(`A unidade de ${i.name} mudou após o envio. Regularize o cadastro antes de receber.`,409);
       const previous=correcting?Number(t.items.find(x=>x.product_id===i.product_id).received):0;
       const delta=Math.round((i.received-previous)*1000)/1000;
-      if(delta<0) {
-        const balance=await c.query(`SELECT COALESCE(SUM(CASE WHEN type='entrada' THEN quantity ELSE -quantity END),0) balance FROM app_inventory_movements WHERE product_id=$1`,[i.product_id]);
-        const reserved=await c.query(`SELECT COALESCE(SUM(GREATEST(i.quantity-COALESCE(i.released_quantity,0),0)),0) reserved FROM app_inventory_order_items i JOIN app_inventory_orders o ON o.id=i.order_id WHERE i.product_id=$1 AND o.status IN ('pendente','separado','parcial')`,[i.product_id]);
-        if(Number(balance.rows[0].balance)+delta<Number(reserved.rows[0].reserved)) throw fail(`A correção de ${i.name} deixaria o estoque abaixo do reservado ou negativo.`,409);
-      }
+      const before=Number(p.rows[0].stock);
+      const after=Math.round((before+delta)*1000)/1000;
+      if(after<0) throw fail(`A correção de ${i.name} deixaria o estoque da Loja PDV negativo.`,409);
       if(delta!==0) {
-        const m=await c.query(`INSERT INTO app_inventory_movements(product_id,type,quantity,destination,user_id,username) VALUES($1,$2,$3,$4,$5,$6) RETURNING id`,[i.product_id,delta>0?'entrada':'saida',Math.abs(delta),`${correcting?'CORREÇÃO':'RECEBIMENTO'} INDÚSTRIA • Transferência ${t.number} • Revisão ${t.revision+1}`,req.user.user_id,req.user.username]);
+        await c.query('UPDATE app_store_products SET stock=$2,updated_at=NOW() WHERE id=$1',[i.product_id,after]);
+        const m=await c.query(`INSERT INTO app_store_stock_movements(product_id,product_name,movement_type,quantity_before,quantity_change,quantity_after,reason,note,user_id,username) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,[i.product_id,i.name,delta>0?'entrada':'retirada',before,delta,after,`${correcting?'CORREÇÃO':'RECEBIMENTO'} INDÚSTRIA • Transferência ${t.number} • Revisão ${t.revision+1}`,correcting?reason:notes,req.user.user_id,req.user.username]);
         movements.push(String(m.rows[0].id));
       }
     }
