@@ -133,6 +133,8 @@ async function initDb() {
     created_at TIMESTAMPTZ DEFAULT NOW()
   )`);
 
+  await require('./audit-schema').ensureAuditSchema(pool);
+
   // Se uma instalação antiga criou user_id em outro tipo, converte com segurança para TEXT.
   if (await columnExists('app_sessions', 'user_id')) {
     await pool.query(`ALTER TABLE app_sessions ALTER COLUMN user_id TYPE TEXT USING user_id::text`);

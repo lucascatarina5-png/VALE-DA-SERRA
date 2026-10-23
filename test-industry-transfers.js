@@ -112,3 +112,23 @@ test('envio da foto com quatro produtos, FILHO e observações vazias é salvo i
  const replay=await request('',body);assert.equal(replay.transfer.id,result.transfer.id);
  for(const [id,name,sent] of products){const i=result.transfer.items.find(x=>x.product_id===id);assert.equal(i.sent,sent);assert.equal(i.received,null);assert.equal(Number((await pool.query('SELECT stock FROM app_store_products WHERE id=$1',[id])).rows[0].stock),0);}
 });
+
+test('migração da auditoria antiga corrige o erro real de coluna action e mantém os registros',async()=>{
+ await pool.query('ALTER TABLE app_audit RENAME COLUMN action TO acao');
+ await pool.query('ALTER TABLE app_audit RENAME COLUMN details TO detalhes');
+ await pool.query("ALTER TABLE app_audit ADD COLUMN tabela TEXT NOT NULL DEFAULT 'legado'");
+ await pool.query('ALTER TABLE app_audit ALTER COLUMN tabela DROP DEFAULT');
+ await pool.query("UPDATE app_audit SET acao='LEGADO' WHERE acao IS NULL");
+ await pool.query('ALTER TABLE app_audit ALTER COLUMN acao SET NOT NULL');
+ const oldCount=(await pool.query('SELECT COUNT(*)::int n FROM app_audit')).rows[0].n;
+ const body=send({sender:'FILHO',carrier:'FILHO',notes:''});
+ const broken=await request('',body);assert.equal(broken.status,500);
+ assert.equal((await pool.query('SELECT COUNT(*)::int n FROM app_industry_transfers WHERE request_key=$1',[body.request_key])).rows[0].n,0);
+ const {ensureAuditSchema}=require('./audit-schema');await ensureAuditSchema(pool);await ensureAuditSchema(pool);
+ assert.equal((await pool.query('SELECT COUNT(*)::int n FROM app_audit')).rows[0].n,oldCount);
+ assert.ok((await pool.query('SELECT acao,detalhes FROM app_audit LIMIT 1')).rowCount);
+ const fixed=await request('',body);assert.equal(fixed.status,200);assert.equal(fixed.transfer.status,'pendente');
+ assert.equal((await pool.query("SELECT COUNT(*)::int n FROM app_audit WHERE action='INDUSTRIA_ENVIO'")).rows[0].n,1);
+ const received=await request('/'+fixed.transfer.id+'/receive',receive(fixed.transfer,10.125));assert.equal(received.status,200);
+ const replay=await request('',body);assert.equal(replay.transfer.id,fixed.transfer.id);
+});
