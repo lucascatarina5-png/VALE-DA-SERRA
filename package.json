@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node servidor.js",
     "test:v172": "node test-v172-understanding.js",
-    "test:v173": "node test-v172-understanding.js && node test-v173-performance.js"
+    "test:v173": "node test-v172-understanding.js && node test-v173-performance.js",
+    "test:transfers": "node --test test-industry-transfers.js"
   },
   "engines": {
     "node": ">=20"
@@ -16,5 +17,8 @@
     "express": "^4.21.2",
     "pg": "^8.13.1",
     "sharp": "0.34.3"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.11"
   }
 }
