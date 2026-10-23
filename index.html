@@ -1308,6 +1308,20 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
 <link rel="stylesheet" href="v160-ui.css?v=163">
 <style id="v163-brand-visible">html body .sidebar .logo-wrap{background:none!important;overflow:hidden!important}html body .sidebar .logo-wrap>img{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important;opacity:1!important;filter:none!important}</style>
 <script src="/v173-performance.js?v=173"></script><script src="/v163-debt-view.js?v=163"></script>
+<style id="brand-images-restored">
+/* A marca usa um arquivo versionado; preserva a área superior do relógio e usuário. */
+html body .sidebar .logo-wrap{height:230px!important;min-height:0!important;background:transparent!important}
+html body .sidebar .logo-wrap>img{width:100%!important;height:100%!important;object-fit:contain!important;object-position:center!important;filter:none!important;opacity:1!important}
+html body .main>.hero{height:250px!important;min-height:250px!important;aspect-ratio:auto!important;background:linear-gradient(115deg,#edf5ff 0%,#fff 62%,#fff5d6 100%)!important;filter:none!important;opacity:1!important}
+html body .main>.hero>.brand-line{display:flex!important;align-items:center!important;gap:24px!important;width:100%!important;height:100%!important;box-sizing:border-box!important;margin:0!important;padding:80px 30px 24px!important;position:relative!important;z-index:1!important}
+html body .main>.hero>.brand-line>.hero-logo{display:block!important;flex:0 0 150px!important;width:150px!important;height:134px!important;object-fit:contain!important;border:0!important;outline:0!important;border-radius:0!important;box-shadow:none!important;filter:none!important;opacity:1!important}
+html body .main>.hero>.brand-line>div{min-width:0!important}
+html body .main>.hero>.brand-line h1{margin:0!important;font-size:clamp(24px,2.5vw,44px)!important;line-height:1.05!important;color:#07366e!important;letter-spacing:.5px!important}
+html body .main>.hero>.brand-line h1 span{display:block!important;margin-top:7px!important;font-size:clamp(20px,1.8vw,30px)!important;color:#a97600!important}
+html body .main>.hero>.brand-line p{margin:10px 0 0!important;font-size:clamp(12px,1.1vw,16px)!important;line-height:1.4!important;color:#365a7b!important}
+@media(max-width:1100px){html body .main>.hero>.brand-line{gap:16px!important;padding-left:20px!important;padding-right:20px!important}html body .main>.hero>.brand-line>.hero-logo{flex-basis:118px!important;width:118px!important;height:110px!important}}
+@media(max-width:760px){html body .main>.hero{height:280px!important;min-height:280px!important}html body .main>.hero>.brand-line{padding-top:115px!important;gap:12px!important}html body .main>.hero>.brand-line>.hero-logo{flex-basis:90px!important;width:90px!important;height:90px!important}html body .main>.hero>.brand-line h1{font-size:21px!important}html body .main>.hero>.brand-line h1 span{font-size:18px!important}}
+</style>
 </head>
 <body>
 
@@ -1335,7 +1349,7 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
 <div class="app">
 <aside class="sidebar">
   <div class="logo-wrap">
-    <img src="/assets/v173-embedded-96d3aa4425a5.jpg" alt="Vale da Serra">
+    <img src="/assets/vale-da-serra-logo.jpg" alt="Vale da Serra">
   </div>
   <div class="nav">
     <button class="active" onclick="showSection('painel',this)"><img class="rmi" src="/v161-assets/d38bb72c6347c9f4e1c5.png" alt="">Painel</button>
@@ -1378,7 +1392,7 @@ body{background:#f5f8fc!important;overflow-x:hidden!important}
   </div>
 
     <div class="brand-line">
-      <img class="hero-logo" src="/v161-assets/3632cdc1be2413e9232a.jpg" alt="Vale da Serra">
+      <img class="hero-logo" src="/assets/vale-da-serra-logo.jpg" alt="Vale da Serra">
       <div>
         <h1>VALE DA SERRA <span>Laticínios</span></h1>
         <p>Qualidade que vem do campo, confiança que chega até você!</p>
